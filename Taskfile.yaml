@@ -1,0 +1,99 @@
+version: '3'
+
+# Глобальные переменные
+vars:
+  MIGRATE_CMD: go run cmd/migrate/main.go
+
+tasks:
+  # Основные команды
+  up:
+    desc: "Применить все миграции"
+    cmds:
+      - cmd: "{{.MIGRATE_CMD}} -cmd up"
+    silent: true
+
+  down:
+    desc: "Откатить все миграции"
+    cmds:
+      - cmd: "{{.MIGRATE_CMD}} -cmd down"
+    silent: true
+
+  version:
+    desc: "Показать текущую версию"
+    cmds:
+      - cmd: "{{.MIGRATE_CMD}} -cmd version"
+    silent: true
+
+  status:
+    desc: "Показать статус миграций"
+    cmds:
+      - cmd: "{{.MIGRATE_CMD}} -cmd version"
+    silent: true
+
+  # Создание миграции (через аргумент)
+  create:
+    desc: "Создать миграцию: task create add_users"
+    cmds:
+      - cmd: "{{.MIGRATE_CMD}} -cmd create -name {{.CLI_ARGS}}"
+    silent: true
+
+  # Шаги (через аргумент)
+  steps:
+    desc: "Применить N миграций: task steps 1 или task steps -1"
+    cmds:
+      - cmd: "{{.MIGRATE_CMD}} -cmd steps -steps {{.CLI_ARGS}}"
+    silent: true
+
+  # Force (через аргумент)
+  force:
+    desc: "Установить версию: task force 2"
+    cmds:
+      - cmd: "{{.MIGRATE_CMD}} -cmd force -version {{.CLI_ARGS}}"
+    silent: true
+
+  # Быстрые команды
+  step-up:
+    desc: "Одна миграция вперед"
+    cmds:
+      - cmd: "{{.MIGRATE_CMD}} -cmd steps -steps 1"
+    silent: true
+
+  step-down:
+    desc: "Одна миграция назад"
+    cmds:
+      - cmd: "{{.MIGRATE_CMD}} -cmd steps -steps -1"
+    silent: true
+
+  reset:
+    desc: "Полный сброс базы"
+    cmds:
+      - task: down
+      - task: up
+
+  redo:
+    desc: "Переприменить последнюю миграцию"
+    cmds:
+      - task: step-down
+      - task: step-up
+
+  # Справка
+  help:
+    desc: "Показать справку"
+    cmds:
+      - cmd: "{{.MIGRATE_CMD}}"
+      - cmd: echo "==============================="
+      - cmd: echo "Task команды миграций:"
+      - cmd: echo "  task up               # Применить все"
+      - cmd: echo "  task down             # Откатить все"
+      - cmd: echo "  task version          # Показать версию"
+      - cmd: echo "  task create NAME      # Создать миграцию"
+      - cmd: echo "  task steps N          # Применить N шагов"
+      - cmd: echo "  task force VERSION    # Установить версию"
+      - cmd: echo "  task step-up          # Одна вперед"
+      - cmd: echo "  task step-down        # Одна назад"
+      - cmd: echo "  task reset            # Полный сброс"
+      - cmd: echo ""
+      - cmd: echo "Примеры:"
+      - cmd: echo "  task create add_users"
+      - cmd: echo "  task steps 2"
+      - cmd: echo "  task force 3"
