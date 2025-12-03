@@ -38,15 +38,10 @@ func main() {
 	password := "1234*lkjL56" // Пример простого пароля - валидация должна его отвергнуть
 
 	// Пытаемся создать аккаунт
-	result, err := accounts.Create(pool, email, name, password)
+	id, err := accounts.Create(pool, email, name, password)
 	if err != nil {
 		log.Printf("Ошибка создания аккаунта: %v\n", err)
 		return
 	}
-
-	if result {
-		fmt.Println("Аккаунт успешно создан!")
-	} else {
-		fmt.Println("Аккаунт не создан.")
-	}
+	fmt.Printf("Аккаунт %s успешно создан!", id)
 }
