@@ -11,6 +11,16 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+type Account struct {
+	Id        string    `json:"id"`
+	Name      string    `json:"name"`
+	Email     string    `json:"email"`
+	AuthType  string    `json:"auth_type"`
+	Status    string    `json:"status"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
 // Create создает новый аккаунт
 func Create(pool *pgxpool.Pool, email string, name string, password string) (string, error) {
 	// Проверяем валидность email
@@ -104,7 +114,7 @@ func GetByEmail(pool *pgxpool.Pool, email string) (*Account, error) {
 	ctx := context.Background()
 
 	query := `
-		SELECT id, email, name, auth_type, created_at, updated_at
+		SELECT id, email, name, auth_type, status, created_at, updated_at
 		FROM accounts 
 		WHERE email = $1
 	`
@@ -115,6 +125,7 @@ func GetByEmail(pool *pgxpool.Pool, email string) (*Account, error) {
 		&account.Email,
 		&account.Name,
 		&account.AuthType,
+		&account.Status,
 		&account.CreatedAt,
 		&account.UpdatedAt,
 	)
@@ -151,6 +162,24 @@ func GetByID(pool *pgxpool.Pool, id string) (*Account, error) {
 	}
 
 	return &account, nil
+}
+
+// MarkAccountAsConfirmed подтверждает аккаунт после проверки кода
+func MarkAccountAsConfirmed(pool *pgxpool.Pool, accountID string) error {
+	ctx := context.Background()
+
+	query := `
+		UPDATE accounts 
+		SET status = 'confirmed', updated_at = NOW()
+		WHERE id = $1
+	`
+
+	_, err := pool.Exec(ctx, query, accountID)
+	if err != nil {
+		return fmt.Errorf("failed to confirm account: %w", err)
+	}
+
+	return nil
 }
 
 // UpdatePassword обновляет пароль аккаунта
