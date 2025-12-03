@@ -2,27 +2,14 @@ package accounts
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"fmt"
-	"regexp"
 	"strings"
 	"time"
-	"unicode"
 
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
-
-type Account struct {
-	Id        string `json:"id"`
-	Name      string `json:"name"`
-	Email     string `json:"email"`
-	AuthType  string `json:"auth_type"`
-	CreatedAt string `json:"created_at"`
-	UpdatedAt string `json:"updated_at"`
-}
 
 // Create создает новый аккаунт
 func Create(pool *pgxpool.Pool, email string, name string, password string) (string, error) {
@@ -200,13 +187,13 @@ func UpdatePassword(pool *pgxpool.Pool, accountID string, newPassword string) er
 	return nil
 }
 
-// VerifyPassword проверяет соответствие пароля хэшу
+// проверяет соответствие пароля хэшу
 func VerifyPassword(hashedPassword, password string) bool {
 	err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password))
 	return err == nil
 }
 
-// Функция проверки уникальности email в базе данных
+// проверка уникальности email в базе данных
 func checkEmailUniqueDB(pool *pgxpool.Pool, email string) (bool, error) {
 	ctx := context.Background()
 
@@ -219,92 +206,4 @@ func checkEmailUniqueDB(pool *pgxpool.Pool, email string) (bool, error) {
 	}
 
 	return count == 0, nil
-}
-
-// hashPassword хэширует пароль с использованием bcrypt
-func hashPassword(password string) (string, error) {
-	hashedBytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	if err != nil {
-		return "", fmt.Errorf("failed to hash password: %w", err)
-	}
-	return string(hashedBytes), nil
-}
-
-// generateUUID генерирует UUID v4
-func generateUUID() (string, error) {
-	uuid := make([]byte, 16)
-	_, err := rand.Read(uuid)
-	if err != nil {
-		return "", err
-	}
-
-	// Версия 4
-	uuid[6] = (uuid[6] & 0x0f) | 0x40
-	// Вариант 8
-	uuid[8] = (uuid[8] & 0x3f) | 0x80
-
-	return hex.EncodeToString(uuid), nil
-}
-
-// validateName проверяет валидность имени
-func validateName(name string) error {
-	name = strings.TrimSpace(name)
-
-	if len(name) < 2 {
-		return fmt.Errorf("name must be at least 2 characters long")
-	}
-
-	if len(name) > 100 {
-		return fmt.Errorf("name must be less than 100 characters")
-	}
-
-	// Проверяем, что имя содержит только буквы, пробелы и дефисы
-	for _, char := range name {
-		if !unicode.IsLetter(char) && char != ' ' && char != '-' && char != '\'' {
-			return fmt.Errorf("name contains invalid characters")
-		}
-	}
-
-	return nil
-}
-
-func validateEmail(email string) (bool, error) {
-	email = strings.ToLower(strings.TrimSpace(email))
-
-	if len(email) < 4 || len(email) >= 254 {
-		return false, fmt.Errorf("bad email size")
-	}
-
-	emailRegex := regexp.MustCompile(`^[a-zA-Z0-9.!#$%&'*+/=?^_{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$`)
-
-	if !emailRegex.MatchString(email) {
-		return false, fmt.Errorf("bad email format")
-	}
-
-	return true, nil
-}
-
-func validatePassword(password string) (bool, error) {
-	if len(password) < 8 || len(password) > 255 {
-		return false, fmt.Errorf("bad password size")
-	}
-
-	var hasUpper, hasLower, hasDigit bool
-
-	for _, char := range password {
-		switch {
-		case unicode.IsUpper(char):
-			hasUpper = true
-		case unicode.IsLower(char):
-			hasLower = true
-		case unicode.IsDigit(char):
-			hasDigit = true
-		}
-	}
-
-	if !hasUpper || !hasLower || !hasDigit {
-		return false, fmt.Errorf("bad password complexity")
-	}
-
-	return true, nil
 }
