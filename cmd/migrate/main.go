@@ -1,18 +1,17 @@
 package main
 
 import (
-	"context"
 	"flag"
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/golang-migrate/migrate/v4"
-	"github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
-	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/joho/godotenv"
 
 	"matrix-authorization-server/utils"
@@ -20,17 +19,23 @@ import (
 
 func main() {
 	// Парсинг флагов
-	command := flag.String("cmd", "up", "Команда: up, down, version, force, steps, create")
-	version := flag.Int("version", 0, "Версия для force (например: 2)")
-	steps := flag.Int("steps", 0, "Количество шагов (+ вверх, - вниз)")
-	name := flag.String("name", "", "Имя для новой миграции (для create)")
+	command := flag.String("cmd", "up", "Команда: up, down, version, force, steps, create, drop")
+	version := flag.Int("version", 0, "Версия для force")
+	steps := flag.Int("steps", 0, "Количество шагов")
+	name := flag.String("name", "", "Имя для новой миграции")
 
 	flag.Parse()
 
-	// Для команды create не нужна БД
+	// Команда create не требует подключения к БД
 	if *command == "create" {
 		if *name == "" {
-			log.Fatal("❌ Для команды create необходимо указать имя: -name <имя>")
+			// Пробуем получить имя из аргументов
+			if len(flag.Args()) > 0 {
+				*name = flag.Args()[0]
+			}
+			if *name == "" {
+				log.Fatal("❌ Для команды create необходимо указать имя: -name <имя> или как аргумент")
+			}
 		}
 		createMigration(*name)
 		return
@@ -41,92 +46,126 @@ func main() {
 		log.Println("⚠️  .env не найден, использую переменные окружения")
 	}
 
-	// Подключение к БД
+	// Получаем конфиг БД
 	config := utils.LoadDBConfigFromEnv()
 	dsn, err := utils.BuildDSN(config)
 	if err != nil {
 		log.Fatalf("❌ Ошибка сборки DSN: %v", err)
 	}
 
-	pool, err := pgxpool.New(context.Background(), dsn)
-	if err != nil {
-		log.Fatalf("❌ Ошибка подключения к БД: %v", err)
-	}
-	defer pool.Close()
+	// Проверяем подключение к БД (логика в runCommand)
+	log.Printf("🔗 Подключаюсь к базе: %s@%s:%s/%s",
+		config.Username, config.Host, config.Port, config.Name)
 
-	// Проверка подключения
-	if err := testConnection(pool); err != nil {
-		log.Fatalf("❌ Ошибка подключения: %v", err)
+	// Получаем абсолютный путь к миграциям
+	cwd, err := os.Getwd()
+	if err != nil {
+		log.Fatalf("❌ Ошибка получения текущей директории: %v", err)
+	}
+	migrationsPath := filepath.Join(cwd, "migrations")
+
+	// Создаём директорию если её нет
+	if _, err := os.Stat(migrationsPath); os.IsNotExist(err) {
+		if err := os.MkdirAll(migrationsPath, 0755); err != nil {
+			log.Fatalf("❌ Не удалось создать директорию: %v", err)
+		}
+		log.Printf("📁 Создана директория для миграций: %s", migrationsPath)
 	}
 
-	// Создаем мигратор
-	migrator, err := createMigrator(pool)
-	if err != nil {
-		log.Fatalf("❌ Ошибка создания мигратора: %v", err)
+	// Исправление для Windows - нужно правильно сформировать file:// URL
+	sourcePath := strings.ReplaceAll(migrationsPath, "\\", "/")
+
+	// На Windows нужно добавить ведущий слеш после file://
+	// file:///C:/Users/... вместо file://C:\Users\...
+	var sourceURL string
+	if strings.Contains(sourcePath, ":/") {
+		// Windows путь с диском (C:/Users/...)
+		sourceURL = fmt.Sprintf("file:///%s", sourcePath)
+	} else {
+		// Unix путь
+		sourceURL = fmt.Sprintf("file://%s", sourcePath)
 	}
-	defer migrator.Close()
+
+	log.Printf("📁 Загружаю миграции из: %s", sourceURL)
+
+	// Создаём мигратор
+	m, err := migrate.New(sourceURL, dsn)
+	if err != nil {
+		// Дополнительная отладочная информация
+		log.Printf("🔄 Пробую альтернативный формат пути...")
+
+		// Попробуем относительный путь
+		m, err = migrate.New("file://migrations", dsn)
+		if err != nil {
+			log.Fatalf("❌ Ошибка создания мигратора: %v\n"+
+				"💡 Проверь:\n"+
+				"   1. Что папка 'migrations' существует\n"+
+				"   2. Что в ней есть файлы *.up.sql и *.down.sql\n"+
+				"   3. Что PostgreSQL запущен\n"+
+				"   4. Что DSN корректный: %s", err, maskPassword(dsn))
+		}
+	}
+	defer m.Close()
 
 	// Выполняем команду
-	ctx := context.Background()
-	if err := runCommand(ctx, migrator, *command, *version, *steps); err != nil {
+	if err := runCommand(m, *command, *version, *steps); err != nil {
 		log.Fatalf("❌ Ошибка выполнения команды '%s': %v", *command, err)
 	}
 }
 
-// createMigrator создает экземпляр migrate.Migrate для pgxpool
-func createMigrator(pool *pgxpool.Pool) (*migrate.Migrate, error) {
-	// Конвертируем pgxpool в *sql.DB через stdlib
-	db := stdlib.OpenDBFromPool(pool)
-
-	// Создаем драйвер базы данных
-	driver, err := postgres.WithInstance(db, &postgres.Config{})
-	if err != nil {
-		return nil, fmt.Errorf("создание драйвера: %w", err)
-	}
-
-	// Создаем мигратор
-	m, err := migrate.NewWithDatabaseInstance(
-		"file://migrations", // путь к миграциям
-		"postgres", driver,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("создание мигратора: %w", err)
-	}
-
-	return m, nil
-}
-
-// runCommand выполняет указанную команду
-func runCommand(ctx context.Context, m *migrate.Migrate, cmd string, version, steps int) error {
+func runCommand(m *migrate.Migrate, cmd string, version, steps int) error {
 	switch cmd {
 	case "up":
-		if err := m.Up(); err != nil && err != migrate.ErrNoChange {
-			return err
-		}
-		if err := m.Up(); err == migrate.ErrNoChange {
-			log.Println("✅ Все миграции уже применены")
-			return nil
+		log.Println("🚀 Применяю миграции...")
+		if err := m.Up(); err != nil {
+			if err == migrate.ErrNoChange {
+				log.Println("✅ Все миграции уже применены")
+				return nil
+			}
+			// Проверяем, есть ли вообще миграции
+			log.Printf("⚠️  Возможные проблемы:\n" +
+				"   - Нет файлов миграций в папке 'migrations'\n" +
+				"   - Файлы имеют неверный формат (должны быть: 1234567890_name.up.sql)\n" +
+				"   - Ошибка подключения к БД")
+			return fmt.Errorf("применение миграций: %w", err)
 		}
 		log.Println("✅ Миграции успешно применены")
 
 	case "down":
-		if err := m.Down(); err != nil && err != migrate.ErrNoChange {
-			return err
-		}
-		if err := m.Down(); err == migrate.ErrNoChange {
-			log.Println("✅ Нет миграций для отката")
-			return nil
+		log.Println("🔙 Откатываю миграции...")
+		if err := m.Down(); err != nil {
+			if err == migrate.ErrNoChange {
+				log.Println("✅ Нет миграций для отката")
+				return nil
+			}
+			return fmt.Errorf("откат миграций: %w", err)
 		}
 		log.Println("✅ Миграции успешно откачены")
 
+	case "drop":
+		log.Println("💣 Удаляю все таблицы...")
+		if err := m.Drop(); err != nil {
+			if err == migrate.ErrNoChange {
+				log.Println("✅ Нет таблиц для удаления")
+				return nil
+			}
+			return fmt.Errorf("удаление таблиц: %w", err)
+		}
+		log.Println("✅ Все таблицы удалены")
+
 	case "version":
 		v, dirty, err := m.Version()
-		if err != nil && err != migrate.ErrNilVersion {
-			return err
+		if err != nil {
+			if err == migrate.ErrNilVersion {
+				log.Println("📊 Версия: 0 (нет применённых миграций)")
+				log.Println("💡 Для создания первой миграции: task migrate:create -- init_accounts")
+				return nil
+			}
+			return fmt.Errorf("получение версии: %w", err)
 		}
-		status := "clean"
+		status := "✅ clean"
 		if dirty {
-			status = "DIRTY (требует force)"
+			status = "❌ DIRTY (требует force)"
 		}
 		log.Printf("📊 Версия: %d, статус: %s", v, status)
 
@@ -134,8 +173,9 @@ func runCommand(ctx context.Context, m *migrate.Migrate, cmd string, version, st
 		if version <= 0 {
 			return fmt.Errorf("версия должна быть > 0")
 		}
+		log.Printf("🔧 Устанавливаю версию %d...", version)
 		if err := m.Force(version); err != nil {
-			return err
+			return fmt.Errorf("установка версии: %w", err)
 		}
 		log.Printf("✅ Версия установлена: %d", version)
 
@@ -143,14 +183,15 @@ func runCommand(ctx context.Context, m *migrate.Migrate, cmd string, version, st
 		if steps == 0 {
 			return fmt.Errorf("укажите количество шагов (например: -steps 1 или -steps -1)")
 		}
-		if err := m.Steps(steps); err != nil {
-			return err
-		}
-		direction := "вверх"
+		direction := "вперёд"
 		if steps < 0 {
-			direction = "вниз"
+			direction = "назад"
 		}
-		log.Printf("✅ Применено %d шагов (%s)", steps, direction)
+		log.Printf("📈 Применяю %d шагов (%s)...", steps, direction)
+		if err := m.Steps(steps); err != nil {
+			return fmt.Errorf("применение шагов: %w", err)
+		}
+		log.Printf("✅ Применено %d шагов", steps)
 
 	default:
 		printHelp()
@@ -160,42 +201,49 @@ func runCommand(ctx context.Context, m *migrate.Migrate, cmd string, version, st
 	return nil
 }
 
-// testConnection проверяет подключение к БД
-func testConnection(pool *pgxpool.Pool) error {
-	var version string
-	err := pool.QueryRow(context.Background(), "SELECT version()").Scan(&version)
-	if err != nil {
-		return err
-	}
-	log.Printf("✅ PostgreSQL: %s", version)
-	return nil
-}
-
-// createMigration создает файлы миграции
 func createMigration(name string) {
 	// Проверяем/создаем директорию
-	if _, err := os.Stat("migrations"); os.IsNotExist(err) {
-		if err := os.MkdirAll("migrations", 0755); err != nil {
+	migrationsDir := "migrations"
+	if _, err := os.Stat(migrationsDir); os.IsNotExist(err) {
+		if err := os.MkdirAll(migrationsDir, 0755); err != nil {
 			log.Fatalf("❌ Не удалось создать директорию: %v", err)
 		}
+		log.Printf("📁 Создана директория: %s", migrationsDir)
 	}
 
-	// Генерируем timestamp (голанг-миграт использует timestamp вместо последовательных номеров)
+	// Генерируем timestamp
 	timestamp := time.Now().Unix()
 
 	// Создаем файлы
-	upFile := fmt.Sprintf("migrations/%d_%s.up.sql", timestamp, name)
-	downFile := fmt.Sprintf("migrations/%d_%s.down.sql", timestamp, name)
+	upFile := fmt.Sprintf("%s/%d_%s.up.sql", migrationsDir, timestamp, name)
+	downFile := fmt.Sprintf("%s/%d_%s.down.sql", migrationsDir, timestamp, name)
 
-	// Шаблоны
-	upTemplate := `-- Up Migration
--- Добавьте SQL для применения миграции
+	// Базовые шаблоны с примером SQL
+	upTemplate := fmt.Sprintf(`-- Up Migration: %s
+-- Created: %s
 
-`
-	downTemplate := `-- Down Migration  
--- Добавьте SQL для отката миграции
+-- Пример создания таблицы:
+-- CREATE TABLE IF NOT EXISTS accounts (
+--     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--     email VARCHAR(255) UNIQUE NOT NULL,
+--     name VARCHAR(100) NOT NULL,
+--     password_hash VARCHAR(255) NOT NULL,
+--     auth_type VARCHAR(50) DEFAULT 'password',
+--     created_at TIMESTAMPTZ DEFAULT NOW(),
+--     updated_at TIMESTAMPTZ DEFAULT NOW()
+-- );
+-- 
+-- CREATE INDEX idx_accounts_email ON accounts(email);
 
-`
+`, name, time.Now().Format("2006-01-02 15:04:05"))
+
+	downTemplate := fmt.Sprintf(`-- Down Migration: %s  
+-- Created: %s
+
+-- Пример отката:
+-- DROP TABLE IF EXISTS accounts;
+
+`, name, time.Now().Format("2006-01-02 15:04:05"))
 
 	// Записываем файлы
 	if err := os.WriteFile(upFile, []byte(upTemplate), 0644); err != nil {
@@ -206,33 +254,57 @@ func createMigration(name string) {
 	}
 
 	log.Printf("✅ Созданы файлы миграции:")
-	log.Printf("   UP:   %s", upFile)
-	log.Printf("   DOWN: %s", downFile)
-	log.Println("\n⚠️  Заполните SQL команды в созданных файлах!")
+	log.Printf("   📄 UP:   %s", upFile)
+	log.Printf("   📄 DOWN: %s", downFile)
+	log.Println("\n💡 Заполните SQL команды в созданных файлах!")
+	log.Println("   Затем выполните: task up")
 }
 
-// printHelp выводит справку
 func printHelp() {
 	fmt.Println(`
-🚀 Утилита миграций для PostgreSQL (golang-migrate)
+🚀 Утилита миграций для PostgreSQL
 
 Использование:
-  migrate -cmd up                    # Применить все миграции
-  migrate -cmd down                  # Откатить все миграции  
-  migrate -cmd version               # Показать текущую версию
-  migrate -cmd force -version 2      # Установить конкретную версию
-  migrate -cmd steps -steps 1        # Применить одну миграцию вперед
-  migrate -cmd steps -steps -1       # Откатить одну миграцию назад
-  migrate -cmd create -name add_users # Создать новую миграцию
-
-Примеры:
   go run cmd/migrate/main.go -cmd up
+  go run cmd/migrate/main.go -cmd down
+  go run cmd/migrate/main.go -cmd version
+  go run cmd/migrate/main.go -cmd force -version 1
   go run cmd/migrate/main.go -cmd steps -steps 2
-  go run cmd/migrate/main.go -cmd create -name create_users_table
+  go run cmd/migrate/main.go -cmd create -name create_table
 
-Формат файлов:
+Команды:
+  up      - Применить все миграции
+  down    - Откатить все миграции
+  drop    - Удалить все таблицы
+  version - Показать текущую версию
+  force   - Установить конкретную версию
+  steps   - Применить N шагов
+  create  - Создать новую миграцию
+
+Примеры через Taskfile:
+  task migrate:create -- init_accounts
+  task migrate:up
+  task migrate:version
+  task migrate:steps -- 1
+
+Структура файлов:
   migrations/
-    ├── 1678901234_create_users.up.sql    # Применение
-    └── 1678901234_create_users.down.sql  # Откат
+    ├── 1701634408_init_accounts.up.sql    # Применение
+    └── 1701634408_init_accounts.down.sql  # Откат
 `)
+}
+
+// maskPassword скрывает пароль в DSN для логов
+func maskPassword(dsn string) string {
+	// Простая маскировка пароля в строке подключения
+	if strings.Contains(dsn, "password=") {
+		parts := strings.Split(dsn, "password=")
+		if len(parts) > 1 {
+			subparts := strings.Split(parts[1], " ")
+			if len(subparts) > 0 {
+				dsn = parts[0] + "password=*****" + strings.Join(subparts[1:], " ")
+			}
+		}
+	}
+	return dsn
 }
