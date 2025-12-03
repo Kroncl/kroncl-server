@@ -19,7 +19,6 @@ func main() {
 
 	// мапим константы из конфига в dsn
 	config := utils.LoadDBConfigFromEnv()
-	fmt.Printf("DSN: %s\n", config)
 	dsn, err := utils.BuildDSN(config)
 	if err != nil {
 		log.Fatal(err)
