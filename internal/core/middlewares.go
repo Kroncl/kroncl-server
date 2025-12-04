@@ -11,10 +11,12 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 )
 
+// Response стандартная структура ответа API
 type Response struct {
-	Status bool        `json:"status"`
-	Data   interface{} `json:"data"`
-	Meta   Meta        `json:"_meta"`
+	Status  bool        `json:"status"`
+	Message string      `json:"message,omitempty"` // Новое поле для сообщений
+	Data    interface{} `json:"data"`
+	Meta    Meta        `json:"_meta"`
 }
 
 type Meta struct {
@@ -33,7 +35,7 @@ func BaseResponse(next http.Handler) http.Handler {
 			return
 		}
 
-		// Создаем кастомный writer который перехватывает вывод
+		// Создаем кастомный writer
 		crw := &capturingResponseWriter{
 			ResponseWriter: w,
 			body:           &bytes.Buffer{},
@@ -42,25 +44,91 @@ func BaseResponse(next http.Handler) http.Handler {
 		// Выполняем хендлер
 		next.ServeHTTP(crw, r)
 
-		// Если ничего не записали (пустой ответ)
-		if crw.body.Len() == 0 {
-			crw.body.WriteString("{}") // пустой JSON
+		// Если статус не установлен, ставим 200
+		if crw.statusCode == 0 {
+			crw.statusCode = http.StatusOK
 		}
 
-		// После получения данных:
+		// Парсим JSON из ответа хендлера
 		var data interface{}
-		if err := json.Unmarshal(crw.body.Bytes(), &data); err != nil {
-			// Если не JSON, используем как строку и чистим \n
-			rawString := crw.body.String()
-			// Убираем все \n и \r из конца строки
-			rawString = strings.TrimRight(rawString, "\r\n")
-			data = rawString
+		var message string
+		rawBody := crw.body.String()
+
+		// Если ответ пустой
+		if rawBody == "" {
+			if crw.statusCode < 400 {
+				data = map[string]interface{}{}
+			}
+		} else {
+			// Пробуем распарсить как JSON
+			var parsedData map[string]interface{}
+			if err := json.Unmarshal([]byte(rawBody), &parsedData); err == nil {
+				// Если это JSON, извлекаем message если есть
+				if msg, ok := parsedData["message"].(string); ok {
+					message = msg
+					delete(parsedData, "message") // Убираем message
+				}
+				if msg, ok := parsedData["error"].(string); ok && message == "" {
+					message = msg
+					delete(parsedData, "error") // Убираем error
+				}
+
+				// ОСНОВНОЕ ИСПРАВЛЕНИЕ:
+				// Если есть поле "data" в ответе хендлера, берем его содержимое
+				if handlerData, ok := parsedData["data"]; ok {
+					data = handlerData
+				} else if len(parsedData) > 0 {
+					// Если остались другие поля после удаления message/error
+					data = parsedData
+				} else if crw.statusCode < 400 {
+					// Для успешных ответов без данных
+					data = map[string]interface{}{}
+				}
+			} else {
+				// Если не JSON, используем как строку для сообщения
+				message = strings.TrimSpace(rawBody)
+				data = map[string]interface{}{}
+			}
+		}
+
+		// Автоматически генерируем сообщение если его нет
+		if message == "" {
+			if crw.statusCode < 400 {
+				// Для успешных ответов
+				switch r.Method {
+				case http.MethodPost:
+					message = "Created successfully"
+				case http.MethodPut, http.MethodPatch:
+					message = "Updated successfully"
+				case http.MethodDelete:
+					message = "Deleted successfully"
+				default:
+					message = "Success"
+				}
+			} else {
+				// Для ошибок
+				switch crw.statusCode {
+				case http.StatusBadRequest:
+					message = "Bad request"
+				case http.StatusUnauthorized:
+					message = "Unauthorized"
+				case http.StatusForbidden:
+					message = "Forbidden"
+				case http.StatusNotFound:
+					message = "Not found"
+				case http.StatusInternalServerError:
+					message = "Internal server error"
+				default:
+					message = "Error"
+				}
+			}
 		}
 
 		// Формируем стандартный ответ
 		response := Response{
-			Status: crw.statusCode < 400,
-			Data:   data,
+			Status:  crw.statusCode < 400,
+			Message: message,
+			Data:    data,
 			Meta: Meta{
 				Timestamp: time.Now().UTC().Format(time.RFC3339),
 				RequestID: GetRequestID(r.Context()),

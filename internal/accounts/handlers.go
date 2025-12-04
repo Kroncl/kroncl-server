@@ -3,6 +3,9 @@ package accounts
 import (
 	"encoding/json"
 	"net/http"
+
+	"matrix-authorization-server/internal/auth"
+	"matrix-authorization-server/internal/core"
 )
 
 // Handlers содержит HTTP хендлеры для аккаунтов
@@ -17,52 +20,131 @@ func NewHandlers(service *Service) *Handlers {
 
 // Register обрабатывает запрос на регистрацию
 func (h *Handlers) Register(w http.ResponseWriter, r *http.Request) {
-	// Проверяем метод
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed")
 		return
 	}
 
-	// Декодируем запрос
 	var req RegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request format", http.StatusBadRequest)
+		core.SendValidationError(w, "Invalid request format")
 		return
 	}
 
-	// Вызываем бизнес-логику
-	userID, err := h.service.Create(req.Email, req.Name, req.Password)
+	// Создаем аккаунт и получаем токены
+	account, accessToken, refreshToken, err := h.service.Create(
+		req.Email,
+		req.Name,
+		req.Password,
+	)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		core.SendValidationError(w, err.Error())
 		return
 	}
 
-	// Формируем ответ
-	resp := RegisterResponse{
-		Message: "Registration successful",
-		UserID:  userID,
+	// Формируем данные для ответа
+	data := map[string]interface{}{
+		"user_id":       account.ID,
+		"access_token":  accessToken,
+		"refresh_token": refreshToken,
+		"email_sent":    true,
 	}
 
 	// Отправляем ответ
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(resp)
+	core.SendCreated(w, data, "Registration successful. Please check your email to confirm your account.")
 }
 
 // Login обрабатывает запрос на вход
 func (h *Handlers) Login(w http.ResponseWriter, r *http.Request) {
-	// TODO: реализовать логику входа
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
-		"token": "jwt-token-here",
-	})
+	if r.Method != http.MethodPost {
+		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+
+	var req LoginRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		core.SendValidationError(w, "Invalid request format")
+		return
+	}
+
+	// Аутентификация
+	account, accessToken, refreshToken, err := h.service.Authenticate(
+		req.Email,
+		req.Password,
+	)
+	if err != nil {
+		core.SendUnauthorized(w, err.Error())
+		return
+	}
+
+	// Формируем данные
+	data := map[string]interface{}{
+		"access_token":  accessToken,
+		"refresh_token": refreshToken,
+		"user":          account,
+	}
+
+	core.SendSuccess(w, data, "Login successful")
 }
 
 // ConfirmEmail подтверждает email
 func (h *Handlers) ConfirmEmail(w http.ResponseWriter, r *http.Request) {
-	// TODO: реализовать подтверждение email
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
-		"message": "Email confirmed successfully",
-	})
+	if r.Method != http.MethodPost {
+		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+
+	// Получаем пользователя из контекста
+	claims, ok := auth.GetUserFromContext(r.Context())
+	if !ok {
+		core.SendUnauthorized(w, "Authentication required")
+		return
+	}
+
+	var req ConfirmRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		core.SendValidationError(w, "Invalid request format")
+		return
+	}
+
+	// Проверяем, что user_id в запросе совпадает с токеном
+	if req.UserID != claims.UserID {
+		core.SendUnauthorized(w, "User ID mismatch")
+		return
+	}
+
+	// Подтверждаем email
+	err := h.service.ConfirmEmail(req.UserID, req.Code)
+	if err != nil {
+		core.SendValidationError(w, err.Error())
+		return
+	}
+
+	// Ответ с пустыми данными
+	core.SendSuccess(w, map[string]interface{}{}, "Email confirmed successfully")
+}
+
+// GetProfile получает профиль пользователя
+func (h *Handlers) GetProfile(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+
+	// Получаем пользователя из контекста
+	claims, ok := auth.GetUserFromContext(r.Context())
+	if !ok {
+		core.SendUnauthorized(w, "Authentication required")
+		return
+	}
+
+	// Получаем аккаунт из БД
+	account, err := h.service.GetByEmail(claims.Email)
+	if err != nil {
+		core.SendNotFound(w, "User not found")
+		return
+	}
+
+	// Отправляем профиль
+	core.SendSuccess(w, account, "Profile retrieved successfully")
 }

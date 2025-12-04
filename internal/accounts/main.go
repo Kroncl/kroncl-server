@@ -6,57 +6,194 @@ import (
 	"strings"
 	"time"
 
+	"matrix-authorization-server/internal/auth"
+
 	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/crypto/bcrypt"
 )
 
 // Service - бизнес-логика для работы с аккаунтами
 type Service struct {
-	pool *pgxpool.Pool
+	pool       *pgxpool.Pool
+	jwtService *auth.JWTService
 }
 
 // NewService создает новый экземпляр сервиса
-func NewService(pool *pgxpool.Pool) *Service {
-	return &Service{pool: pool}
+func NewService(pool *pgxpool.Pool, jwtService *auth.JWTService) *Service {
+	return &Service{
+		pool:       pool,
+		jwtService: jwtService,
+	}
 }
 
-// Create создает новый аккаунт
-func (s *Service) Create(email, name, password string) (string, error) {
-	// Проверяем валидность email
+// Create создает новый аккаунт и возвращает токены
+func (s *Service) Create(email, name, password string) (*Account, string, string, error) {
+	// Валидация email
 	if !s.validateEmailFormat(email) {
-		return "", fmt.Errorf("invalid email format")
+		return nil, "", "", fmt.Errorf("invalid email format")
 	}
 
-	// Проверяем уникальность email
+	// Проверка уникальности email
 	isUnique, err := s.checkEmailUnique(email)
 	if err != nil {
-		return "", fmt.Errorf("email uniqueness check failed: %w", err)
+		return nil, "", "", fmt.Errorf("email uniqueness check failed: %w", err)
 	}
 	if !isUnique {
-		return "", fmt.Errorf("email already exists")
+		return nil, "", "", fmt.Errorf("email already exists")
 	}
 
-	// Проверяем валидность имени
+	// Валидация имени
 	if err := s.validateName(name); err != nil {
-		return "", fmt.Errorf("name validation failed: %w", err)
+		return nil, "", "", fmt.Errorf("name validation failed: %w", err)
+	}
+
+	// Валидация пароля
+	if !s.validatePassword(password) {
+		return nil, "", "", fmt.Errorf("password too weak")
+	}
+
+	// Хэширование пароля
+	hashedPassword, err := s.hashPassword(password)
+	if err != nil {
+		return nil, "", "", fmt.Errorf("password hashing failed: %w", err)
+	}
+
+	// Создание аккаунта в БД
+	account, err := s.createAccountInDB(email, name, hashedPassword)
+	if err != nil {
+		return nil, "", "", fmt.Errorf("failed to create account: %w", err)
+	}
+
+	// Генерация JWT токенов
+	accessToken, err := s.jwtService.GenerateAccessToken(account.ID, account.Email, account.Name)
+	if err != nil {
+		return account, "", "", fmt.Errorf("failed to generate access token: %w", err)
+	}
+
+	refreshToken, err := s.jwtService.GenerateRefreshToken(account.ID)
+	if err != nil {
+		return account, "", "", fmt.Errorf("failed to generate refresh token: %w", err)
+	}
+
+	// Генерация и отправка кода подтверждения
+	code, err := GenerateConfirmationCode(s.pool, account.ID, "email_confirmation", 6, 15)
+	if err != nil {
+		// Логируем ошибку, но не прерываем регистрацию
+		fmt.Printf("⚠️ Failed to generate confirmation code: %v\n", err)
+	} else {
+		// Отправляем email (заглушка)
+		go func() {
+			if err := SendConfirmationEmail(account.Email, code); err != nil {
+				fmt.Printf("⚠️ Failed to send confirmation email: %v\n", err)
+			} else {
+				fmt.Printf("✅ Confirmation email sent to %s\n", account.Email)
+			}
+		}()
+	}
+
+	return account, accessToken, refreshToken, nil
+}
+
+// Authenticate проверяет логин/пароль и возвращает токены
+func (s *Service) Authenticate(email, password string) (*Account, string, string, error) {
+	// Находим аккаунт
+	account, err := s.GetByEmail(email)
+	if err != nil {
+		return nil, "", "", fmt.Errorf("invalid credentials")
+	}
+
+	// Получаем хэш пароля из БД
+	hashedPassword, err := s.getPasswordHash(account.ID)
+	if err != nil {
+		return nil, "", "", fmt.Errorf("authentication failed")
 	}
 
 	// Проверяем пароль
-	if !s.validatePassword(password) {
-		return "", fmt.Errorf("password too weak")
+	if !s.verifyPassword(hashedPassword, password) {
+		return nil, "", "", fmt.Errorf("invalid credentials")
 	}
 
-	// Хэшируем пароль
-	hashedPassword, err := s.hashPassword(password)
+	// Проверяем статус аккаунта
+	if account.Status != "confirmed" {
+		return nil, "", "", fmt.Errorf("account not confirmed")
+	}
+
+	// Генерируем токены
+	accessToken, err := s.jwtService.GenerateAccessToken(account.ID, account.Email, account.Name)
 	if err != nil {
-		return "", fmt.Errorf("password hashing failed: %w", err)
+		return nil, "", "", fmt.Errorf("failed to generate access token: %w", err)
 	}
 
-	// Создаем аккаунт в БД
-	return s.createAccountInDB(email, name, hashedPassword)
+	refreshToken, err := s.jwtService.GenerateRefreshToken(account.ID)
+	if err != nil {
+		return nil, "", "", fmt.Errorf("failed to generate refresh token: %w", err)
+	}
+
+	return account, accessToken, refreshToken, nil
 }
 
-// GetByEmail возвращает аккаунт по email
+// ConfirmEmail подтверждает email по коду
+func (s *Service) ConfirmEmail(userID, code string) error {
+	// Проверяем код
+	valid, err := VerifyConfirmationCode(s.pool, userID, code, "email_confirmation")
+	if err != nil {
+		return fmt.Errorf("confirmation code verification failed: %w", err)
+	}
+	if !valid {
+		return fmt.Errorf("invalid or expired confirmation code")
+	}
+
+	// Обновляем статус аккаунта
+	return s.markAccountAsConfirmed(userID)
+}
+
+// Вспомогательные методы
+func (s *Service) createAccountInDB(email, name, hashedPassword string) (*Account, error) {
+	ctx := context.Background()
+
+	// Генерируем UUID
+	uuid, err := s.generateUUID()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate UUID: %w", err)
+	}
+
+	currentTime := time.Now()
+
+	query := `
+		INSERT INTO accounts (id, email, name, password_hash, auth_type, status, created_at, updated_at) 
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		RETURNING id, email, name, auth_type, status, created_at, updated_at
+	`
+
+	var account Account
+	err = s.pool.QueryRow(
+		ctx,
+		query,
+		uuid,
+		strings.ToLower(email),
+		name,
+		hashedPassword,
+		"password",
+		"waiting", // статус по умолчанию
+		currentTime,
+		currentTime,
+	).Scan(
+		&account.ID,
+		&account.Email,
+		&account.Name,
+		&account.AuthType,
+		&account.Status,
+		&account.CreatedAt,
+		&account.UpdatedAt,
+	)
+
+	if err != nil {
+		return nil, fmt.Errorf("database error: %w", err)
+	}
+
+	return &account, nil
+}
+
 func (s *Service) GetByEmail(email string) (*Account, error) {
 	ctx := context.Background()
 
@@ -68,7 +205,7 @@ func (s *Service) GetByEmail(email string) (*Account, error) {
 
 	var account Account
 	err := s.pool.QueryRow(ctx, query, strings.ToLower(email)).Scan(
-		&account.Id,
+		&account.ID,
 		&account.Email,
 		&account.Name,
 		&account.AuthType,
@@ -78,15 +215,38 @@ func (s *Service) GetByEmail(email string) (*Account, error) {
 	)
 
 	if err != nil {
-		return nil, fmt.Errorf("account not found or database error: %w", err)
+		return nil, fmt.Errorf("account not found: %w", err)
 	}
 
 	return &account, nil
 }
 
-// Приватные вспомогательные методы
+func (s *Service) getPasswordHash(userID string) (string, error) {
+	ctx := context.Background()
+
+	var passwordHash string
+	err := s.pool.QueryRow(ctx,
+		`SELECT password_hash FROM accounts WHERE id = $1`,
+		userID,
+	).Scan(&passwordHash)
+
+	return passwordHash, err
+}
+
+func (s *Service) markAccountAsConfirmed(userID string) error {
+	ctx := context.Background()
+
+	query := `
+		UPDATE accounts 
+		SET status = 'confirmed', updated_at = NOW()
+		WHERE id = $1
+	`
+
+	_, err := s.pool.Exec(ctx, query, userID)
+	return err
+}
+
 func (s *Service) validateEmailFormat(email string) bool {
-	// Простая проверка формата
 	return strings.Contains(email, "@") && strings.Contains(email, ".")
 }
 
@@ -97,7 +257,7 @@ func (s *Service) checkEmailUnique(email string) (bool, error) {
 
 	err := s.pool.QueryRow(ctx, query, strings.ToLower(email)).Scan(&count)
 	if err != nil {
-		return false, fmt.Errorf("database query failed: %w", err)
+		return false, err
 	}
 
 	return count == 0, nil
@@ -114,7 +274,6 @@ func (s *Service) validateName(name string) error {
 }
 
 func (s *Service) validatePassword(password string) bool {
-	// Минимальные требования
 	return len(password) >= 8
 }
 
@@ -126,45 +285,12 @@ func (s *Service) hashPassword(password string) (string, error) {
 	return string(hashedBytes), nil
 }
 
-func (s *Service) createAccountInDB(email, name, hashedPassword string) (string, error) {
-	ctx := context.Background()
-
-	// Генерируем UUID
-	uuid, err := s.generateUUID()
-	if err != nil {
-		return "", fmt.Errorf("failed to generate UUID: %w", err)
-	}
-
-	currentTime := time.Now().Format(time.RFC3339)
-
-	query := `
-		INSERT INTO accounts (id, email, name, password_hash, auth_type, created_at, updated_at) 
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
-		RETURNING id
-	`
-
-	var id string
-	err = s.pool.QueryRow(
-		ctx,
-		query,
-		uuid,
-		strings.ToLower(email),
-		name,
-		hashedPassword,
-		"password", // auth_type
-		currentTime,
-		currentTime,
-	).Scan(&id)
-
-	if err != nil {
-		return "", fmt.Errorf("database error: %w", err)
-	}
-
-	return id, nil
+func (s *Service) verifyPassword(hashedPassword, password string) bool {
+	err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password))
+	return err == nil
 }
 
 func (s *Service) generateUUID() (string, error) {
-	// Используем pgx для генерации UUID
 	ctx := context.Background()
 	var uuid string
 	err := s.pool.QueryRow(ctx, "SELECT gen_random_uuid()").Scan(&uuid)

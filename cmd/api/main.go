@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"matrix-authorization-server/internal/accounts"
+	"matrix-authorization-server/internal/auth"
 	"matrix-authorization-server/internal/core"
 	"matrix-authorization-server/utils"
 
@@ -25,8 +26,8 @@ func main() {
 	}
 
 	// Получаем конфиг БД
-	config := utils.LoadDBConfigFromEnv()
-	dsn, err := utils.BuildDSN(config)
+	dbConfig := utils.LoadDBConfigFromEnv()
+	dsn, err := utils.BuildDSN(dbConfig)
 	if err != nil {
 		log.Fatal("Ошибка формирования DSN:", err)
 	}
@@ -40,8 +41,18 @@ func main() {
 
 	log.Println("✅ Подключение к БД установлено")
 
+	// Загружаем конфиг JWT
+	jwtConfig := auth.LoadJWTConfig()
+
+	// Инициализируем JWT сервис
+	jwtService := auth.NewJWTService(
+		jwtConfig.SecretKey,
+		jwtConfig.AccessDuration,
+		jwtConfig.RefreshDuration,
+	)
+
 	// Инициализируем сервисы
-	accountsService := accounts.NewService(pool)
+	accountsService := accounts.NewService(pool, jwtService)
 	accountsHandlers := accounts.NewHandlers(accountsService)
 
 	// Создаем роутер
@@ -51,29 +62,41 @@ func main() {
 	r.Use(chimiddleware.Logger)
 	r.Use(chimiddleware.Recoverer)
 	r.Use(chimiddleware.RequestID)
-	r.Use(core.BaseResponse) // Наш кастомный middleware
+	r.Use(core.BaseResponse) // наш кастомный middleware ДОЛЖЕН БЫТЬ ПОСЛЕ chi middleware
 
 	// CORS
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{"*"},
-		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type"},
-		ExposedHeaders:   []string{"Link"},
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
+		ExposedHeaders:   []string{"Link", "X-Total-Count", "X-Access-Token", "X-Refresh-Token"},
 		AllowCredentials: true,
 		MaxAge:           300,
 	}))
 
 	// API
 	r.Route("/api", func(r chi.Router) {
-
-		// Маршруты
+		// Публичные маршруты (не требуют аутентификации)
 		r.Get("/health", core.HealthCheck)
 
-		// Маршруты аккаунтов
+		// Маршруты аккаунтов - публичные
 		r.Route("/account", func(r chi.Router) {
-			r.Post("/reg", accountsHandlers.Register)
-			r.Post("/auth", accountsHandlers.Login)
-			r.Post("/confirm", accountsHandlers.ConfirmEmail)
+			r.Post("/reg", accountsHandlers.Register) // публичный
+			r.Post("/auth", accountsHandlers.Login)   // публичный
+
+			// Защищенный маршрут для подтверждения email
+			r.Group(func(r chi.Router) {
+				r.Use(jwtService.RequireAuth) // защищаем только confirm
+				r.Post("/confirm", accountsHandlers.ConfirmEmail)
+			})
+		})
+
+		// Приватные маршруты (требуют аутентификации)
+		r.Route("/user", func(r chi.Router) {
+			r.Use(jwtService.RequireAuth)
+
+			r.Get("/profile", accountsHandlers.GetProfile)
+			// другие защищенные маршруты...
 		})
 	})
 
