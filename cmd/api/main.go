@@ -110,9 +110,21 @@ func main() {
 		port = "8080"
 	}
 
-	log.Printf("🚀 Сервер запущен на http://localhost:%s", port)
+	host := os.Getenv("HOST")
+	if host == "" {
+		host = "0.0.0.0" // Слушаем все интерфейсы по умолчанию
+	}
 
-	if err := http.ListenAndServe(":"+port, r); err != nil {
+	addr := host + ":" + port
+	log.Printf("🚀 Сервер запущен на http://%s", addr)
+
+	// Логируем все доступные адреса
+	log.Printf("📡 Доступ по:")
+	log.Printf("   - localhost: http://localhost:%s", port)
+	log.Printf("   - 127.0.0.1: http://127.0.0.1:%s", port)
+	log.Printf("   - LAN IP:    http://YOUR_LOCAL_IP:%s", port)
+
+	if err := http.ListenAndServe(addr, r); err != nil {
 		log.Fatalf("❌ Ошибка запуска сервера: %v", err)
 	}
 }
