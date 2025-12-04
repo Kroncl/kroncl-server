@@ -88,6 +88,7 @@ func main() {
 			// Защищенный маршрут для подтверждения email
 			r.Group(func(r chi.Router) {
 				r.Use(jwtService.RequireAuth) // защищаем только confirm
+				r.Get("/", accountsHandlers.GetProfile)
 				r.Post("/confirm", accountsHandlers.ConfirmEmail)
 				r.Post("/confirm/resend", accountsHandlers.ResendConfirmationCode)
 			})
