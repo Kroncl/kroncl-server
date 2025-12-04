@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5/middleware"
@@ -46,11 +47,14 @@ func BaseResponse(next http.Handler) http.Handler {
 			crw.body.WriteString("{}") // пустой JSON
 		}
 
-		// Парсим JSON из ответа хендлера
+		// После получения данных:
 		var data interface{}
 		if err := json.Unmarshal(crw.body.Bytes(), &data); err != nil {
-			// Если не JSON, используем как строку
-			data = crw.body.String()
+			// Если не JSON, используем как строку и чистим \n
+			rawString := crw.body.String()
+			// Убираем все \n и \r из конца строки
+			rawString = strings.TrimRight(rawString, "\r\n")
+			data = rawString
 		}
 
 		// Формируем стандартный ответ

@@ -6,34 +6,29 @@ import (
 	"strings"
 	"time"
 
-	"golang.org/x/crypto/bcrypt"
-
 	"github.com/jackc/pgx/v5/pgxpool"
+	"golang.org/x/crypto/bcrypt"
 )
 
-type Account struct {
-	Id        string    `json:"id"`
-	Name      string    `json:"name"`
-	Email     string    `json:"email"`
-	AuthType  string    `json:"auth_type"`
-	Status    string    `json:"status"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+// Service - бизнес-логика для работы с аккаунтами
+type Service struct {
+	pool *pgxpool.Pool
+}
+
+// NewService создает новый экземпляр сервиса
+func NewService(pool *pgxpool.Pool) *Service {
+	return &Service{pool: pool}
 }
 
 // Create создает новый аккаунт
-func Create(pool *pgxpool.Pool, email string, name string, password string) (string, error) {
+func (s *Service) Create(email, name, password string) (string, error) {
 	// Проверяем валидность email
-	ok, err := validateEmail(email)
-	if err != nil {
-		return "", fmt.Errorf("email validation failed: %w", err)
-	}
-	if !ok {
+	if !s.validateEmailFormat(email) {
 		return "", fmt.Errorf("invalid email format")
 	}
 
-	// Проверяем уникальность email в БД
-	isUnique, err := checkEmailUniqueDB(pool, email)
+	// Проверяем уникальность email
+	isUnique, err := s.checkEmailUnique(email)
 	if err != nil {
 		return "", fmt.Errorf("email uniqueness check failed: %w", err)
 	}
@@ -42,41 +37,100 @@ func Create(pool *pgxpool.Pool, email string, name string, password string) (str
 	}
 
 	// Проверяем валидность имени
-	if err := validateName(name); err != nil {
+	if err := s.validateName(name); err != nil {
 		return "", fmt.Errorf("name validation failed: %w", err)
 	}
 
 	// Проверяем пароль
-	ok, err = validatePassword(password)
-	if err != nil {
-		return "", fmt.Errorf("password validation failed: %w", err)
-	}
-	if !ok {
+	if !s.validatePassword(password) {
 		return "", fmt.Errorf("password too weak")
 	}
 
 	// Хэшируем пароль
-	hashedPassword, err := hashPassword(password)
+	hashedPassword, err := s.hashPassword(password)
 	if err != nil {
 		return "", fmt.Errorf("password hashing failed: %w", err)
 	}
 
 	// Создаем аккаунт в БД
-	accountID, err := createAccountInDB(pool, email, name, hashedPassword)
-	if err != nil {
-		return "", fmt.Errorf("failed to create account: %w", err)
-	}
-
-	return accountID, nil
+	return s.createAccountInDB(email, name, hashedPassword)
 }
 
-// Создание аккаунта в БД
-// в случае успеха возвращает id аккаунта
-func createAccountInDB(pool *pgxpool.Pool, email string, name string, hashedPassword string) (string, error) {
+// GetByEmail возвращает аккаунт по email
+func (s *Service) GetByEmail(email string) (*Account, error) {
+	ctx := context.Background()
+
+	query := `
+		SELECT id, email, name, auth_type, status, created_at, updated_at
+		FROM accounts 
+		WHERE email = $1
+	`
+
+	var account Account
+	err := s.pool.QueryRow(ctx, query, strings.ToLower(email)).Scan(
+		&account.Id,
+		&account.Email,
+		&account.Name,
+		&account.AuthType,
+		&account.Status,
+		&account.CreatedAt,
+		&account.UpdatedAt,
+	)
+
+	if err != nil {
+		return nil, fmt.Errorf("account not found or database error: %w", err)
+	}
+
+	return &account, nil
+}
+
+// Приватные вспомогательные методы
+func (s *Service) validateEmailFormat(email string) bool {
+	// Простая проверка формата
+	return strings.Contains(email, "@") && strings.Contains(email, ".")
+}
+
+func (s *Service) checkEmailUnique(email string) (bool, error) {
+	ctx := context.Background()
+	var count int
+	query := `SELECT COUNT(*) FROM accounts WHERE email = $1`
+
+	err := s.pool.QueryRow(ctx, query, strings.ToLower(email)).Scan(&count)
+	if err != nil {
+		return false, fmt.Errorf("database query failed: %w", err)
+	}
+
+	return count == 0, nil
+}
+
+func (s *Service) validateName(name string) error {
+	if len(name) < 2 {
+		return fmt.Errorf("name too short")
+	}
+	if len(name) > 100 {
+		return fmt.Errorf("name too long")
+	}
+	return nil
+}
+
+func (s *Service) validatePassword(password string) bool {
+	// Минимальные требования
+	return len(password) >= 8
+}
+
+func (s *Service) hashPassword(password string) (string, error) {
+	hashedBytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return "", err
+	}
+	return string(hashedBytes), nil
+}
+
+func (s *Service) createAccountInDB(email, name, hashedPassword string) (string, error) {
 	ctx := context.Background()
 
 	// Генерируем UUID
-	uuid, err := generateUUID()
+	uuid, err := s.generateUUID()
 	if err != nil {
 		return "", fmt.Errorf("failed to generate UUID: %w", err)
 	}
@@ -90,7 +144,7 @@ func createAccountInDB(pool *pgxpool.Pool, email string, name string, hashedPass
 	`
 
 	var id string
-	err = pool.QueryRow(
+	err = s.pool.QueryRow(
 		ctx,
 		query,
 		uuid,
@@ -109,130 +163,10 @@ func createAccountInDB(pool *pgxpool.Pool, email string, name string, hashedPass
 	return id, nil
 }
 
-// GetByEmail возвращает аккаунт по email
-func GetByEmail(pool *pgxpool.Pool, email string) (*Account, error) {
+func (s *Service) generateUUID() (string, error) {
+	// Используем pgx для генерации UUID
 	ctx := context.Background()
-
-	query := `
-		SELECT id, email, name, auth_type, status, created_at, updated_at
-		FROM accounts 
-		WHERE email = $1
-	`
-
-	var account Account
-	err := pool.QueryRow(ctx, query, strings.ToLower(email)).Scan(
-		&account.Id,
-		&account.Email,
-		&account.Name,
-		&account.AuthType,
-		&account.Status,
-		&account.CreatedAt,
-		&account.UpdatedAt,
-	)
-
-	if err != nil {
-		return nil, fmt.Errorf("account not found or database error: %w", err)
-	}
-
-	return &account, nil
-}
-
-// GetByID возвращает аккаунт по ID
-func GetByID(pool *pgxpool.Pool, id string) (*Account, error) {
-	ctx := context.Background()
-
-	query := `
-		SELECT id, email, name, auth_type, created_at, updated_at
-		FROM accounts 
-		WHERE id = $1
-	`
-
-	var account Account
-	err := pool.QueryRow(ctx, query, id).Scan(
-		&account.Id,
-		&account.Email,
-		&account.Name,
-		&account.AuthType,
-		&account.CreatedAt,
-		&account.UpdatedAt,
-	)
-
-	if err != nil {
-		return nil, fmt.Errorf("account not found or database error: %w", err)
-	}
-
-	return &account, nil
-}
-
-// MarkAccountAsConfirmed подтверждает аккаунт после проверки кода
-func MarkAccountAsConfirmed(pool *pgxpool.Pool, accountID string) error {
-	ctx := context.Background()
-
-	query := `
-		UPDATE accounts 
-		SET status = 'confirmed', updated_at = NOW()
-		WHERE id = $1
-	`
-
-	_, err := pool.Exec(ctx, query, accountID)
-	if err != nil {
-		return fmt.Errorf("failed to confirm account: %w", err)
-	}
-
-	return nil
-}
-
-// UpdatePassword обновляет пароль аккаунта
-func UpdatePassword(pool *pgxpool.Pool, accountID string, newPassword string) error {
-	// Проверяем пароль
-	ok, err := validatePassword(newPassword)
-	if err != nil {
-		return fmt.Errorf("password validation failed: %w", err)
-	}
-	if !ok {
-		return fmt.Errorf("password too weak")
-	}
-
-	// Хэшируем пароль
-	hashedPassword, err := hashPassword(newPassword)
-	if err != nil {
-		return fmt.Errorf("password hashing failed: %w", err)
-	}
-
-	ctx := context.Background()
-	currentTime := time.Now().Format(time.RFC3339)
-
-	query := `
-		UPDATE accounts 
-		SET password_hash = $1, updated_at = $2
-		WHERE id = $3
-	`
-
-	_, err = pool.Exec(ctx, query, hashedPassword, currentTime, accountID)
-	if err != nil {
-		return fmt.Errorf("failed to update password: %w", err)
-	}
-
-	return nil
-}
-
-// проверяет соответствие пароля хэшу
-func VerifyPassword(hashedPassword, password string) bool {
-	err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password))
-	return err == nil
-}
-
-// проверка уникальности email в базе данных
-func checkEmailUniqueDB(pool *pgxpool.Pool, email string) (bool, error) {
-	ctx := context.Background()
-
-	var count int
-	query := `SELECT COUNT(*) FROM accounts WHERE email = $1`
-
-	err := pool.QueryRow(ctx, query, strings.ToLower(email)).Scan(&count)
-	if err != nil {
-		return false, fmt.Errorf("database query failed: %w", err)
-	}
-
-	return count == 0, nil
+	var uuid string
+	err := s.pool.QueryRow(ctx, "SELECT gen_random_uuid()").Scan(&uuid)
+	return uuid, err
 }

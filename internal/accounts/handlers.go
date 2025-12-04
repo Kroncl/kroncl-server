@@ -5,55 +5,64 @@ import (
 	"net/http"
 )
 
-type RegisterRequest struct {
-	Email    string `json:"email"`
-	Name     string `json:"name"`
-	Password string `json:"password"`
+// Handlers содержит HTTP хендлеры для аккаунтов
+type Handlers struct {
+	service *Service
 }
 
-func Register(w http.ResponseWriter, r *http.Request) {
-	var req RegisterRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		// Просто отправляем ошибку, middleware обернет
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"error": "Invalid request",
-		})
+// NewHandlers создает новый экземпляр хендлеров
+func NewHandlers(service *Service) *Handlers {
+	return &Handlers{service: service}
+}
+
+// Register обрабатывает запрос на регистрацию
+func (h *Handlers) Register(w http.ResponseWriter, r *http.Request) {
+	// Проверяем метод
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	// Здесь логика регистрации
-	// ...
+	// Декодируем запрос
+	var req RegisterRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request format", http.StatusBadRequest)
+		return
+	}
 
-	// Успешный ответ
+	// Вызываем бизнес-логику
+	userID, err := h.service.Create(req.Email, req.Name, req.Password)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Формируем ответ
+	resp := RegisterResponse{
+		Message: "Registration successful",
+		UserID:  userID,
+	}
+
+	// Отправляем ответ
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"message": "Registration successful",
-		"user_id": "generated-id",
-	})
+	json.NewEncoder(w).Encode(resp)
 }
 
-func Login(w http.ResponseWriter, r *http.Request) {
-	// Логика входа
+// Login обрабатывает запрос на вход
+func (h *Handlers) Login(w http.ResponseWriter, r *http.Request) {
+	// TODO: реализовать логику входа
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	json.NewEncoder(w).Encode(map[string]string{
 		"token": "jwt-token-here",
-		"user": map[string]interface{}{
-			"id":    "user-id",
-			"email": "user@example.com",
-			"name":  "John Doe",
-		},
 	})
 }
 
-func ConfirmEmail(w http.ResponseWriter, r *http.Request) {
-	// Подтверждение email
+// ConfirmEmail подтверждает email
+func (h *Handlers) ConfirmEmail(w http.ResponseWriter, r *http.Request) {
+	// TODO: реализовать подтверждение email
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	json.NewEncoder(w).Encode(map[string]string{
 		"message": "Email confirmed successfully",
 	})
 }
