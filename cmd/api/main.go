@@ -62,7 +62,7 @@ func main() {
 	r.Use(chimiddleware.Logger)
 	r.Use(chimiddleware.Recoverer)
 	r.Use(chimiddleware.RequestID)
-	r.Use(core.BaseResponse) // наш кастомный middleware ДОЛЖЕН БЫТЬ ПОСЛЕ chi middleware
+	r.Use(core.BaseResponse)
 
 	// CORS
 	r.Use(cors.Handler(cors.Options{
@@ -81,9 +81,10 @@ func main() {
 
 		// Маршруты аккаунтов - публичные
 		r.Route("/account", func(r chi.Router) {
-			r.Post("/reg", accountsHandlers.Register)    // публичный
-			r.Post("/auth", accountsHandlers.Login)      // публичный
-			r.Post("/refresh", accountsHandlers.Refresh) // публичный
+			r.Post("/reg", accountsHandlers.Register)                        // публичный
+			r.Post("/check-email-unique", accountsHandlers.CheckEmailUniqie) // публичный
+			r.Post("/auth", accountsHandlers.Login)                          // публичный
+			r.Post("/refresh", accountsHandlers.Refresh)                     // публичный
 
 			// Защищенный маршрут для подтверждения email
 			r.Group(func(r chi.Router) {

@@ -175,6 +175,36 @@ func (h *Handlers) GetProfile(w http.ResponseWriter, r *http.Request) {
 	core.SendSuccess(w, account, "Profile retrieved successfully")
 }
 
+// проверка уникальности почты
+func (h *Handlers) CheckEmailUniqie(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+
+	var req struct {
+		Email string `json:"email"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		core.SendValidationError(w, "Invalid request format")
+		return
+	}
+
+	ok, err := h.service.checkEmailUnique(req.Email)
+
+	if err != nil {
+		core.SendInternalError(w, err.Error())
+		return
+	}
+
+	if !ok {
+		core.SendValidationError(w, "The mail is not unique")
+		return
+	}
+
+	core.SendSuccess(w, map[string]interface{}{}, "The mail is unique")
+}
+
 // Refresh обновляет токены по refresh токену
 func (h *Handlers) Refresh(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
