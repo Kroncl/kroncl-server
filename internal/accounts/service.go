@@ -65,7 +65,7 @@ func (s *Service) Create(email, name, password string) (*Account, string, string
 	}
 
 	// Генерация JWT токенов
-	accessToken, err := s.jwtService.GenerateAccessToken(account.ID, account.Email, account.Name)
+	accessToken, err := s.jwtService.GenerateAccessToken(account.ID)
 	if err != nil {
 		return account, "", "", fmt.Errorf("failed to generate access token: %w", err)
 	}
@@ -75,20 +75,10 @@ func (s *Service) Create(email, name, password string) (*Account, string, string
 		return account, "", "", fmt.Errorf("failed to generate refresh token: %w", err)
 	}
 
-	// Генерация и отправка кода подтверждения
-	code, err := GenerateConfirmationCode(s.pool, account.ID, "email_confirmation", 6, 15)
+	_, err = GenerateAndSendCode(s.pool, account)
+
 	if err != nil {
-		// Логируем ошибку, но не прерываем регистрацию
-		fmt.Printf("⚠️ Failed to generate confirmation code: %v\n", err)
-	} else {
-		// Отправляем email (заглушка)
-		go func() {
-			if err := SendConfirmationEmail(account.Email, code); err != nil {
-				fmt.Printf("⚠️ Failed to send confirmation email: %v\n", err)
-			} else {
-				fmt.Printf("✅ Confirmation email sent to %s\n", account.Email)
-			}
-		}()
+		return account, "", "", fmt.Errorf("Error sending the code to the mail")
 	}
 
 	return account, accessToken, refreshToken, nil
@@ -119,7 +109,7 @@ func (s *Service) Authenticate(email, password string) (*Account, string, string
 	}
 
 	// Генерируем токены
-	accessToken, err := s.jwtService.GenerateAccessToken(account.ID, account.Email, account.Name)
+	accessToken, err := s.jwtService.GenerateAccessToken(account.ID)
 	if err != nil {
 		return nil, "", "", fmt.Errorf("failed to generate access token: %w", err)
 	}
@@ -145,6 +135,25 @@ func (s *Service) ConfirmEmail(userID, code string) error {
 
 	// Обновляем статус аккаунта
 	return s.markAccountAsConfirmed(userID)
+}
+
+// ResendConfirmationCode повторно отправляет код подтверждения
+func (s *Service) ResendConfirmationCode(userID string) error {
+	account, err := s.GetByID(userID)
+	if err != nil {
+		return fmt.Errorf("user not found: %w", err)
+	}
+
+	if account.Status != "waiting" {
+		return fmt.Errorf("account cannot be verified: current status is %s", account.Status)
+	}
+
+	_, err = GenerateAndSendCode(s.pool, account)
+	if err != nil {
+		return fmt.Errorf("failed to send confirmation code: %w", err)
+	}
+
+	return nil
 }
 
 // Вспомогательные методы
@@ -219,6 +228,67 @@ func (s *Service) GetByEmail(email string) (*Account, error) {
 	}
 
 	return &account, nil
+}
+
+// возвращает аккаунт по ID
+func (s *Service) GetByID(id string) (*Account, error) {
+	ctx := context.Background()
+
+	query := `
+		SELECT id, email, name, auth_type, status, created_at, updated_at
+		FROM accounts 
+		WHERE id = $1
+	`
+
+	var account Account
+	err := s.pool.QueryRow(ctx, query, id).Scan(
+		&account.ID,
+		&account.Email,
+		&account.Name,
+		&account.AuthType,
+		&account.Status,
+		&account.CreatedAt,
+		&account.UpdatedAt,
+	)
+
+	if err != nil {
+		return nil, fmt.Errorf("account not found: %w", err)
+	}
+
+	return &account, nil
+}
+
+// RefreshTokens обновляет пару токенов по refresh токену
+func (s *Service) RefreshTokens(refreshToken string) (accessToken, newRefreshToken string, err error) {
+	// Валидируем refresh токен и получаем user_id
+	userID, err := s.jwtService.GetUserIDFromToken(refreshToken)
+	if err != nil {
+		return "", "", fmt.Errorf("invalid refresh token: %w", err)
+	}
+
+	// Получаем информацию о пользователе
+	account, err := s.GetByID(userID)
+	if err != nil {
+		return "", "", fmt.Errorf("user not found: %w", err)
+	}
+
+	// Проверяем, что аккаунт подтвержден
+	if account.Status != "confirmed" {
+		return "", "", fmt.Errorf("account not confirmed")
+	}
+
+	// Генерируем новую пару токенов
+	accessToken, err = s.jwtService.GenerateAccessToken(account.ID)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to generate access token: %w", err)
+	}
+
+	newRefreshToken, err = s.jwtService.GenerateRefreshToken(account.ID)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to generate refresh token: %w", err)
+	}
+
+	return accessToken, newRefreshToken, nil
 }
 
 func (s *Service) getPasswordHash(userID string) (string, error) {

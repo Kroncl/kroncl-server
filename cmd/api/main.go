@@ -81,13 +81,15 @@ func main() {
 
 		// Маршруты аккаунтов - публичные
 		r.Route("/account", func(r chi.Router) {
-			r.Post("/reg", accountsHandlers.Register) // публичный
-			r.Post("/auth", accountsHandlers.Login)   // публичный
+			r.Post("/reg", accountsHandlers.Register)    // публичный
+			r.Post("/auth", accountsHandlers.Login)      // публичный
+			r.Post("/refresh", accountsHandlers.Refresh) // публичный
 
 			// Защищенный маршрут для подтверждения email
 			r.Group(func(r chi.Router) {
 				r.Use(jwtService.RequireAuth) // защищаем только confirm
 				r.Post("/confirm", accountsHandlers.ConfirmEmail)
+				r.Post("/confirm/resend", accountsHandlers.ResendConfirmationCode)
 			})
 		})
 

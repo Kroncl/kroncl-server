@@ -15,11 +15,9 @@ type JWTService struct {
 	refreshDuration time.Duration
 }
 
-// Claims - кастомные claims для нашего приложения
-type Claims struct {
+// AccessClaims - claims для access токена
+type AccessClaims struct {
 	UserID string `json:"user_id"`
-	Email  string `json:"email"`
-	Name   string `json:"name"`
 	jwt.RegisteredClaims
 }
 
@@ -32,12 +30,10 @@ func NewJWTService(secretKey string, accessDuration, refreshDuration time.Durati
 	}
 }
 
-// GenerateAccessToken создает access токен
-func (s *JWTService) GenerateAccessToken(userID, email, name string) (string, error) {
-	claims := &Claims{
+// GenerateAccessToken создает access токен (только user_id)
+func (s *JWTService) GenerateAccessToken(userID string) (string, error) {
+	claims := &AccessClaims{
 		UserID: userID,
-		Email:  email,
-		Name:   name,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(s.accessDuration)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
@@ -63,10 +59,9 @@ func (s *JWTService) GenerateRefreshToken(userID string) (string, error) {
 	return token.SignedString(s.secretKey)
 }
 
-// ValidateToken проверяет токен и возвращает claims
-func (s *JWTService) ValidateToken(tokenString string) (*Claims, error) {
-	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
-		// Проверяем метод подписи
+// ValidateAccessToken проверяет access токен
+func (s *JWTService) ValidateAccessToken(tokenString string) (*AccessClaims, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &AccessClaims{}, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
@@ -77,46 +72,54 @@ func (s *JWTService) ValidateToken(tokenString string) (*Claims, error) {
 		return nil, err
 	}
 
-	if claims, ok := token.Claims.(*Claims); ok && token.Valid {
+	if claims, ok := token.Claims.(*AccessClaims); ok && token.Valid {
 		return claims, nil
 	}
 
 	return nil, errors.New("invalid token")
 }
 
-// RefreshTokens обновляет пару токенов
-func (s *JWTService) RefreshTokens(refreshToken string) (accessToken, newRefreshToken string, err error) {
-	claims, err := s.ValidateToken(refreshToken)
+// ValidateRefreshToken валидирует refresh токен
+func (s *JWTService) ValidateRefreshToken(tokenString string) (*jwt.RegisteredClaims, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &jwt.RegisteredClaims{}, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		return s.secretKey, nil
+	})
+
 	if err != nil {
-		return "", "", err
+		return nil, err
 	}
 
-	// Генерируем новую пару токенов
-	accessToken, err = s.GenerateAccessToken(claims.UserID, claims.Email, claims.Name)
-	if err != nil {
-		return "", "", err
+	if claims, ok := token.Claims.(*jwt.RegisteredClaims); ok && token.Valid {
+		return claims, nil
 	}
 
-	newRefreshToken, err = s.GenerateRefreshToken(claims.UserID)
-	if err != nil {
-		return "", "", err
-	}
-
-	return accessToken, newRefreshToken, nil
+	return nil, errors.New("invalid token")
 }
 
 // GetUserIDFromToken извлекает user_id из токена без полной валидации
-// (использовать осторожно, только для не критичных операций)
 func (s *JWTService) GetUserIDFromToken(tokenString string) (string, error) {
 	parser := jwt.NewParser(jwt.WithoutClaimsValidation())
-	token, _, err := parser.ParseUnverified(tokenString, &Claims{})
+
+	// Сначала пробуем как AccessClaims
+	token, _, err := parser.ParseUnverified(tokenString, &AccessClaims{})
+	if err == nil {
+		if claims, ok := token.Claims.(*AccessClaims); ok && claims.UserID != "" {
+			return claims.UserID, nil
+		}
+	}
+
+	// Пробуем как стандартные RegisteredClaims (для refresh токена)
+	token, _, err = parser.ParseUnverified(tokenString, &jwt.RegisteredClaims{})
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to parse token: %w", err)
 	}
 
-	if claims, ok := token.Claims.(*Claims); ok {
-		return claims.UserID, nil
+	if claims, ok := token.Claims.(*jwt.RegisteredClaims); ok && claims.Subject != "" {
+		return claims.Subject, nil
 	}
 
-	return "", errors.New("invalid token claims")
+	return "", errors.New("user_id not found in token claims")
 }

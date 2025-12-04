@@ -19,22 +19,52 @@ type ConfirmationCode struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
+// Генерация, очистка старых + отправка нового кода подтверждения
+func GenerateAndSendCode(pool *pgxpool.Pool, account *Account) (bool, error) {
+	// Генерация и отправка кода подтверждения
+	code, err := GenerateConfirmationCode(pool, account.ID, "email_confirmation", 6, 15)
+	if err != nil {
+		// Логируем ошибку, но не прерываем регистрацию
+		fmt.Printf("⚠️ Failed to generate confirmation code: %v\n", err)
+	} else {
+		// Отправляем email (заглушка)
+		go func() {
+			if err := SendConfirmationEmail(account.Email, code); err != nil {
+				fmt.Printf("⚠️ Failed to send confirmation email: %v\n", err)
+			} else {
+				fmt.Printf("✅ Confirmation email sent to %s\n", account.Email)
+			}
+		}()
+	}
+	return true, nil
+}
+
 // GenerateConfirmationCode создает код подтверждения для пользователя
 func GenerateConfirmationCode(pool *pgxpool.Pool, accountID, codeType string, length, expiryMinutes int) (string, error) {
 	ctx := context.Background()
 
+	// Начинаем транзакцию
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx) // В случае ошибки откатываем
+
+	// Сначала помечаем все старые коды как использованные (а не удаляем!)
+	markQuery := `
+		UPDATE confirmation_codes 
+		SET used = TRUE
+		WHERE account_id = $1 
+		  AND type = $2
+		  AND used = FALSE
+	`
+	_, err = tx.Exec(ctx, markQuery, accountID, codeType)
+	if err != nil {
+		return "", fmt.Errorf("failed to mark old codes as used: %w", err)
+	}
+
 	// Генерируем случайный код
 	code := generateRandomCode(length)
-
-	// Удаляем старые коды того же типа
-	query := `
-		DELETE FROM confirmation_codes 
-		WHERE account_id = $1 AND type = $2
-	`
-	_, err := pool.Exec(ctx, query, accountID, codeType)
-	if err != nil {
-		return "", fmt.Errorf("failed to cleanup old codes: %w", err)
-	}
 
 	// Вставляем новый код
 	insertQuery := `
@@ -44,9 +74,15 @@ func GenerateConfirmationCode(pool *pgxpool.Pool, accountID, codeType string, le
 	`
 
 	var resultCode string
-	err = pool.QueryRow(ctx, insertQuery, accountID, code, codeType, expiryMinutes).Scan(&resultCode)
+	err = tx.QueryRow(ctx, insertQuery, accountID, code, codeType, expiryMinutes).Scan(&resultCode)
 	if err != nil {
 		return "", fmt.Errorf("failed to create confirmation code: %w", err)
+	}
+
+	// Коммитим транзакцию
+	err = tx.Commit(ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	return resultCode, nil

@@ -124,6 +124,32 @@ func (h *Handlers) ConfirmEmail(w http.ResponseWriter, r *http.Request) {
 	core.SendSuccess(w, map[string]interface{}{}, "Email confirmed successfully")
 }
 
+// Повторная отправка кода подтверждения
+func (h *Handlers) ResendConfirmationCode(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+
+	// Получаем пользователя из контекста
+	claims, ok := auth.GetUserFromContext(r.Context())
+	if !ok {
+		core.SendUnauthorized(w, "Authentication required")
+		return
+	}
+
+	// Повторяем отправку кода
+	err := h.service.ResendConfirmationCode(claims.UserID)
+	if err != nil {
+		// Просто отправляем ошибку как есть, middleware обработает
+		core.SendError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	// Ответ с пустыми данными
+	core.SendSuccess(w, map[string]interface{}{}, "Confirmation code has been resent to your email")
+}
+
 // GetProfile получает профиль пользователя
 func (h *Handlers) GetProfile(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
@@ -139,7 +165,7 @@ func (h *Handlers) GetProfile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Получаем аккаунт из БД
-	account, err := h.service.GetByEmail(claims.Email)
+	account, err := h.service.GetByID(claims.UserID)
 	if err != nil {
 		core.SendNotFound(w, "User not found")
 		return
@@ -147,4 +173,40 @@ func (h *Handlers) GetProfile(w http.ResponseWriter, r *http.Request) {
 
 	// Отправляем профиль
 	core.SendSuccess(w, account, "Profile retrieved successfully")
+}
+
+// Refresh обновляет токены по refresh токену
+func (h *Handlers) Refresh(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+
+	var req struct {
+		RefreshToken string `json:"refresh_token"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		core.SendValidationError(w, "Invalid request format")
+		return
+	}
+
+	if req.RefreshToken == "" {
+		core.SendValidationError(w, "Refresh token is required")
+		return
+	}
+
+	// Обновляем токены
+	accessToken, refreshToken, err := h.service.RefreshTokens(req.RefreshToken)
+	if err != nil {
+		core.SendUnauthorized(w, err.Error())
+		return
+	}
+
+	// Формируем ответ
+	data := map[string]interface{}{
+		"access_token":  accessToken,
+		"refresh_token": refreshToken,
+	}
+
+	core.SendSuccess(w, data, "Tokens refreshed successfully")
 }
