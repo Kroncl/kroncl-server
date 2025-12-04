@@ -5,8 +5,9 @@ import (
 	"net/http"
 	"os"
 
-	"matrix-authorization-server/internal/handlers"
-	mymiddleware "matrix-authorization-server/internal/middleware" // наш middleware
+	"matrix-authorization-server/internal/accounts"
+	"matrix-authorization-server/internal/core"
+	customMiddleware "matrix-authorization-server/internal/core" // наш middleware
 
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware" // chi middleware
@@ -32,16 +33,15 @@ func main() {
 	}))
 
 	// Наш кастомный middleware для стандартного ответа
-	r.Use(mymiddleware.BaseResponse)
+	r.Use(customMiddleware.BaseResponse)
 
 	// Маршруты
-	r.Get("/health", handlers.HealthCheck)
+	r.Get("/health", core.HealthCheck)
 
-	// Группа accounts
-	r.Route("/accounts", func(r chi.Router) {
-		r.Post("/register", handlers.Register)
-		r.Get("/login", handlers.Login)
-		r.Post("/confirm", handlers.ConfirmEmail)
+	r.Route("/account", func(r chi.Router) {
+		r.Get("/auth", accounts.Login)
+		r.Get("/reg", accounts.Register)
+		r.Post("/confirm", accounts.ConfirmEmail)
 	})
 
 	// Запуск сервера

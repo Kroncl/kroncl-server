@@ -1,4 +1,4 @@
-package handlers
+package accounts
 
 import (
 	"encoding/json"
