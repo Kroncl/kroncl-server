@@ -1,0 +1,269 @@
+{
+  "info": {
+    "_postman_id": "be33731f-1260-46e2-a159-7dcd9c29219e",
+    "name": "Matrix Authorization Server",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "44199274"
+  },
+  "item": [
+    {
+      "name": "reg",
+      "id": "b0517acb-3566-4197-907c-a5a4bf812f4c",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{ACCESS_TOKEN}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"email\": \"ned.serafim@gmail.com\",\n    \"password\": \"123456123\",\n    \"name\": \"Serafim\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/account/reg",
+          "host": [
+            "{{BASE_URL}}"
+          ],
+          "path": [
+            "account",
+            "reg"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "confirm",
+      "id": "6be2742e-c263-4197-ad58-f0fa796ec701",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiMmRkODk5ODUtMTlkNS00OTRlLTkyN2EtMTU3ZmFjOGMxOWIxIiwiZW1haWwiOiJuZWQuc2VyYWZpbUBnbWFpbC5jb20iLCJuYW1lIjoiU2VyYWZpbSIsImlzcyI6Im1hdHJpeC1hdXRob3JpemF0aW9uLXNlcnZlciIsInN1YiI6IjJkZDg5OTg1LTE5ZDUtNDk0ZS05MjdhLTE1N2ZhYzhjMTliMSIsImV4cCI6MTc2NDg1ODk1MywiaWF0IjoxNzY0ODU4MDUzfQ.2gfv3OyZI13YmFYxRV3peP2oETHIlQnjp1fLdpRja_c",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"user_id\": \"2dd89985-19d5-494e-927a-157fac8c19b1\",\n    \"code\": \"711292\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/account/confirm",
+          "host": [
+            "{{BASE_URL}}"
+          ],
+          "path": [
+            "account",
+            "confirm"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "auth",
+      "id": "4e0c8a5d-1612-40a6-a1f6-083f29a6e884",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{ACCESS_TOKEN}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"email\": \"ned.serafim@gmail.com\",\n    \"password\": \"123456123\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/account/auth",
+          "host": [
+            "{{BASE_URL}}"
+          ],
+          "path": [
+            "account",
+            "auth"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "resend",
+      "id": "5bfd6c41-3893-469e-ae3a-a8a2d54a3d5c",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiMmRkODk5ODUtMTlkNS00OTRlLTkyN2EtMTU3ZmFjOGMxOWIxIiwiaXNzIjoibWF0cml4LWF1dGhvcml6YXRpb24tc2VydmVyIiwic3ViIjoiMmRkODk5ODUtMTlkNS00OTRlLTkyN2EtMTU3ZmFjOGMxOWIxIiwiZXhwIjoxNzY0ODYzMTQ3LCJpYXQiOjE3NjQ4NTk1NDd9.NKl94mcrhemmGv7t0XXER6abAcPE6RF7g1-fi5V0wU8",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": ""
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/account/confirm/resend",
+          "host": [
+            "{{BASE_URL}}"
+          ],
+          "path": [
+            "account",
+            "confirm",
+            "resend"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "refresh",
+      "id": "59ad12f7-5ee3-4252-956e-658fda8cc43d",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"refresh_token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJtYXRyaXgtYXV0aG9yaXphdGlvbi1zZXJ2ZXIiLCJzdWIiOiIyZGQ4OTk4NS0xOWQ1LTQ5NGUtOTI3YS0xNTdmYWM4YzE5YjEiLCJleHAiOjE3NjQ4NTk0ODcsImlhdCI6MTc2NDg1OTQ4N30.YRdwhBE6tPBvmkt5b8UND6VTlttuj_UKQu_zgim_AC\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/account/refresh",
+          "host": [
+            "{{BASE_URL}}"
+          ],
+          "path": [
+            "account",
+            "refresh"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "get",
+      "id": "136186c3-5e1c-4558-a0ed-ee63761734e6",
+      "protocolProfileBehavior": {
+        "disableBodyPruning": true
+      },
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{ACCESS_TOKEN}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"email\": \"ned.serafim@gmail.com\",\n    \"password\": \"123456123\"\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/account",
+          "host": [
+            "{{BASE_URL}}"
+          ],
+          "path": [
+            "account"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "check-email-unique",
+      "id": "8eb78f4b-d0a9-4e24-8c2c-56d08bd1d5f0",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{ACCESS_TOKEN}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"email\": \"ned.serafim@gmail.com\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/account/check-email-unique",
+          "host": [
+            "{{BASE_URL}}"
+          ],
+          "path": [
+            "account",
+            "check-email-unique"
+          ]
+        }
+      },
+      "response": []
+    }
+  ]
+}
