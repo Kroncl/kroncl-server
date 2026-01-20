@@ -98,6 +98,7 @@ func main() {
 
 			r.Route("/companies", func(r chi.Router) {
 				// обслуживание
+				r.Post("/", companiesHandlers.Create)
 				r.Get("/check-slug-unique", companiesHandlers.CheckSlugUnique)
 
 				// конкретная компания

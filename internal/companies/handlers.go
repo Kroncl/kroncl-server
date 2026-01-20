@@ -1,6 +1,7 @@
 package companies
 
 import (
+	"encoding/json"
 	"kroncl-server/internal/core"
 	"net/http"
 )
@@ -12,6 +13,36 @@ type Handlers struct {
 
 func NewHandlers(service *Service) *Handlers {
 	return &Handlers{service: service}
+}
+
+// создание организации
+func (h *Handlers) Create(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+
+	var req CreateRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		core.SendValidationError(w, "Invalid request format")
+		return
+	}
+
+	// Создаем аккаунт и получаем токены
+	data, err := h.service.Create(
+		req.Slug,
+		req.Name,
+		req.Description,
+		req.AvatarUrl,
+		req.IsPublic,
+	)
+	if err != nil {
+		core.SendValidationError(w, err.Error())
+		return
+	}
+
+	// Отправляем ответ
+	core.SendCreated(w, data, "Company created successful.")
 }
 
 // проверка уникальности slug компании
