@@ -6,7 +6,7 @@ import (
 	"kroncl-server/internal/auth"
 	"kroncl-server/internal/companies"
 	"kroncl-server/internal/core"
-	"kroncl-server/internal/utils"
+	"kroncl-server/utils"
 	"log"
 	"net/http"
 	"os"
