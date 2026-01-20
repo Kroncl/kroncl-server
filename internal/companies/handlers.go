@@ -2,7 +2,7 @@ package companies
 
 import (
 	"encoding/json"
-	"kroncl-server/core"
+	"kroncl-server/internal/core"
 	"net/http"
 )
 

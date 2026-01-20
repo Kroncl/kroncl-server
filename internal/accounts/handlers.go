@@ -2,8 +2,8 @@ package accounts
 
 import (
 	"encoding/json"
-	"kroncl-server/auth"
-	"kroncl-server/core"
+	"kroncl-server/internal/auth"
+	"kroncl-server/internal/core"
 	"net/http"
 	"strings"
 )

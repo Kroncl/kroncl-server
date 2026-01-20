@@ -2,11 +2,11 @@ package main
 
 import (
 	"context"
-	"kroncl-server/accounts"
-	"kroncl-server/auth"
-	"kroncl-server/companies"
-	"kroncl-server/core"
-	"kroncl-server/utils"
+	"kroncl-server/internal/accounts"
+	"kroncl-server/internal/auth"
+	"kroncl-server/internal/companies"
+	"kroncl-server/internal/core"
+	"kroncl-server/internal/utils"
 	"log"
 	"net/http"
 	"os"
