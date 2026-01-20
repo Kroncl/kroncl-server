@@ -2,10 +2,9 @@ package accounts
 
 import (
 	"encoding/json"
+	"kroncl-server/internal/auth"
+	"kroncl-server/internal/core"
 	"net/http"
-
-	"matrix-authorization-server/internal/auth"
-	"matrix-authorization-server/internal/core"
 )
 
 // Handlers содержит HTTP хендлеры для аккаунтов

@@ -3,10 +3,9 @@ package accounts
 import (
 	"context"
 	"fmt"
+	"kroncl-server/internal/auth"
 	"strings"
 	"time"
-
-	"matrix-authorization-server/internal/auth"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/crypto/bcrypt"

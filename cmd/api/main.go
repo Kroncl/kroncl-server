@@ -2,14 +2,13 @@ package main
 
 import (
 	"context"
+	"kroncl-server/internal/accounts"
+	"kroncl-server/internal/auth"
+	"kroncl-server/internal/core"
+	"kroncl-server/utils"
 	"log"
 	"net/http"
 	"os"
-
-	"matrix-authorization-server/internal/accounts"
-	"matrix-authorization-server/internal/auth"
-	"matrix-authorization-server/internal/core"
-	"matrix-authorization-server/utils"
 
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
@@ -19,20 +18,17 @@ import (
 )
 
 func main() {
-	// Загружаем переменные окружения
 	err := godotenv.Load()
 	if err != nil {
 		log.Println("Внимание: не удалось загрузить .env файл")
 	}
 
-	// Получаем конфиг БД
 	dbConfig := utils.LoadDBConfigFromEnv()
 	dsn, err := utils.BuildDSN(dbConfig)
 	if err != nil {
 		log.Fatal("Ошибка формирования DSN:", err)
 	}
 
-	// Создаем пул соединений
 	pool, err := pgxpool.New(context.Background(), dsn)
 	if err != nil {
 		log.Fatal("Ошибка подключения к БД:", err)
@@ -41,10 +37,9 @@ func main() {
 
 	log.Println("✅ Подключение к БД установлено")
 
-	// Загружаем конфиг JWT
 	jwtConfig := auth.LoadJWTConfig()
 
-	// Инициализируем JWT сервис
+	// jwt
 	jwtService := auth.NewJWTService(
 		jwtConfig.SecretKey,
 		jwtConfig.AccessDuration,
@@ -76,10 +71,9 @@ func main() {
 
 	// API
 	r.Route("/api", func(r chi.Router) {
-		// Публичные маршруты (не требуют аутентификации)
 		r.Get("/health", core.HealthCheck)
 
-		// Маршруты аккаунтов - публичные
+		// обслуживание
 		r.Route("/account", func(r chi.Router) {
 			r.Post("/reg", accountsHandlers.Register)                        // публичный
 			r.Post("/check-email-unique", accountsHandlers.CheckEmailUniqie) // публичный
@@ -88,19 +82,26 @@ func main() {
 
 			// Защищенный маршрут для подтверждения email
 			r.Group(func(r chi.Router) {
-				r.Use(jwtService.RequireAuth) // защищаем только confirm
+				r.Use(jwtService.RequireAuth)
 				r.Get("/", accountsHandlers.GetProfile)
 				r.Post("/confirm", accountsHandlers.ConfirmEmail)
 				r.Post("/confirm/resend", accountsHandlers.ResendConfirmationCode)
 			})
 		})
 
-		// Приватные маршруты (требуют аутентификации)
-		r.Route("/user", func(r chi.Router) {
+		// мясо
+		r.Group(func(r chi.Router) {
 			r.Use(jwtService.RequireAuth)
 
-			r.Get("/profile", accountsHandlers.GetProfile)
-			// другие защищенные маршруты...
+			r.Route("/tm", func(r chi.Router) {
+				// управление транзакциями
+			})
+			r.Route("/hrm", func(r chi.Router) {
+				// управление персоналом
+			})
+			r.Route("/crm", func(r chi.Router) {
+				// управление клиентами
+			})
 		})
 	})
 
