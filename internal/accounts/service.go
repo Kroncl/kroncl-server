@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -160,7 +161,7 @@ func (s *Service) createAccountInDB(email, name, hashedPassword string) (*Accoun
 	ctx := context.Background()
 
 	// Генерируем UUID
-	uuid, err := s.generateUUID()
+	uuid, err := uuid.NewRandom()
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate UUID: %w", err)
 	}
@@ -357,11 +358,4 @@ func (s *Service) hashPassword(password string) (string, error) {
 func (s *Service) verifyPassword(hashedPassword, password string) bool {
 	err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password))
 	return err == nil
-}
-
-func (s *Service) generateUUID() (string, error) {
-	ctx := context.Background()
-	var uuid string
-	err := s.pool.QueryRow(ctx, "SELECT gen_random_uuid()").Scan(&uuid)
-	return uuid, err
 }

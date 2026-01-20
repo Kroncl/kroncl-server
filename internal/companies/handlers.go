@@ -2,6 +2,7 @@ package companies
 
 import (
 	"encoding/json"
+	"kroncl-server/internal/auth"
 	"kroncl-server/internal/core"
 	"net/http"
 )
@@ -39,8 +40,16 @@ func (h *Handlers) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Получаем пользователя из контекста
+	account, ok := auth.GetUserFromContext(r.Context())
+	if !ok {
+		core.SendUnauthorized(w, "Authentication required")
+		return
+	}
+
 	// Создаем аккаунт и получаем токены
 	data, err := h.service.Create(
+		account.UserID,
 		req.Slug,
 		req.Name,
 		req.Description,
