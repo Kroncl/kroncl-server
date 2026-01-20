@@ -3,7 +3,7 @@ package accounts
 import (
 	"context"
 	"fmt"
-	"kroncl-server/internal/auth"
+	"kroncl-server/auth"
 	"strings"
 	"time"
 
