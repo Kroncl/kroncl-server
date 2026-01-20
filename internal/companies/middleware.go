@@ -2,7 +2,9 @@ package companies
 
 import (
 	"context"
+	"fmt"
 	"kroncl-server/internal/core"
+	"log"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -13,31 +15,41 @@ func CompanyMembership(pool *pgxpool.Pool) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			companyID := chi.URLParam(r, "id")
+			log.Printf("CompanyMembership DEBUG: companyID from URL = '%s'", companyID)
+
 			if companyID == "" {
-				http.Error(w, "Company ID is required", http.StatusBadRequest)
+				core.SendValidationError(w, "Company ID is required")
 				return
 			}
 
 			// Получаем user_id из контекста
 			userID, ok := core.GetUserIDFromContext(r.Context())
+			log.Printf("CompanyMembership DEBUG: userID from context = '%s', ok = %v", userID, ok)
+
 			if !ok {
-				http.Error(w, "User not authenticated", http.StatusUnauthorized)
+				core.SendUnauthorized(w, "User not authenticated")
 				return
 			}
+
+			log.Printf("CompanyMembership DEBUG: Checking membership for userID='%s', companyID='%s'", userID, companyID)
 
 			// Проверяем что компания существует И пользователь в ней
 			isMember, err := checkCompanyMembership(r.Context(), pool, companyID, userID)
 			if err != nil {
-				http.Error(w, "Failed to check membership", http.StatusInternalServerError)
+				log.Printf("CompanyMembership ERROR: %v", err)
+				core.SendInternalError(w, fmt.Sprintf("Failed to check membership: %v", err))
 				return
 			}
+
+			log.Printf("CompanyMembership DEBUG: isMember = %v", isMember)
 
 			if !isMember {
-				http.Error(w, "Not a member of this company", http.StatusForbidden)
+				core.SendUnauthorized(w, "Not a member of this company")
 				return
 			}
 
-			ctx := context.WithValue(r.Context(), "company_id", companyID)
+			// Добавляем company_id в контекст используя core.SetCompanyIDInContext
+			ctx := core.SetCompanyIDInContext(r.Context(), companyID)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}

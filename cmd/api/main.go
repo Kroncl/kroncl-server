@@ -106,9 +106,9 @@ func main() {
 				// Specific company routes
 				r.Route("/{id}", func(r chi.Router) {
 					// Company context + access check
-					r.Use(
-						companies.CompanyMembership(pool),
-					)
+					r.Use(companies.CompanyMembership(pool))
+
+					r.With(permissioner.RequirePermission(permissionService, "company.update")).Patch("/", companiesHandlers.Update)
 
 					// TM module
 					r.Route("/tm", func(r chi.Router) {
