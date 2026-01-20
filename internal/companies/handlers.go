@@ -49,6 +49,7 @@ func (h *Handlers) Create(w http.ResponseWriter, r *http.Request) {
 
 	// Создаем аккаунт и получаем токены
 	data, err := h.service.Create(
+		r.Context(),
 		account.UserID,
 		req.Slug,
 		req.Name,
@@ -78,7 +79,7 @@ func (h *Handlers) CheckSlugUnique(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ok, err := h.service.checkSlugUnique(slug)
+	ok, err := h.service.checkSlugUnique(r.Context(), slug)
 	if err != nil {
 		core.SendInternalError(w, err.Error())
 		return

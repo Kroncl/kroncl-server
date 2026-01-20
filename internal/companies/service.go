@@ -30,22 +30,20 @@ func NewService(pool *pgxpool.Pool, jwtService *auth.JWTService) *Service {
 	}
 }
 
-func (s *Service) Create(ownerId string, slug string, name string, description string, avatarURL string, isPublic bool) (*Company, error) {
+func (s *Service) Create(ctx context.Context, ownerId string, slug string, name string, description string, avatarURL string, isPublic bool) (*Company, error) {
 	// 1. Валидация
 	if err := s.ValidateCompanyName(name); err != nil {
 		return nil, err
 	}
 
 	// 2. Проверка slug (можно в транзакции, но проверяем до нее для раннего фейла)
-	isUnique, err := s.checkSlugUnique(slug)
+	isUnique, err := s.checkSlugUnique(ctx, slug)
 	if err != nil {
 		return nil, fmt.Errorf("slug uniqueness check failed: %w", err)
 	}
 	if !isUnique {
 		return nil, fmt.Errorf("company slug isn't unique")
 	}
-
-	ctx := context.Background()
 
 	// 3. Начинаем транзакцию
 	tx, err := s.pool.Begin(ctx)
@@ -146,8 +144,7 @@ func (s *Service) Create(ownerId string, slug string, name string, description s
 	return &company, nil
 }
 
-func (s *Service) checkSlugUnique(slug string) (bool, error) {
-	ctx := context.Background()
+func (s *Service) checkSlugUnique(ctx context.Context, slug string) (bool, error) {
 	var count int
 	query := `SELECT COUNT(*) FROM companies WHERE slug = $1`
 
@@ -157,11 +154,4 @@ func (s *Service) checkSlugUnique(slug string) (bool, error) {
 	}
 
 	return count == 0, nil
-}
-
-func (s *Service) generateUUID() (string, error) {
-	ctx := context.Background()
-	var uuid string
-	err := s.pool.QueryRow(ctx, "SELECT gen_random_uuid()").Scan(&uuid)
-	return uuid, err
 }
