@@ -101,6 +101,7 @@ func main() {
 			r.Route("/companies", func(r chi.Router) {
 				// Company creation
 				r.Post("/", companiesHandlers.Create)
+				r.Get("/my", companiesHandlers.GetUserCompanies)
 				r.Get("/check-slug-unique", companiesHandlers.CheckSlugUnique)
 
 				// Specific company routes

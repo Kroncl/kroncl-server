@@ -5,6 +5,7 @@ import (
 	"kroncl-server/internal/auth"
 	"kroncl-server/internal/core"
 	"net/http"
+	"strconv"
 )
 
 // Handlers содержит HTTP хендлеры для компаний
@@ -25,6 +26,71 @@ func (h *Handlers) Update(w http.ResponseWriter, r *http.Request) {
 
 	// Отправляем ответ
 	core.SendCreated(w, nil, "Company updated successful.")
+}
+
+// получение организаций пользователя
+func (h *Handlers) GetUserCompanies(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+
+	// Получаем пользователя из контекста
+	account, ok := auth.GetUserFromContext(r.Context())
+	if !ok {
+		core.SendUnauthorized(w, "Authentication required")
+		return
+	}
+
+	// Парсим параметры запроса
+	query := r.URL.Query()
+
+	// Страница (по умолчанию 1)
+	page, err := strconv.Atoi(query.Get("page"))
+	if err != nil || page < 1 {
+		page = 1
+	}
+
+	// Лимит на страницу (по умолчанию 20, максимум 100)
+	limit, err := strconv.Atoi(query.Get("limit"))
+	if err != nil || limit < 1 {
+		limit = 20
+	}
+	if limit > 100 {
+		limit = 100
+	}
+
+	// Роль (owner, guest, admin, member, all)
+	role := query.Get("role")
+	if role == "" {
+		role = "all"
+	}
+
+	// Поиск по названию
+	search := query.Get("search")
+
+	// Формируем запрос
+	req := &GetUserCompaniesRequest{
+		Page:   page,
+		Limit:  limit,
+		Role:   role,
+		Search: search,
+	}
+
+	// Получаем компании через сервис
+	response, err := h.service.GetUserCompanies(r.Context(), account.UserID, req)
+	if err != nil {
+		// Проверяем тип ошибки для соответствующего HTTP статуса
+		if err.Error() == "invalid role filter. Allowed values: all, owner, admin, member, guest" {
+			core.SendValidationError(w, err.Error())
+		} else {
+			core.SendInternalError(w, err.Error())
+		}
+		return
+	}
+
+	// Отправляем успешный ответ
+	core.SendSuccess(w, response, "User companies retrieved successfully")
 }
 
 // создание организации

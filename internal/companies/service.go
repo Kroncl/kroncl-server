@@ -30,6 +30,135 @@ func NewService(pool *pgxpool.Pool, jwtService *auth.JWTService) *Service {
 	}
 }
 
+// GetUserCompanies возвращает список организаций пользователя с ролью и пагинацией
+func (s *Service) GetUserCompanies(ctx context.Context, userID string, req *GetUserCompaniesRequest) (*GetUserCompaniesResponse, error) {
+	// Валидация параметров
+	if req.Page < 1 {
+		req.Page = 1
+	}
+	if req.Limit < 1 || req.Limit > 100 {
+		req.Limit = 20
+	}
+	if req.Role == "" {
+		req.Role = "all"
+	}
+
+	// Проверяем валидность роли
+	validRoles := map[string]bool{
+		"all":    true,
+		"owner":  true,
+		"admin":  true,
+		"member": true,
+		"guest":  true,
+	}
+	if !validRoles[req.Role] && req.Role != "all" {
+		return nil, fmt.Errorf("invalid role filter. Allowed values: all, owner, admin, member, guest")
+	}
+
+	// Строим SQL запрос
+	var queryBuilder strings.Builder
+	var countBuilder strings.Builder
+	args := []interface{}{userID}
+	argIndex := 2 // начинаем с $2, т.к. $1 = userID
+
+	// Базовый запрос для компаний
+	baseQuery := `
+		SELECT 
+			c.id, c.slug, c.name, c.description, c.avatar_url, c.is_public,
+			c.created_at, c.updated_at,
+			ca.role_id, r.code as role_code, r.name as role_name,
+			ca.created_at as joined_at
+		FROM companies c
+		INNER JOIN company_accounts ca ON c.id = ca.company_id
+		INNER JOIN roles r ON ca.role_id = r.id
+		WHERE ca.account_id = $1
+	`
+
+	queryBuilder.WriteString(baseQuery)
+	countBuilder.WriteString("SELECT COUNT(*) FROM companies c INNER JOIN company_accounts ca ON c.id = ca.company_id INNER JOIN roles r ON ca.role_id = r.id WHERE ca.account_id = $1")
+
+	// Добавляем фильтр по роли
+	if req.Role != "all" {
+		queryBuilder.WriteString(fmt.Sprintf(" AND r.code = $%d", argIndex))
+		countBuilder.WriteString(fmt.Sprintf(" AND r.code = $%d", argIndex))
+		args = append(args, req.Role)
+		argIndex++
+	}
+
+	// Добавляем поиск по названию или slug
+	if req.Search != "" {
+		queryBuilder.WriteString(fmt.Sprintf(" AND (c.name ILIKE $%d OR c.slug ILIKE $%d)", argIndex, argIndex+1))
+		countBuilder.WriteString(fmt.Sprintf(" AND (c.name ILIKE $%d OR c.slug ILIKE $%d)", argIndex, argIndex+1))
+		searchPattern := "%" + req.Search + "%"
+		args = append(args, searchPattern, searchPattern)
+		argIndex += 2
+	}
+
+	// Добавляем сортировку
+	queryBuilder.WriteString(" ORDER BY c.created_at DESC")
+
+	// Добавляем пагинацию
+	offset := (req.Page - 1) * req.Limit
+	queryBuilder.WriteString(fmt.Sprintf(" LIMIT $%d OFFSET $%d", argIndex, argIndex+1))
+	args = append(args, req.Limit, offset)
+
+	// Выполняем запрос на получение количества
+	var total int
+	countArgs := args[:len(args)-2] // убираем LIMIT и OFFSET для count запроса
+	err := s.pool.QueryRow(ctx, countBuilder.String(), countArgs...).Scan(&total)
+	if err != nil {
+		return nil, fmt.Errorf("failed to count user companies: %w", err)
+	}
+
+	// Выполняем запрос на получение данных
+	rows, err := s.pool.Query(ctx, queryBuilder.String(), args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user companies: %w", err)
+	}
+	defer rows.Close()
+
+	var companies []UserCompany
+	for rows.Next() {
+		var uc UserCompany
+		err := rows.Scan(
+			&uc.ID,
+			&uc.Slug,
+			&uc.Name,
+			&uc.Description,
+			&uc.AvatarUrl,
+			&uc.IsPublic,
+			&uc.CreatedAt,
+			&uc.UpdatedAt,
+			&uc.RoleID,
+			&uc.RoleCode,
+			&uc.RoleName,
+			&uc.JoinedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan company: %w", err)
+		}
+		companies = append(companies, uc)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating rows: %w", err)
+	}
+
+	// Рассчитываем количество страниц
+	pages := total / req.Limit
+	if total%req.Limit > 0 {
+		pages++
+	}
+
+	return &GetUserCompaniesResponse{
+		Companies: companies,
+		Total:     total,
+		Page:      req.Page,
+		Limit:     req.Limit,
+		Pages:     pages,
+	}, nil
+}
+
 func (s *Service) Create(ctx context.Context, ownerId string, slug string, name string, description string, avatarURL string, isPublic bool) (*Company, error) {
 	// 1. Валидация
 	if err := s.ValidateCompanyName(name); err != nil {
