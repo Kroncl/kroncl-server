@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"math/rand"
 	"time"
-
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type ConfirmationCode struct {
@@ -20,31 +18,32 @@ type ConfirmationCode struct {
 }
 
 // Генерация, очистка старых + отправка нового кода подтверждения
-func GenerateAndSendCode(pool *pgxpool.Pool, account *Account) (bool, error) {
+func (s *Service) GenerateAndSendCode(ctx context.Context, account *Account) (bool, error) {
 	// Генерация и отправка кода подтверждения
-	code, err := GenerateConfirmationCode(pool, account.ID, "email_confirmation", 6, 15)
+	code, err := s.GenerateConfirmationCode(ctx, account.ID, "email_confirmation", 6, 15)
 	if err != nil {
 		// Логируем ошибку, но не прерываем регистрацию
 		fmt.Printf("⚠️ Failed to generate confirmation code: %v\n", err)
 	} else {
-		// Отправляем email (заглушка)
-		go func() {
-			if err := SendConfirmationEmail(account.Email, code); err != nil {
-				fmt.Printf("⚠️ Failed to send confirmation email: %v\n", err)
-			} else {
-				fmt.Printf("✅ Confirmation email sent to %s\n", account.Email)
+		go func(ctx context.Context) {
+			select {
+			case <-ctx.Done():
+				return // Контекст отменен
+			default:
+				if err := SendConfirmationEmail(account.Email, code); err != nil {
+					// Логируем, но не паникуем
+					fmt.Printf("⚠️ Failed to send confirmation email: %v\n", err)
+				}
 			}
-		}()
+		}(context.WithoutCancel(ctx))
 	}
 	return true, nil
 }
 
 // GenerateConfirmationCode создает код подтверждения для пользователя
-func GenerateConfirmationCode(pool *pgxpool.Pool, accountID, codeType string, length, expiryMinutes int) (string, error) {
-	ctx := context.Background()
-
+func (s *Service) GenerateConfirmationCode(ctx context.Context, accountID, codeType string, length, expiryMinutes int) (string, error) {
 	// Начинаем транзакцию
-	tx, err := pool.Begin(ctx)
+	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return "", fmt.Errorf("failed to begin transaction: %w", err)
 	}
@@ -89,9 +88,7 @@ func GenerateConfirmationCode(pool *pgxpool.Pool, accountID, codeType string, le
 }
 
 // VerifyConfirmationCode проверяет код подтверждения
-func VerifyConfirmationCode(pool *pgxpool.Pool, accountID, code, codeType string) (bool, error) {
-	ctx := context.Background()
-
+func (s *Service) VerifyConfirmationCode(ctx context.Context, accountID, code, codeType string) (bool, error) {
 	query := `
 		UPDATE confirmation_codes 
 		SET used = TRUE
@@ -104,7 +101,7 @@ func VerifyConfirmationCode(pool *pgxpool.Pool, accountID, code, codeType string
 	`
 
 	var id string
-	err := pool.QueryRow(ctx, query, accountID, code, codeType).Scan(&id)
+	err := s.pool.QueryRow(ctx, query, accountID, code, codeType).Scan(&id)
 
 	if err != nil {
 		// Код не найден или не валиден
@@ -115,9 +112,7 @@ func VerifyConfirmationCode(pool *pgxpool.Pool, accountID, code, codeType string
 }
 
 // GetActiveCode возвращает активный код для пользователя
-func GetActiveCode(pool *pgxpool.Pool, accountID, codeType string) (*ConfirmationCode, error) {
-	ctx := context.Background()
-
+func (s *Service) GetActiveCode(ctx context.Context, accountID, codeType string) (*ConfirmationCode, error) {
 	query := `
 		SELECT id, account_id, code, type, expires_at, used, created_at
 		FROM confirmation_codes 
@@ -129,7 +124,7 @@ func GetActiveCode(pool *pgxpool.Pool, accountID, codeType string) (*Confirmatio
 	`
 
 	var code ConfirmationCode
-	err := pool.QueryRow(ctx, query, accountID, codeType).Scan(
+	err := s.pool.QueryRow(ctx, query, accountID, codeType).Scan(
 		&code.ID,
 		&code.AccountID,
 		&code.Code,
@@ -147,16 +142,14 @@ func GetActiveCode(pool *pgxpool.Pool, accountID, codeType string) (*Confirmatio
 }
 
 // CleanupExpiredCodes удаляет устаревшие коды
-func CleanupExpiredCodes(pool *pgxpool.Pool) (int64, error) {
-	ctx := context.Background()
-
+func (s *Service) CleanupExpiredCodes(ctx context.Context) (int64, error) {
 	query := `
 		DELETE FROM confirmation_codes 
 		WHERE expires_at < NOW() - INTERVAL '1 hour'
 		OR (used = TRUE AND created_at < NOW() - INTERVAL '24 hours')
 	`
 
-	result, err := pool.Exec(ctx, query)
+	result, err := s.pool.Exec(ctx, query)
 	if err != nil {
 		return 0, fmt.Errorf("failed to cleanup expired codes: %w", err)
 	}
@@ -179,11 +172,7 @@ func generateRandomCode(length int) string {
 
 // SendConfirmationEmail отправляет код на email (заглушка)
 func SendConfirmationEmail(email, code string) error {
-	// Здесь должна быть реализация отправки email
-	// Например, через SMTP, SendGrid, Mailgun и т.д.
-
 	fmt.Printf("📧 Отправляем код %s на email %s\n", code, email)
-	// В реальности: отправляем email с кодом
 
 	return nil
 }

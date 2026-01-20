@@ -33,6 +33,7 @@ func (h *Handlers) Register(w http.ResponseWriter, r *http.Request) {
 
 	// Создаем аккаунт и получаем токены
 	account, accessToken, refreshToken, err := h.service.Create(
+		r.Context(),
 		req.Email,
 		req.Name,
 		req.Password,
@@ -69,6 +70,7 @@ func (h *Handlers) Login(w http.ResponseWriter, r *http.Request) {
 
 	// Аутентификация
 	account, accessToken, refreshToken, err := h.service.Authenticate(
+		r.Context(),
 		req.Email,
 		req.Password,
 	)
@@ -114,7 +116,7 @@ func (h *Handlers) ConfirmEmail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Подтверждаем email
-	err := h.service.ConfirmEmail(req.UserID, req.Code)
+	err := h.service.ConfirmEmail(r.Context(), req.UserID, req.Code)
 	if err != nil {
 		core.SendValidationError(w, err.Error())
 		return
@@ -139,7 +141,7 @@ func (h *Handlers) ResendConfirmationCode(w http.ResponseWriter, r *http.Request
 	}
 
 	// Повторяем отправку кода
-	err := h.service.ResendConfirmationCode(claims.UserID)
+	err := h.service.ResendConfirmationCode(r.Context(), claims.UserID)
 	if err != nil {
 		// Просто отправляем ошибку как есть, middleware обработает
 		core.SendError(w, http.StatusBadRequest, err.Error())
@@ -165,7 +167,7 @@ func (h *Handlers) GetProfile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Получаем аккаунт из БД
-	account, err := h.service.GetByID(claims.UserID)
+	account, err := h.service.GetByID(r.Context(), claims.UserID)
 	if err != nil {
 		core.SendNotFound(w, "User not found")
 		return
@@ -195,7 +197,7 @@ func (h *Handlers) CheckEmailUnique(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Проверяем уникальность
-	unique, err := h.service.checkEmailUnique(email)
+	unique, err := h.service.checkEmailUnique(r.Context(), email)
 	if err != nil {
 		core.SendInternalError(w, err.Error())
 		return
@@ -256,7 +258,7 @@ func (h *Handlers) Refresh(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Обновляем токены
-	accessToken, refreshToken, err := h.service.RefreshTokens(req.RefreshToken)
+	accessToken, refreshToken, err := h.service.RefreshTokens(r.Context(), req.RefreshToken)
 	if err != nil {
 		core.SendUnauthorized(w, err.Error())
 		return
