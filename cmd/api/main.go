@@ -4,6 +4,7 @@ import (
 	"context"
 	"kroncl-server/internal/accounts"
 	"kroncl-server/internal/auth"
+	"kroncl-server/internal/companies"
 	"kroncl-server/internal/core"
 	"kroncl-server/utils"
 	"log"
@@ -49,6 +50,8 @@ func main() {
 	// Инициализируем сервисы
 	accountsService := accounts.NewService(pool, jwtService)
 	accountsHandlers := accounts.NewHandlers(accountsService)
+	companiesService := companies.NewService(pool, jwtService)
+	companiesHandlers := companies.NewHandlers(companiesService)
 
 	// Создаем роутер
 	r := chi.NewRouter()
@@ -75,10 +78,10 @@ func main() {
 
 		// обслуживание
 		r.Route("/account", func(r chi.Router) {
-			r.Post("/reg", accountsHandlers.Register)                        // публичный
-			r.Post("/check-email-unique", accountsHandlers.CheckEmailUniqie) // публичный
-			r.Post("/auth", accountsHandlers.Login)                          // публичный
-			r.Post("/refresh", accountsHandlers.Refresh)                     // публичный
+			r.Post("/reg", accountsHandlers.Register)
+			r.Get("/check-email-unique", accountsHandlers.CheckEmailUnique)
+			r.Post("/auth", accountsHandlers.Login)
+			r.Post("/refresh", accountsHandlers.Refresh)
 
 			// Защищенный маршрут для подтверждения email
 			r.Group(func(r chi.Router) {
@@ -93,14 +96,22 @@ func main() {
 		r.Group(func(r chi.Router) {
 			r.Use(jwtService.RequireAuth)
 
-			r.Route("/tm", func(r chi.Router) {
-				// управление транзакциями
-			})
-			r.Route("/hrm", func(r chi.Router) {
-				// управление персоналом
-			})
-			r.Route("/crm", func(r chi.Router) {
-				// управление клиентами
+			r.Route("/companies", func(r chi.Router) {
+				// обслуживание
+				r.Get("/check-slug-unique", companiesHandlers.CheckSlugUnique)
+
+				// конкретная компания
+				r.Route("/:id", func(r chi.Router) {
+					r.Route("/tm", func(r chi.Router) {
+						// управление транзакциями
+					})
+					r.Route("/hrm", func(r chi.Router) {
+						// управление персоналом
+					})
+					r.Route("/crm", func(r chi.Router) {
+						// управление клиентами
+					})
+				})
 			})
 		})
 	})

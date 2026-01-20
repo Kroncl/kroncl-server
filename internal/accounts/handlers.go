@@ -5,6 +5,7 @@ import (
 	"kroncl-server/internal/auth"
 	"kroncl-server/internal/core"
 	"net/http"
+	"strings"
 )
 
 // Handlers содержит HTTP хендлеры для аккаунтов
@@ -174,34 +175,64 @@ func (h *Handlers) GetProfile(w http.ResponseWriter, r *http.Request) {
 	core.SendSuccess(w, account, "Profile retrieved successfully")
 }
 
-// проверка уникальности почты
-func (h *Handlers) CheckEmailUniqie(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
+func (h *Handlers) CheckEmailUnique(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
 		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed")
 		return
 	}
 
-	var req struct {
-		Email string `json:"email"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		core.SendValidationError(w, "Invalid request format")
+	// Получаем email из query параметров
+	email := r.URL.Query().Get("email")
+	if email == "" {
+		core.SendValidationError(w, "email parameter is required")
 		return
 	}
 
-	ok, err := h.service.checkEmailUnique(req.Email)
+	// Валидация email
+	if !isValidEmail(email) {
+		core.SendValidationError(w, "Invalid email format")
+		return
+	}
+
+	// Проверяем уникальность
+	unique, err := h.service.checkEmailUnique(email)
+	if err != nil {
+		core.SendInternalError(w, err.Error())
+		return
+	}
 
 	if err != nil {
 		core.SendInternalError(w, err.Error())
 		return
 	}
 
-	if !ok {
+	if !unique {
 		core.SendValidationError(w, "The mail is not unique")
 		return
 	}
 
 	core.SendSuccess(w, map[string]interface{}{}, "The mail is unique")
+}
+
+// Вспомогательная функция для валидации email
+func isValidEmail(email string) bool {
+	// Простая проверка, можно использовать regex или validator
+	if len(email) > 254 {
+		return false
+	}
+
+	// Проверяем наличие @ и точки после нее
+	at := strings.LastIndex(email, "@")
+	if at < 1 || at > len(email)-4 {
+		return false
+	}
+
+	dot := strings.LastIndex(email[at:], ".")
+	if dot < 2 || dot > len(email[at:])-3 {
+		return false
+	}
+
+	return true
 }
 
 // Refresh обновляет токены по refresh токену
