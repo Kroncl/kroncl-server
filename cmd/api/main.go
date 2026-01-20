@@ -6,6 +6,7 @@ import (
 	"kroncl-server/internal/auth"
 	"kroncl-server/internal/companies"
 	"kroncl-server/internal/core"
+	"kroncl-server/internal/permissioner"
 	"kroncl-server/utils"
 	"log"
 	"net/http"
@@ -39,24 +40,25 @@ func main() {
 	log.Println("✅ Подключение к БД установлено")
 
 	jwtConfig := auth.LoadJWTConfig()
-
-	// jwt
 	jwtService := auth.NewJWTService(
 		jwtConfig.SecretKey,
 		jwtConfig.AccessDuration,
 		jwtConfig.RefreshDuration,
 	)
 
-	// Инициализируем сервисы
+	// Инициализация сервисов
 	accountsService := accounts.NewService(pool, jwtService)
 	accountsHandlers := accounts.NewHandlers(accountsService)
+
 	companiesService := companies.NewService(pool, jwtService)
 	companiesHandlers := companies.NewHandlers(companiesService)
+
+	permissionService := permissioner.NewService(pool)
 
 	// Создаем роутер
 	r := chi.NewRouter()
 
-	// Middleware
+	// Global middleware
 	r.Use(chimiddleware.Logger)
 	r.Use(chimiddleware.Recoverer)
 	r.Use(chimiddleware.RequestID)
@@ -76,14 +78,14 @@ func main() {
 	r.Route("/api", func(r chi.Router) {
 		r.Get("/health", core.HealthCheck)
 
-		// обслуживание
+		// Auth routes (public)
 		r.Route("/account", func(r chi.Router) {
 			r.Post("/reg", accountsHandlers.Register)
 			r.Get("/check-email-unique", accountsHandlers.CheckEmailUnique)
 			r.Post("/auth", accountsHandlers.Login)
 			r.Post("/refresh", accountsHandlers.Refresh)
 
-			// Защищенный маршрут для подтверждения email
+			// Protected auth routes
 			r.Group(func(r chi.Router) {
 				r.Use(jwtService.RequireAuth)
 				r.Get("/", accountsHandlers.GetProfile)
@@ -92,53 +94,59 @@ func main() {
 			})
 		})
 
-		// мясо
+		// Protected routes (require auth)
 		r.Group(func(r chi.Router) {
 			r.Use(jwtService.RequireAuth)
 
 			r.Route("/companies", func(r chi.Router) {
-				// обслуживание
+				// Company creation
 				r.Post("/", companiesHandlers.Create)
 				r.Get("/check-slug-unique", companiesHandlers.CheckSlugUnique)
 
-				// конкретная компания
-				r.Route("/:id", func(r chi.Router) {
-					r.Patch("/", companiesHandlers.Create)
+				// Specific company routes
+				r.Route("/{id}", func(r chi.Router) {
+					// Company context + access check
+					r.Use(
+						companies.CompanyMembership(pool),
+					)
 
-					// модули
+					// TM module
 					r.Route("/tm", func(r chi.Router) {
-						// управление транзакциями
+						r.Use(permissioner.RequirePermission(permissionService, "tm.view"))
+						// TM handlers will be here
 					})
+
+					// HRM module
 					r.Route("/hrm", func(r chi.Router) {
-						// управление персоналом
+						r.Use(permissioner.RequirePermission(permissionService, "hrm.view"))
+						// HRM handlers will be here
 					})
+
+					// CRM module
 					r.Route("/crm", func(r chi.Router) {
-						// управление клиентами
+						r.Use(permissioner.RequirePermission(permissionService, "crm.view"))
+						// CRM handlers will be here
 					})
 				})
 			})
 		})
 	})
 
-	// Запускаем сервер
+	// Запуск сервера
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
 	}
-
 	host := os.Getenv("HOST")
 	if host == "" {
-		host = "0.0.0.0" // Слушаем все интерфейсы по умолчанию
+		host = "0.0.0.0"
 	}
 
 	addr := host + ":" + port
 	log.Printf("🚀 Сервер запущен на http://%s", addr)
-
-	// Логируем все доступные адреса
 	log.Printf("📡 Доступ по:")
 	log.Printf("   - localhost: http://localhost:%s", port)
 	log.Printf("   - 127.0.0.1: http://127.0.0.1:%s", port)
-	log.Printf("   - LAN IP:    http://YOUR_LOCAL_IP:%s", port)
 
 	if err := http.ListenAndServe(addr, r); err != nil {
 		log.Fatalf("❌ Ошибка запуска сервера: %v", err)
