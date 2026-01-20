@@ -15,6 +15,17 @@ func NewHandlers(service *Service) *Handlers {
 	return &Handlers{service: service}
 }
 
+// обновление организации
+func (h *Handlers) Update(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPatch {
+		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+
+	// Отправляем ответ
+	core.SendCreated(w, nil, "Company updated successful.")
+}
+
 // создание организации
 func (h *Handlers) Create(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {

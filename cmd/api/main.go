@@ -103,6 +103,9 @@ func main() {
 
 				// конкретная компания
 				r.Route("/:id", func(r chi.Router) {
+					r.Patch("/", companiesHandlers.Create)
+
+					// модули
 					r.Route("/tm", func(r chi.Router) {
 						// управление транзакциями
 					})
