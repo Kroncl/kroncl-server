@@ -6,13 +6,14 @@ import (
 	"kroncl-server/internal/auth"
 	"kroncl-server/internal/companies"
 	"kroncl-server/internal/core"
+	"kroncl-server/internal/migrator"
 	"kroncl-server/internal/permissioner"
-	"kroncl-server/internal/tenant/migrator"
 	"kroncl-server/internal/tenant/storage"
 	"kroncl-server/utils"
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
@@ -52,7 +53,19 @@ func main() {
 	accountsService := accounts.NewService(pool, jwtService)
 	accountsHandlers := accounts.NewHandlers(accountsService)
 
-	migratorService, err := migrator.NewMigrator(pool, migrator.MigrationDir)
+	// Получаем абсолютный путь к папке migrations
+	cwd, err := os.Getwd()
+	if err != nil {
+		log.Fatal("Ошибка получения текущей директории:", err)
+	}
+
+	migrationsPath := filepath.Join(cwd, "migrations")
+	log.Printf("📁 Путь к миграциям: %s", migrationsPath)
+
+	migratorService, err := migrator.NewMigrator(pool, migrator.Config{
+		MigrationsPath: migrationsPath,
+		SchemaType:     migrator.SchemaTypeTenant,
+	})
 	if err != nil {
 		log.Fatal("Migrator init error:", err)
 	}

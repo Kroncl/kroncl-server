@@ -6,7 +6,7 @@ import (
 	"log"
 	"time"
 
-	"kroncl-server/internal/tenant/migrator"
+	"kroncl-server/internal/migrator"
 )
 
 type Service struct {
@@ -34,14 +34,13 @@ func (s *Service) InitStorage(ctx context.Context, companyID string) (*Storage, 
 	return storage, nil
 }
 
-// runProvisioningWorker фоновый воркер
 func (s *Service) runProvisioningWorker(storageID, schemaName string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
 	log.Printf("Starting provisioning for storage %s, schema: %s", storageID, schemaName)
 
-	// 1. Обновляем статус на 'provisioning' (хотя уже такой, но для ясности)
+	// 1. Обновляем статус
 	s.repository.UpdateStorageStatus(ctx, storageID, string(StorageStatusProvisioning))
 
 	// 2. Создаем схему
@@ -51,7 +50,7 @@ func (s *Service) runProvisioningWorker(storageID, schemaName string) {
 		return
 	}
 
-	// 3. Применяем миграции
+	// 3. Применяем миграции тенантов
 	if err := s.migrator.Up(ctx, schemaName); err != nil {
 		log.Printf("Failed to apply migrations: %v", err)
 		s.repository.UpdateStorageStatus(ctx, storageID, string(StorageStatusFailed))
@@ -64,7 +63,7 @@ func (s *Service) runProvisioningWorker(storageID, schemaName string) {
 		return
 	}
 
-	log.Printf("Provisioning completed for storage %s", storageID)
+	log.Printf("✅ Provisioning completed for storage %s", storageID)
 }
 
 // GetStorageStatus возвращает статус хранилища
