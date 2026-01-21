@@ -23,7 +23,7 @@ func SendErrorWithData(w http.ResponseWriter, statusCode int, message string, da
 		"message": message,
 	}
 
-	if data != nil && len(data) > 0 {
+	if len(data) > 0 {
 		response["data"] = data
 	}
 

@@ -203,11 +203,6 @@ func (h *Handlers) CheckEmailUnique(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err != nil {
-		core.SendInternalError(w, err.Error())
-		return
-	}
-
 	if !unique {
 		core.SendValidationError(w, "The mail is not unique")
 		return

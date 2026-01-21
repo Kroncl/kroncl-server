@@ -53,7 +53,7 @@ func main() {
 	}
 
 	// Проверяем подключение к БД (логика в runCommand)
-	log.Printf("🔗 Подключаюсь к базе: %s@%s:%s/%s",
+	log.Printf("🔗 Подключаюсь к базе: %s@%s:%d/%s",
 		config.Username, config.Host, config.Port, config.Name)
 
 	// Получаем абсолютный путь к миграциям
