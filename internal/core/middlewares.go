@@ -14,7 +14,7 @@ import (
 // Response стандартная структура ответа API
 type Response struct {
 	Status  bool        `json:"status"`
-	Message string      `json:"message,omitempty"` // Новое поле для сообщений
+	Message string      `json:"message,omitempty"`
 	Data    interface{} `json:"data"`
 	Meta    Meta        `json:"_meta"`
 }

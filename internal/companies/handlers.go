@@ -61,8 +61,26 @@ func (h *Handlers) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	companyID := chi.URLParam(r, "id")
+	if companyID == "" {
+		core.SendValidationError(w, "Company ID required.")
+		return
+	}
+
+	var req UpdateRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		core.SendValidationError(w, "Incorrect company data.")
+		return
+	}
+
+	updatedCompany, err := h.service.UpdateById(r.Context(), companyID, &req)
+	if err != nil {
+		core.SendValidationError(w, fmt.Sprintf("Company update error: %v", err))
+		return
+	}
+
 	// Отправляем ответ
-	core.SendCreated(w, nil, "Company updated successful.")
+	core.SendCreated(w, updatedCompany, "Company updated successful.")
 }
 
 // получение организаций пользователя

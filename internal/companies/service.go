@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"kroncl-server/internal/auth"
+	"kroncl-server/internal/core"
 	"strings"
 	"time"
 
@@ -30,6 +31,71 @@ func NewService(pool *pgxpool.Pool, jwtService *auth.JWTService) *Service {
 	}
 }
 
+// обновление компании
+func (s *Service) UpdateById(ctx context.Context, companyID string, req *UpdateRequest) (*Company, error) {
+	updater := core.NewUpdater("companies")
+
+	if req.Name != nil && *req.Name != "" {
+		if err := s.ValidateCompanyName(*req.Name); err != nil {
+			return nil, err
+		}
+		updater.SetString("name", *req.Name)
+	}
+	if req.Description != nil {
+		updater.Set("description", *req.Description)
+	}
+	if req.AvatarUrl != nil {
+		updater.SetString("avatar_url", *req.AvatarUrl)
+	}
+
+	updater.Where("id = $1", companyID)
+
+	query, args := updater.Build()
+	if query == "" {
+		return s.GetCompanyByID(ctx, companyID)
+	}
+
+	// Выполняем запрос
+	_, err := s.pool.Exec(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update company: %w", err)
+	}
+
+	// Возвращаем обновленную компанию
+	return s.GetCompanyByID(ctx, companyID)
+}
+
+// получение организации
+// без принадлежности к пользователю
+func (s *Service) GetCompanyByID(ctx context.Context, companyID string) (*Company, error) {
+	query := `
+		SELECT id, slug, name, description, avatar_url, is_public,
+		       created_at, updated_at
+		FROM companies 
+		WHERE id = $1
+	`
+
+	var company Company
+	err := s.pool.QueryRow(ctx, query, companyID).Scan(
+		&company.ID,
+		&company.Slug,
+		&company.Name,
+		&company.Description,
+		&company.AvatarUrl,
+		&company.IsPublic,
+		&company.CreatedAt,
+		&company.UpdatedAt,
+	)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to get company: %w", err)
+	}
+
+	return &company, nil
+}
+
+// получение организации с метками
+// принадлежности пользователя
 func (s *Service) GetUserCompanyById(ctx context.Context, userID string, companyID string) (*UserCompany, error) {
 	query := `
 		SELECT 
