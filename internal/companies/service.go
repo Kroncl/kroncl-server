@@ -30,7 +30,43 @@ func NewService(pool *pgxpool.Pool, jwtService *auth.JWTService) *Service {
 	}
 }
 
-// GetUserCompanies возвращает список организаций пользователя с ролью и пагинацией
+func (s *Service) GetUserCompanyById(ctx context.Context, userID string, companyID string) (*UserCompany, error) {
+	query := `
+		SELECT 
+			c.id, c.slug, c.name, c.description, c.avatar_url, c.is_public,
+			c.created_at, c.updated_at,
+			ca.role_id, r.code as role_code, r.name as role_name,
+			ca.created_at as joined_at
+		FROM companies c
+		INNER JOIN company_accounts ca ON c.id = ca.company_id
+		INNER JOIN roles r ON ca.role_id = r.id
+		WHERE c.id = $1 AND ca.account_id = $2
+	`
+
+	var company UserCompany
+	err := s.pool.QueryRow(ctx, query, companyID, userID).Scan(
+		&company.ID,
+		&company.Slug,
+		&company.Name,
+		&company.Description,
+		&company.AvatarUrl,
+		&company.IsPublic,
+		&company.CreatedAt,
+		&company.UpdatedAt,
+		&company.RoleID,
+		&company.RoleCode,
+		&company.RoleName,
+		&company.JoinedAt,
+	)
+
+	if err != nil {
+		return nil, fmt.Errorf("company not found for user: %w", err)
+	}
+
+	return &company, nil
+}
+
+// возвращает список организаций пользователя с ролью и пагинацией
 func (s *Service) GetUserCompanies(ctx context.Context, userID string, req *GetUserCompaniesRequest) (*GetUserCompaniesResponse, error) {
 	// Валидация параметров
 	if req.Page < 1 {
@@ -179,7 +215,6 @@ func (s *Service) Create(ctx context.Context, ownerId string, slug string, name 
 	if err != nil {
 		return nil, fmt.Errorf("failed to start transaction: %w", err)
 	}
-	// ВАЖНО: откатываем если не закоммитили
 	defer func() {
 		if tx != nil {
 			tx.Rollback(ctx)

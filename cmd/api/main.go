@@ -109,6 +109,7 @@ func main() {
 					// Company context + access check
 					r.Use(companies.CompanyMembership(pool))
 
+					r.Get("/", companiesHandlers.GetUserCompanyById)
 					r.With(permissioner.RequirePermission(permissionService, "company.update")).Patch("/", companiesHandlers.Update)
 
 					// TM module

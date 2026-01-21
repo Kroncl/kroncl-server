@@ -2,19 +2,56 @@ package companies
 
 import (
 	"encoding/json"
+	"fmt"
 	"kroncl-server/internal/auth"
 	"kroncl-server/internal/core"
 	"net/http"
 	"strconv"
+
+	"github.com/go-chi/chi/v5"
 )
 
-// Handlers содержит HTTP хендлеры для компаний
 type Handlers struct {
 	service *Service
 }
 
 func NewHandlers(service *Service) *Handlers {
 	return &Handlers{service: service}
+}
+
+// получение организации
+func (h *Handlers) GetUserCompanyById(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
+		return
+	}
+
+	// получаем пользователя из контекста
+	account, ok := auth.GetUserFromContext(r.Context())
+	if !ok {
+		core.SendUnauthorized(w, "Authentication required.")
+		return
+	}
+
+	// получаем company_id из URL параметра (не из query!)
+	companyID := chi.URLParam(r, "id")
+	if companyID == "" {
+		core.SendValidationError(w, "Company ID required.")
+		return
+	}
+
+	data, err := h.service.GetUserCompanyById(
+		r.Context(),
+		account.UserID,
+		companyID,
+	)
+	if err != nil {
+		core.SendNotFound(w, fmt.Sprintf("Company not found: %v", err))
+		return
+	}
+
+	// Отправляем ответ (используйте SendSuccess для GET запроса)
+	core.SendSuccess(w, data, "Company retrieved successfully.")
 }
 
 // обновление организации
