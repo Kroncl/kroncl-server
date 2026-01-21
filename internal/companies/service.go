@@ -3,8 +3,8 @@ package companies
 import (
 	"context"
 	"fmt"
-	"kroncl-server/internal/auth"
 	"kroncl-server/internal/core"
+	"kroncl-server/internal/tenant/storage"
 	"strings"
 	"time"
 
@@ -20,14 +20,14 @@ const (
 )
 
 type Service struct {
-	pool       *pgxpool.Pool
-	jwtService *auth.JWTService
+	pool    *pgxpool.Pool
+	storage *storage.Service
 }
 
-func NewService(pool *pgxpool.Pool, jwtService *auth.JWTService) *Service {
+func NewService(pool *pgxpool.Pool, storage *storage.Service) *Service {
 	return &Service{
-		pool:       pool,
-		jwtService: jwtService,
+		pool:    pool,
+		storage: storage,
 	}
 }
 
@@ -261,7 +261,7 @@ func (s *Service) GetUserCompanies(ctx context.Context, userID string, req *GetU
 	}, nil
 }
 
-func (s *Service) Create(ctx context.Context, ownerId string, slug string, name string, description string, avatarURL string, isPublic bool) (*Company, error) {
+func (s *Service) Create(ctx context.Context, ownerId string, slug string, name string, description string, avatarURL string, isPublic bool) (*CreateCompanyResponse, error) {
 	// 1. Валидация
 	if err := s.ValidateCompanyName(name); err != nil {
 		return nil, err
@@ -371,7 +371,17 @@ func (s *Service) Create(ctx context.Context, ownerId string, slug string, name 
 	// Обнуляем tx, чтобы defer не откатил
 	tx = nil
 
-	return &company, nil
+	// Запускаем процесс создания хранилища
+	storage, err := s.storage.InitStorage(ctx, company.ID)
+	if err != nil || storage == nil {
+		return nil, fmt.Errorf("error init company storage: %w", err)
+	}
+	companyWithStorage := CreateCompanyResponse{
+		Company: company,
+		Storage: storage,
+	}
+
+	return &companyWithStorage, nil
 }
 
 func (s *Service) checkSlugUnique(ctx context.Context, slug string) (bool, error) {

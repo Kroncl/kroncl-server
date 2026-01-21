@@ -1,6 +1,9 @@
 package companies
 
-import "time"
+import (
+	"kroncl-server/internal/tenant/storage"
+	"time"
+)
 
 // Company модель компании
 type Company struct {
@@ -60,4 +63,9 @@ type UpdateRequest struct {
 	Name        *string `json:"name,omitempty"`
 	Description *string `json:"description,omitempty"`
 	AvatarUrl   *string `json:"avatar_url,omitempty"`
+}
+
+type CreateCompanyResponse struct {
+	Company
+	Storage *storage.Storage `json:"storage"`
 }

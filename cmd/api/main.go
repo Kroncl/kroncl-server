@@ -7,6 +7,8 @@ import (
 	"kroncl-server/internal/companies"
 	"kroncl-server/internal/core"
 	"kroncl-server/internal/permissioner"
+	"kroncl-server/internal/tenant/migrator"
+	"kroncl-server/internal/tenant/storage"
 	"kroncl-server/utils"
 	"log"
 	"net/http"
@@ -50,9 +52,16 @@ func main() {
 	accountsService := accounts.NewService(pool, jwtService)
 	accountsHandlers := accounts.NewHandlers(accountsService)
 
-	companiesService := companies.NewService(pool, jwtService)
-	companiesHandlers := companies.NewHandlers(companiesService)
+	migratorService, err := migrator.NewMigrator(pool, migrator.MigrationDir)
+	if err != nil {
+		log.Fatal("Migrator init error:", err)
+	}
 
+	storageRepository := storage.NewRepository(pool)
+	storageService := storage.NewService(storageRepository, migratorService)
+	storageHandlers := storage.NewHandlers(storageService)
+	companiesService := companies.NewService(pool, storageService)
+	companiesHandlers := companies.NewHandlers(companiesService)
 	permissionService := permissioner.NewService(pool)
 
 	// Создаем роутер
@@ -111,6 +120,11 @@ func main() {
 
 					r.Get("/", companiesHandlers.GetUserCompanyById)
 					r.With(permissioner.RequirePermission(permissionService, "company.update")).Patch("/", companiesHandlers.Update)
+
+					// company storage
+					r.Route("/storage", func(r chi.Router) {
+						r.Get("/", storageHandlers.Get)
+					})
 
 					// TM module
 					r.Route("/tm", func(r chi.Router) {
