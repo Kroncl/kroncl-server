@@ -2,8 +2,10 @@ package accounts
 
 import (
 	"encoding/json"
+	"fmt"
 	"kroncl-server/internal/auth"
 	"kroncl-server/internal/core"
+	"log"
 	"net/http"
 	"strings"
 )
@@ -166,10 +168,12 @@ func (h *Handlers) GetProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	log.Printf("user id: %s", claims.UserID)
+
 	// Получаем аккаунт из БД
 	account, err := h.service.GetByID(r.Context(), claims.UserID)
 	if err != nil {
-		core.SendNotFound(w, "User not found")
+		core.SendNotFound(w, fmt.Sprintf("User not found: %s", err.Error()))
 		return
 	}
 
@@ -266,4 +270,35 @@ func (h *Handlers) Refresh(w http.ResponseWriter, r *http.Request) {
 	}
 
 	core.SendSuccess(w, data, "Tokens refreshed successfully")
+}
+
+// обновление данных пользователя (avatar/name)
+func (h *Handlers) Update(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPatch {
+		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+
+	// Получаем пользователя из контекста
+	claims, ok := auth.GetUserFromContext(r.Context())
+	if !ok {
+		core.SendUnauthorized(w, "Authentication required")
+		return
+	}
+
+	var req UpdateRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		core.SendValidationError(w, "Incorrect account data.")
+		return
+	}
+
+	// Получаем аккаунт из БД
+	account, err := h.service.UpdateById(r.Context(), claims.UserID, &req)
+	if err != nil {
+		core.SendNotFound(w, fmt.Sprintf("User update error: %s", err.Error()))
+		return
+	}
+
+	// Отправляем профиль
+	core.SendSuccess(w, account, "Profile updated successfully")
 }

@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"fmt"
 	"kroncl-server/internal/core"
 	"net/http"
 
@@ -13,6 +14,35 @@ type Handlers struct {
 
 func NewHandlers(service *Service) *Handlers {
 	return &Handlers{service: service}
+}
+
+// получение ресурсов хранилища
+func (h *Handlers) GetSources(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
+		return
+	}
+
+	// Получаем company_id из URL параметра
+	companyID := chi.URLParam(r, "id")
+	if companyID == "" {
+		core.SendValidationError(w, "Company ID required.")
+		return
+	}
+
+	storage, err := h.service.repository.GetStorageByCompanyID(r.Context(), companyID)
+	if err != nil {
+		core.SendValidationError(w, "Company storage was not initialized.")
+		return
+	}
+
+	sources, err := h.service.repository.GetStorageSources(r.Context(), storage.SchemaName)
+	if err != nil {
+		core.SendValidationError(w, fmt.Sprintf("Failed get company storage sources stat: %s", err.Error()))
+		return
+	}
+
+	core.SendSuccess(w, sources, "Company storage sources retrieved successfully.")
 }
 
 // получение хранилища (полный объект)

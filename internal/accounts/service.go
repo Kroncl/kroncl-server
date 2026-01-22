@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"kroncl-server/internal/auth"
+	"kroncl-server/internal/core"
 	"strings"
 	"time"
 
@@ -24,6 +25,36 @@ func NewService(pool *pgxpool.Pool, jwtService *auth.JWTService) *Service {
 		pool:       pool,
 		jwtService: jwtService,
 	}
+}
+
+// обновление компании
+func (s *Service) UpdateById(ctx context.Context, accountID string, req *UpdateRequest) (*Account, error) {
+	updater := core.NewUpdater("accounts")
+
+	if req.Name != nil && *req.Name != "" {
+		if err := s.validateName(*req.Name); err != nil {
+			return nil, err
+		}
+		updater.SetString("name", *req.Name)
+	}
+	if req.AvatarUrl != nil {
+		updater.SetString("avatar_url", *req.AvatarUrl)
+	}
+
+	updater.Where("id = $1", accountID)
+
+	query, args := updater.Build()
+	if query == "" {
+		return s.GetByID(ctx, accountID)
+	}
+
+	// Выполняем запрос
+	_, err := s.pool.Exec(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update account: %w", err)
+	}
+
+	return s.GetByID(ctx, accountID)
 }
 
 // Create создает новый аккаунт и возвращает токены
@@ -168,9 +199,15 @@ func (s *Service) createAccountInDB(ctx context.Context, email, name, hashedPass
 	currentTime := time.Now()
 
 	query := `
-		INSERT INTO accounts (id, email, name, password_hash, auth_type, status, created_at, updated_at) 
+		INSERT INTO accounts (
+			id, email, name, password_hash, auth_type, status, 
+			created_at, updated_at
+		) 
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-		RETURNING id, email, name, auth_type, status, created_at, updated_at
+		RETURNING 
+			id, email, name, auth_type, status, 
+			created_at, updated_at, 
+			COALESCE(avatar_url, '') as avatar_url
 	`
 
 	var account Account
@@ -193,6 +230,7 @@ func (s *Service) createAccountInDB(ctx context.Context, email, name, hashedPass
 		&account.Status,
 		&account.CreatedAt,
 		&account.UpdatedAt,
+		&account.AvatarURL,
 	)
 
 	if err != nil {
@@ -204,7 +242,10 @@ func (s *Service) createAccountInDB(ctx context.Context, email, name, hashedPass
 
 func (s *Service) GetByEmail(ctx context.Context, email string) (*Account, error) {
 	query := `
-		SELECT id, email, name, auth_type, status, created_at, updated_at
+		SELECT 
+			id, email, name, auth_type, status, 
+			created_at, updated_at, 
+			COALESCE(avatar_url, '') as avatar_url
 		FROM accounts 
 		WHERE email = $1
 	`
@@ -218,6 +259,7 @@ func (s *Service) GetByEmail(ctx context.Context, email string) (*Account, error
 		&account.Status,
 		&account.CreatedAt,
 		&account.UpdatedAt,
+		&account.AvatarURL,
 	)
 
 	if err != nil {
@@ -230,7 +272,10 @@ func (s *Service) GetByEmail(ctx context.Context, email string) (*Account, error
 // возвращает аккаунт по ID
 func (s *Service) GetByID(ctx context.Context, id string) (*Account, error) {
 	query := `
-		SELECT id, email, name, auth_type, status, created_at, updated_at
+		SELECT 
+			id, email, name, auth_type, status, 
+			created_at, updated_at, 
+			COALESCE(avatar_url, '') as avatar_url
 		FROM accounts 
 		WHERE id = $1
 	`
@@ -244,6 +289,7 @@ func (s *Service) GetByID(ctx context.Context, id string) (*Account, error) {
 		&account.Status,
 		&account.CreatedAt,
 		&account.UpdatedAt,
+		&account.AvatarURL,
 	)
 
 	if err != nil {

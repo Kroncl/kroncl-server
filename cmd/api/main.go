@@ -111,6 +111,7 @@ func main() {
 			r.Group(func(r chi.Router) {
 				r.Use(jwtService.RequireAuth)
 				r.Get("/", accountsHandlers.GetProfile)
+				r.Patch("/", accountsHandlers.Update)
 				r.Post("/confirm", accountsHandlers.ConfirmEmail)
 				r.Post("/confirm/resend", accountsHandlers.ResendConfirmationCode)
 			})
@@ -137,6 +138,7 @@ func main() {
 					// company storage
 					r.Route("/storage", func(r chi.Router) {
 						r.Get("/", storageHandlers.Get)
+						r.With(permissioner.RequirePermission(permissionService, "storage.sources")).Get("/sources", storageHandlers.GetSources)
 					})
 
 					// TM module
