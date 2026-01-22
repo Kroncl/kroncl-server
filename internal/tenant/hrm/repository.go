@@ -14,6 +14,6 @@ func NewRepository(pool *pgxpool.Pool) *Repository {
 	return &Repository{pool: pool}
 }
 
-func (r *Repository) CreateEmployee(ctx context.Context) (*CreateEmployeeResponse, error) {
+func (r *Repository) CreateEmployee(ctx context.Context, req *CreateEmployeeRequest) (*CreateEmployeeResponse, error) {
 	return nil, nil
 }
