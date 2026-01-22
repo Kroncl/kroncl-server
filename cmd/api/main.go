@@ -132,6 +132,10 @@ func main() {
 					// Company context + access check
 					r.Use(companies.CompanyMembership(pool))
 
+					// по хорошему уже на этом моменте мы
+					// должны иметь pool для схемы тенанта
+					// и передать этот пул в нужные репозитории модулей
+
 					r.Get("/", companiesHandlers.GetUserCompanyById)
 					r.With(permissioner.RequirePermission(permissionService, "company.update")).Patch("/", companiesHandlers.Update)
 
@@ -141,16 +145,16 @@ func main() {
 						r.With(permissioner.RequirePermission(permissionService, "storage.sources")).Get("/sources", storageHandlers.GetSources)
 					})
 
-					// TM module
-					r.Route("/tm", func(r chi.Router) {
-						r.Use(permissioner.RequirePermission(permissionService, "tm.view"))
-						// TM handlers will be here
-					})
-
 					// HRM module
 					r.Route("/hrm", func(r chi.Router) {
 						r.Use(permissioner.RequirePermission(permissionService, "hrm.view"))
 						// HRM handlers will be here
+					})
+
+					// TM module
+					r.Route("/tm", func(r chi.Router) {
+						r.Use(permissioner.RequirePermission(permissionService, "tm.view"))
+						// TM handlers will be here
 					})
 
 					// CRM module
