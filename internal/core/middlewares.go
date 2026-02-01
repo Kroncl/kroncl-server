@@ -16,7 +16,7 @@ type Response struct {
 	Status  bool        `json:"status"`
 	Message string      `json:"message,omitempty"`
 	Data    interface{} `json:"data"`
-	Meta    Meta        `json:"_meta"`
+	Meta    Meta        `json:"meta"`
 }
 
 type Meta struct {

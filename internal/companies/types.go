@@ -44,11 +44,15 @@ type GetUserCompaniesRequest struct {
 
 // GetUserCompaniesResponse ответ с пагинацией
 type GetUserCompaniesResponse struct {
-	Companies []UserCompany `json:"companies"`
-	Total     int           `json:"total"`
-	Page      int           `json:"page"`
-	Limit     int           `json:"limit"`
-	Pages     int           `json:"pages"`
+	Companies  []UserCompany `json:"companies"`
+	Pagination Pagination    `json:"pagination"`
+}
+
+type Pagination struct {
+	Total int `json:"total"`
+	Page  int `json:"page"`
+	Limit int `json:"limit"`
+	Pages int `json:"pages"`
 }
 
 // Role модель роли
