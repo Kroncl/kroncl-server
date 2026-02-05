@@ -14,7 +14,6 @@ type Account struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
-// Использование в HRM и ...
 type AccountPublic struct {
 	ID        string    `json:"id"`
 	Name      string    `json:"name"`

@@ -19,6 +19,94 @@ func NewHandlers(service *Service) *Handlers {
 	return &Handlers{service: service}
 }
 
+// получение одного участника компании
+func (h *Handlers) GetCompanyMember(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
+		return
+	}
+
+	// получаем ID компании из URL
+	companyID := chi.URLParam(r, "id")
+	if companyID == "" {
+		core.SendValidationError(w, "Company ID required.")
+		return
+	}
+
+	// получаем ID участника из URL
+	memberID := chi.URLParam(r, "accountId")
+	if memberID == "" {
+		core.SendValidationError(w, "Member ID required.")
+		return
+	}
+
+	// получаем информацию об участнике
+	member, err := h.service.GetCompanyMember(r.Context(), companyID, memberID)
+	if err != nil {
+		core.SendNotFound(w, fmt.Sprintf("Company member not found: %v", err))
+		return
+	}
+
+	// отправляем ответ
+	core.SendSuccess(w, member, "Company member retrieved successfully.")
+}
+
+// получение участников компании с фильтрами (расширенная версия)
+func (h *Handlers) GetCompanyMembers(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
+		return
+	}
+
+	// получаем ID компании из URL
+	companyID := chi.URLParam(r, "id")
+	if companyID == "" {
+		core.SendValidationError(w, "Company ID required.")
+		return
+	}
+
+	// парсим параметры пагинации
+	pagination := core.GetDefaultPaginationParams(r)
+
+	// создаем запрос с фильтрами
+	req := &GetCompanyMembersRequest{
+		Page:      pagination.Page,
+		Limit:     pagination.Limit,
+		Search:    r.URL.Query().Get("search"),
+		Role:      r.URL.Query().Get("role"),
+		SortBy:    r.URL.Query().Get("sort_by"),
+		SortOrder: r.URL.Query().Get("sort_order"),
+	}
+
+	// валидация роли
+	if req.Role != "" && req.Role != "all" {
+		validRoles := map[string]bool{
+			"owner":  true,
+			"admin":  true,
+			"member": true,
+			"guest":  true,
+		}
+		if !validRoles[req.Role] {
+			core.SendValidationError(w, "Invalid role. Allowed values: owner, admin, member, guest, all")
+			return
+		}
+	}
+
+	// получаем участников компании с фильтрами
+	response, err := h.service.GetCompanyMembers(
+		r.Context(),
+		companyID,
+		req,
+	)
+	if err != nil {
+		core.SendInternalError(w, fmt.Sprintf("Failed to get company members: %v", err))
+		return
+	}
+
+	// отправляем ответ
+	core.SendSuccess(w, response, "Company members retrieved successfully.")
+}
+
 // получение организации
 func (h *Handlers) GetUserCompanyById(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
