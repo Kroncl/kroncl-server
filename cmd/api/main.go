@@ -13,7 +13,11 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"sync"
+	"syscall"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
@@ -23,6 +27,57 @@ import (
 )
 
 func main() {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// chanels
+	serverErrors := make(chan error, 1)
+	signals := make(chan os.Signal, 1)
+	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
+
+	var wg sync.WaitGroup
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if err := runServer(ctx, serverErrors); err != nil {
+			log.Printf("Ошибка запуска сервера: %v", err)
+			serverErrors <- err
+		}
+	}()
+
+	// Ожидаем сигналов или ошибок
+	select {
+	case err := <-serverErrors:
+		log.Printf("Ошибка в работе сервера: %v", err)
+		cancel()
+	case sig := <-signals:
+		log.Printf("Получен сигнал: %v. Начинаем graceful shutdown...", sig)
+		cancel()
+
+		// Даем серверу время на завершение обработки запросов
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer shutdownCancel()
+
+		// Ждем завершения всех горутин
+		done := make(chan struct{})
+		go func() {
+			wg.Wait()
+			close(done)
+		}()
+
+		select {
+		case <-shutdownCtx.Done():
+			log.Println("Таймаут graceful shutdown, принудительное завершение")
+		case <-done:
+			log.Println("Все горутины завершили работу")
+		}
+	}
+
+	log.Println("Сервер остановлен")
+}
+
+func runServer(ctx context.Context, serverErrors chan<- error) error {
 	err := godotenv.Load()
 	if err != nil {
 		log.Println("Внимание: не удалось загрузить .env файл")
@@ -31,16 +86,27 @@ func main() {
 	dbConfig := utils.LoadDBConfigFromEnv()
 	dsn, err := utils.BuildDSN(dbConfig)
 	if err != nil {
-		log.Fatal("Ошибка формирования DSN:", err)
+		return err
 	}
 
-	pool, err := pgxpool.New(context.Background(), dsn)
+	pool, err := pgxpool.New(ctx, dsn)
 	if err != nil {
-		log.Fatal("Ошибка подключения к БД:", err)
+		return err
 	}
 	defer pool.Close()
 
-	log.Println("✅ Подключение к БД установлено")
+	// Проверка соединения с БД
+	if err := pool.Ping(ctx); err != nil {
+		return err
+	}
+	log.Println("Подключение к БД установлено")
+
+	// close pool
+	go func() {
+		<-ctx.Done()
+		log.Println("Закрытие пула соединений с БД...")
+		pool.Close()
+	}()
 
 	jwtConfig := auth.LoadJWTConfig()
 	jwtService := auth.NewJWTService(
@@ -49,14 +115,14 @@ func main() {
 		jwtConfig.RefreshDuration,
 	)
 
-	// Инициализация сервисов
+	// system services
 	accountsService := accounts.NewService(pool, jwtService)
 	accountsHandlers := accounts.NewHandlers(accountsService)
 
-	// Получаем абсолютный путь к папке migrations
+	// migrations
 	cwd, err := os.Getwd()
 	if err != nil {
-		log.Fatal("Ошибка получения текущей директории:", err)
+		return err
 	}
 
 	migrationsPath := filepath.Join(cwd, "migrations")
@@ -67,9 +133,10 @@ func main() {
 		SchemaType:     migrator.SchemaTypeTenant,
 	})
 	if err != nil {
-		log.Fatal("Migrator init error:", err)
+		return err
 	}
 
+	// company system services
 	storageRepository := storage.NewRepository(pool)
 	storageService := storage.NewService(storageRepository, migratorService)
 	storageHandlers := storage.NewHandlers(storageService)
@@ -77,10 +144,10 @@ func main() {
 	companiesHandlers := companies.NewHandlers(companiesService)
 	permissionService := permissioner.NewService(pool)
 
-	// Создаем роутер
+	// init router
 	r := chi.NewRouter()
 
-	// Global middleware
+	// global middleware
 	r.Use(chimiddleware.Logger)
 	r.Use(chimiddleware.Recoverer)
 	r.Use(chimiddleware.RequestID)
@@ -148,26 +215,13 @@ func main() {
 					// HRM module
 					r.Route("/hrm", func(r chi.Router) {
 						r.Use(permissioner.RequirePermission(permissionService, "hrm.view"))
-						// HRM handlers will be here
-					})
-
-					// TM module
-					r.Route("/tm", func(r chi.Router) {
-						r.Use(permissioner.RequirePermission(permissionService, "tm.view"))
-						// TM handlers will be here
-					})
-
-					// CRM module
-					r.Route("/crm", func(r chi.Router) {
-						r.Use(permissioner.RequirePermission(permissionService, "crm.view"))
-						// CRM handlers will be here
 					})
 				})
 			})
 		})
 	})
 
-	// Запуск сервера
+	// http + timeoutes
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
@@ -178,12 +232,41 @@ func main() {
 	}
 
 	addr := host + ":" + port
-	log.Printf("🚀 Сервер запущен на http://%s", addr)
-	log.Printf("📡 Доступ по:")
-	log.Printf("   - localhost: http://localhost:%s", port)
-	log.Printf("   - 127.0.0.1: http://127.0.0.1:%s", port)
 
-	if err := http.ListenAndServe(addr, r); err != nil {
-		log.Fatalf("❌ Ошибка запуска сервера: %v", err)
+	server := &http.Server{
+		Addr:         addr,
+		Handler:      r,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 30 * time.Second,
+		IdleTimeout:  60 * time.Second,
 	}
+
+	// run it
+	go func() {
+		log.Printf("🚀 Сервер запущен на http://%s", addr)
+		log.Printf("📡 Доступ по:")
+		log.Printf("   - localhost: http://localhost:%s", port)
+		log.Printf("   - 127.0.0.1: http://127.0.0.1:%s", port)
+
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Printf("❌ Ошибка сервера: %v", err)
+			serverErrors <- err
+		}
+	}()
+
+	// stop signal
+	<-ctx.Done()
+	log.Println("Получен сигнал завершения, останавливаем сервер...")
+
+	// Graceful shutdown сервера
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer shutdownCancel()
+
+	if err := server.Shutdown(shutdownCtx); err != nil {
+		log.Printf("Ошибка при graceful shutdown сервера: %v", err)
+		return err
+	}
+
+	log.Println("HTTP сервер корректно остановлен")
+	return nil
 }
