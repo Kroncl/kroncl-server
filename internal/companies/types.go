@@ -1,6 +1,7 @@
 package companies
 
 import (
+	"kroncl-server/internal/core"
 	"kroncl-server/internal/tenant/storage"
 	"time"
 )
@@ -44,15 +45,8 @@ type GetUserCompaniesRequest struct {
 
 // GetUserCompaniesResponse ответ с пагинацией
 type GetUserCompaniesResponse struct {
-	Companies  []UserCompany `json:"companies"`
-	Pagination Pagination    `json:"pagination"`
-}
-
-type Pagination struct {
-	Total int `json:"total"`
-	Page  int `json:"page"`
-	Limit int `json:"limit"`
-	Pages int `json:"pages"`
+	Companies  []UserCompany   `json:"companies"`
+	Pagination core.Pagination `json:"pagination"`
 }
 
 // Role модель роли

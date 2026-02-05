@@ -23,7 +23,6 @@ type Employee struct {
 	UpdatedAt time.Time      `json:"updated_at"`
 }
 
-// EmployeeAccount связь сотрудник ↔ аккаунт
 type EmployeeAccount struct {
 	ID         string    `json:"id"`
 	AccountID  string    `json:"account_id"`

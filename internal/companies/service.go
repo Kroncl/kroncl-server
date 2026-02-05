@@ -252,7 +252,7 @@ func (s *Service) GetUserCompanies(ctx context.Context, userID string, req *GetU
 		pages++
 	}
 
-	pagination := &Pagination{
+	pagination := &core.Pagination{
 		Total: total,
 		Page:  req.Page,
 		Limit: req.Limit,

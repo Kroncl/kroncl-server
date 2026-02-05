@@ -17,6 +17,10 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+func (m *Migrator) GetPool() *pgxpool.Pool {
+	return m.pool
+}
+
 func NewMigrator(pool *pgxpool.Pool, cfg Config) (*Migrator, error) {
 	absPath, err := filepath.Abs(cfg.MigrationsPath)
 	if err != nil {

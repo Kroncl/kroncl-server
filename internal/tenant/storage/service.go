@@ -4,21 +4,127 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/http"
 	"time"
 
+	"kroncl-server/internal/core"
 	"kroncl-server/internal/migrator"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type Service struct {
 	repository *Repository
 	migrator   *migrator.Migrator
+	globalPool *pgxpool.Pool // Добавляем поле для глобального пула
 }
 
-func NewService(repository *Repository, migrator *migrator.Migrator) *Service {
+func NewService(repository *Repository, migrator *migrator.Migrator, globalPool *pgxpool.Pool) *Service {
 	return &Service{
 		repository: repository,
 		migrator:   migrator,
+		globalPool: globalPool,
 	}
+}
+
+// GetTenantPool возвращает пул соединений к схеме компании (тенанту)
+func (s *Service) GetTenantPool(ctx context.Context, companyID string) (*pgxpool.Pool, error) {
+	// Получаем информацию о хранилище компании
+	storage, err := s.repository.GetStorageByCompanyID(ctx, companyID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get storage for company %s: %w", companyID, err)
+	}
+
+	if storage == nil {
+		return nil, fmt.Errorf("storage not found for company %s", companyID)
+	}
+
+	if storage.Status != StorageStatusActive {
+		return nil, fmt.Errorf("storage for company %s is not active (status: %s)", companyID, storage.Status)
+	}
+
+	// Создаем DSN с указанием схемы
+	dsn := s.buildTenantDSN(storage.SchemaName)
+
+	// Создаем пул для тенанта
+	tenantPool, err := pgxpool.New(ctx, dsn)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create tenant pool: %w", err)
+	}
+
+	// Проверяем соединение
+	if err := tenantPool.Ping(ctx); err != nil {
+		tenantPool.Close()
+		return nil, fmt.Errorf("failed to ping tenant pool: %w", err)
+	}
+
+	log.Printf("✅ Tenant pool created for company %s, schema: %s", companyID, storage.SchemaName)
+	return tenantPool, nil
+}
+
+// buildTenantDSN строит DSN для подключения к схеме тенанта
+func (s *Service) buildTenantDSN(schemaName string) string {
+	// Получаем конфиг из глобального пула
+	config := s.globalPool.Config()
+
+	// Создаем DSN на основе конфига
+	dsn := fmt.Sprintf("postgres://%s:%s@%s:%d/%s",
+		config.ConnConfig.User,
+		config.ConnConfig.Password,
+		config.ConnConfig.Host,
+		config.ConnConfig.Port,
+		config.ConnConfig.Database,
+	)
+
+	// Добавляем параметры
+	dsn += "?sslmode=disable"
+
+	// Добавляем search_path
+	dsn += fmt.Sprintf("&search_path=%s", schemaName)
+
+	return dsn
+}
+
+// GetTenantPoolFromContext получает пул тенанта из контекста (из companyID)
+func (s *Service) GetTenantPoolFromContext(ctx context.Context) (*pgxpool.Pool, error) {
+	companyID, ok := core.GetCompanyIDFromContext(ctx)
+	if !ok {
+		return nil, fmt.Errorf("company ID not found in context")
+	}
+
+	return s.GetTenantPool(ctx, companyID)
+}
+
+// TenantPoolMiddleware middleware, который добавляет пул тенанта в контекст
+func (s *Service) TenantPoolMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Получаем companyID из контекста
+		companyID, ok := core.GetCompanyIDFromContext(r.Context())
+		if !ok {
+			core.SendError(w, http.StatusBadRequest, "Company context not found")
+			return
+		}
+
+		// Получаем пул для организации
+		tenantPool, err := s.GetTenantPool(r.Context(), companyID)
+		if err != nil {
+			core.SendError(w, http.StatusInternalServerError, "Failed to get company storage pool")
+			return
+		}
+
+		// Закрываем пул после обработки запроса
+		defer tenantPool.Close()
+
+		// Добавляем пул в контекст
+		ctx := context.WithValue(r.Context(), "tenant_pool", tenantPool)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+// GetTenantPoolFromRequest извлекает пул тенанта из контекста запроса
+func GetTenantPoolFromRequest(r *http.Request) (*pgxpool.Pool, bool) {
+	pool, ok := r.Context().Value("tenant_pool").(*pgxpool.Pool)
+	return pool, ok
 }
 
 func (s *Service) InitStorage(ctx context.Context, companyID string) (*Storage, error) {
@@ -66,9 +172,7 @@ func (s *Service) runProvisioningWorker(storageID, schemaName string) {
 	log.Printf("✅ Provisioning completed for storage %s", storageID)
 }
 
-// GetStorageStatus возвращает статус хранилища
 func (s *Service) GetStorageStatus(ctx context.Context, companyID string) (*StorageStatusResponse, error) {
-	// Нужно добавить метод в репозиторий
 	storage, err := s.repository.GetStorageByCompanyID(ctx, companyID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get storage: %w", err)
