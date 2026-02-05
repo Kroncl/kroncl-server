@@ -2,6 +2,7 @@ package tenant
 
 import (
 	"kroncl-server/internal/accounts"
+	"kroncl-server/internal/companies"
 	"kroncl-server/internal/core"
 	"kroncl-server/internal/permissioner"
 	"kroncl-server/internal/tenant/hrm"
@@ -15,17 +16,29 @@ type Routes struct {
 	storageService    *storage.Service
 	permissionService *permissioner.Service
 	accountsService   *accounts.Service
+	companiesService  *companies.Service
 }
 
-func NewRoutes(storageService *storage.Service, permissionService *permissioner.Service, accountsService *accounts.Service) *Routes {
+func NewRoutes(
+	storageService *storage.Service,
+	permissionService *permissioner.Service,
+	accountsService *accounts.Service,
+	compoaniesService *companies.Service,
+) *Routes {
 	return &Routes{
 		storageService:    storageService,
 		permissionService: permissionService,
 		accountsService:   accountsService,
+		companiesService:  compoaniesService,
 	}
 }
 
 func (rt *Routes) Register(r chi.Router) {
+	// Accounts - drop member
+	r.With(permissioner.RequirePermission(rt.permissionService, "accounts.delete")).Delete("/accounts/{accountId}", rt.withHRMHandlers(func(h *hrm.Handlers) http.HandlerFunc {
+		return h.RemoveEmployeeAccount
+	}))
+
 	// HRM module
 	r.Route("/hrm", func(r chi.Router) {
 		r.Use(permissioner.RequirePermission(rt.permissionService, "hrm"))
@@ -69,7 +82,7 @@ func (rt *Routes) withHRMHandlers(factory func(*hrm.Handlers) http.HandlerFunc) 
 		defer tenantPool.Close()
 
 		// Создаем хэндлеры
-		repo := hrm.NewRepository(tenantPool, rt.accountsService)
+		repo := hrm.NewRepository(tenantPool, rt.accountsService, rt.companiesService)
 		handlers := hrm.NewHandlers(repo)
 
 		// Вызываем целевой обработчик через фабрику

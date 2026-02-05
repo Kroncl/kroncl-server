@@ -130,7 +130,7 @@ func (c *Container) initServices() error {
 }
 
 func (c *Container) initTenantRoutes() error {
-	c.TenantRoutes = tenant.NewRoutes(c.StorageService, c.PermissionService, c.AccountsService)
+	c.TenantRoutes = tenant.NewRoutes(c.StorageService, c.PermissionService, c.AccountsService, c.CompaniesService)
 	return nil
 }
 

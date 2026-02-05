@@ -16,6 +16,48 @@ func NewHandlers(repository *Repository) *Handlers {
 	return &Handlers{repository: repository}
 }
 
+func (h *Handlers) RemoveEmployeeAccount(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete {
+		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
+		return
+	}
+
+	// Получаем companyID из контекста
+	companyID, ok := core.GetCompanyIDFromContext(r.Context())
+	if !ok {
+		core.SendError(w, http.StatusBadRequest, "Company context not found.")
+		return
+	}
+
+	// Получаем accountID из URL
+	accountID := r.PathValue("accountId")
+	if accountID == "" {
+		core.SendError(w, http.StatusBadRequest, "Account ID is required.")
+		return
+	}
+
+	// Удаляем связь
+	err := h.repository.RemoveEmployeeAccount(r.Context(), companyID, accountID)
+	if err != nil {
+		// Проверяем тип ошибки
+		errorMsg := err.Error()
+		switch {
+		case strings.Contains(errorMsg, "cannot remove owner"):
+			core.SendValidationError(w, "Cannot remove owner from company")
+		case strings.Contains(errorMsg, "member not found"):
+			core.SendNotFound(w, "Account not found in company")
+		default:
+			core.SendInternalError(w, fmt.Sprintf("Failed to remove account: %s", errorMsg))
+		}
+		return
+	}
+
+	core.SendSuccess(w, map[string]interface{}{
+		"account_id": accountID,
+		"removed":    true,
+	}, "Account removed successfully.")
+}
+
 func (h *Handlers) GetEmployee(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
