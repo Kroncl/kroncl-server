@@ -1,11 +1,11 @@
+// package core/updater.go
 package core
 
 import (
 	"fmt"
 	"strings"
+	"time"
 )
-
-// only for PATCH queries
 
 type Updater struct {
 	table     string
@@ -40,12 +40,29 @@ func (u *Updater) SetString(field, value string) *Updater {
 	return u
 }
 
-// SetBool добавляет bool (всегда)
-func (u *Updater) SetBool(field string, value *bool) *Updater {
-	if value != nil {
-		return u.Set(field, *value)
-	}
-	return u
+// SetNullableString добавляет строку или NULL
+func (u *Updater) SetNullableString(field string, value *string) *Updater {
+	return u.Set(field, value)
+}
+
+// SetTime добавляет время
+func (u *Updater) SetTime(field string, value time.Time) *Updater {
+	return u.Set(field, value)
+}
+
+// SetBool добавляет bool
+func (u *Updater) SetBool(field string, value bool) *Updater {
+	return u.Set(field, value)
+}
+
+// SetInt добавляет int
+func (u *Updater) SetInt(field string, value int) *Updater {
+	return u.Set(field, value)
+}
+
+// SetFloat добавляет float
+func (u *Updater) SetFloat(field string, value float64) *Updater {
+	return u.Set(field, value)
 }
 
 // Where добавляет условие
@@ -61,8 +78,12 @@ func (u *Updater) Build() (string, []interface{}) {
 		return "", nil
 	}
 
+	// Всегда добавляем updated_at
+	u.sets = append(u.sets, fmt.Sprintf("updated_at = $%d", len(u.args)+1))
+	u.args = append(u.args, time.Now())
+
 	query := fmt.Sprintf(
-		"UPDATE %s SET %s, updated_at = NOW()",
+		"UPDATE %s SET %s",
 		u.table,
 		strings.Join(u.sets, ", "),
 	)
@@ -81,4 +102,11 @@ func (u *Updater) Build() (string, []interface{}) {
 	}
 
 	return query, u.args
+}
+
+func NullIfEmpty(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
 }

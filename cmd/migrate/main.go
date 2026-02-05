@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"kroncl-server/internal/config"
 	"kroncl-server/internal/migrator"
 	"kroncl-server/utils"
 	"log"
@@ -44,7 +45,7 @@ func main() {
 	}
 
 	// Получаем конфиг БД
-	config := utils.LoadDBConfigFromEnv()
+	config := config.LoadDBConfigFromEnv()
 	dsn, err := utils.BuildDSN(config)
 	if err != nil {
 		log.Fatalf("❌ Ошибка сборки DSN: %v", err)

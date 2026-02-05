@@ -25,28 +25,28 @@ func NewRoutes(storageService *storage.Service, permissionService *permissioner.
 func (rt *Routes) Register(r chi.Router) {
 	// HRM module
 	r.Route("/hrm", func(r chi.Router) {
-		r.Use(permissioner.RequirePermission(rt.permissionService, "hrm.view"))
+		r.Use(permissioner.RequirePermission(rt.permissionService, "hrm"))
 
 		// Employees
 		r.Route("/employees", func(r chi.Router) {
+			r.Use(permissioner.RequirePermission(rt.permissionService, "hrm.employees"))
+
 			r.Get("/", rt.withHRMHandlers(func(h *hrm.Handlers) http.HandlerFunc {
 				return h.GetEmployees
 			}))
-
+			r.With(permissioner.RequirePermission(rt.permissionService, "hrm.employees.create")).Post("/", rt.withHRMHandlers(func(h *hrm.Handlers) http.HandlerFunc {
+				return h.CreateEmployee
+			}))
 			r.Route("/{employeeId}", func(r chi.Router) {
 				r.Get("/", rt.withHRMHandlers(func(h *hrm.Handlers) http.HandlerFunc {
 					return h.GetEmployee
 				}))
-				r.Patch("/", rt.withHRMHandlers(func(h *hrm.Handlers) http.HandlerFunc {
+				r.With(permissioner.RequirePermission(rt.permissionService, "hrm.employees.update")).Patch("/", rt.withHRMHandlers(func(h *hrm.Handlers) http.HandlerFunc {
 					return h.UpdateEmployee
 				}))
 			})
 		})
 	})
-
-	// Можно добавить другие модули аналогично:
-	// rt.registerAccountingRoutes(r)
-	// rt.registerCRMHandlers(r)
 }
 
 // withHRMHandlers создает middleware, которое внедряет HRM хэндлеры

@@ -3,10 +3,11 @@ package hrm
 import (
 	"context"
 	"fmt"
+	"kroncl-server/internal/core"
 	"strings"
 	"time"
 
-	"github.com/jackc/pgx/v5"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -18,7 +19,8 @@ func NewRepository(pool *pgxpool.Pool) *Repository {
 	return &Repository{pool: pool}
 }
 
-func (r *Repository) GetEmployeeByID(ctx context.Context, id string) (*EmployeeWithAccount, error) {
+// GetEmployeeByID возвращает детальную информацию
+func (r *Repository) GetEmployeeByID(ctx context.Context, id string) (*EmployeeDetail, error) {
 	query := `
 		SELECT 
 			e.id,
@@ -36,7 +38,7 @@ func (r *Repository) GetEmployeeByID(ctx context.Context, id string) (*EmployeeW
 		WHERE e.id = $1
 	`
 
-	var employee EmployeeWithAccount
+	var employee EmployeeDetail
 	var accountID *string
 	var linkedAt *time.Time
 
@@ -64,7 +66,8 @@ func (r *Repository) GetEmployeeByID(ctx context.Context, id string) (*EmployeeW
 	return &employee, nil
 }
 
-func (r *Repository) GetEmployees(ctx context.Context, offset, limit int) ([]EmployeeWithAccount, int, error) {
+// GetEmployees возвращает список (только базовые данные + account_id)
+func (r *Repository) GetEmployees(ctx context.Context, offset, limit int) ([]EmployeeListItem, int, error) {
 	// Сначала получаем общее количество
 	countQuery := `SELECT COUNT(*) FROM employees`
 	var total int
@@ -98,9 +101,9 @@ func (r *Repository) GetEmployees(ctx context.Context, offset, limit int) ([]Emp
 	}
 	defer rows.Close()
 
-	var employees []EmployeeWithAccount
+	var employees []EmployeeListItem
 	for rows.Next() {
-		var employee EmployeeWithAccount
+		var employee EmployeeListItem
 		var accountID *string
 		var linkedAt *time.Time
 
@@ -129,100 +132,94 @@ func (r *Repository) GetEmployees(ctx context.Context, offset, limit int) ([]Emp
 	return employees, total, nil
 }
 
-func (r *Repository) UpdateEmployee(ctx context.Context, id string, req UpdateEmployeeRequest) (*EmployeeWithAccount, error) {
-	// Начинаем транзакцию
-	tx, err := r.pool.Begin(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to begin transaction: %w", err)
-	}
-	defer tx.Rollback(ctx)
+func (r *Repository) UpdateEmployee(ctx context.Context, id string, req UpdateEmployeeRequest) (*EmployeeDetail, error) {
+	updater := core.NewUpdater("employees")
 
-	// Собираем поля для обновления
-	var updates []string
-	var params []interface{}
-	paramCounter := 1
-
-	// Тримим и проверяем поля
-	if req.FirstName != "" {
-		firstName := strings.TrimSpace(req.FirstName)
-		if firstName != "" && len(firstName) >= 2 {
-			updates = append(updates, fmt.Sprintf("first_name = $%d", paramCounter))
-			params = append(params, firstName)
-			paramCounter++
-		}
+	// Тримминг и валидация отдельно
+	firstName := strings.TrimSpace(req.FirstName)
+	if firstName != "" && len(firstName) >= 2 {
+		updater.SetString("first_name", firstName)
 	}
 
-	if req.LastName != "" {
-		lastName := strings.TrimSpace(req.LastName)
-		updates = append(updates, fmt.Sprintf("last_name = $%d", paramCounter))
-		params = append(params, lastName)
-		paramCounter++
+	lastName := strings.TrimSpace(req.LastName)
+	updater.SetString("last_name", lastName)
+
+	email := strings.ToLower(strings.TrimSpace(req.Email))
+	if email != "" && strings.Contains(email, "@") {
+		updater.SetString("email", email)
 	}
 
-	if req.Email != "" {
-		email := strings.ToLower(strings.TrimSpace(req.Email))
-		if email != "" && strings.Contains(email, "@") {
-			updates = append(updates, fmt.Sprintf("email = $%d", paramCounter))
-			params = append(params, email)
-			paramCounter++
-		}
-	}
-
-	if req.Phone != "" {
-		phone := strings.TrimSpace(req.Phone)
-		updates = append(updates, fmt.Sprintf("phone = $%d", paramCounter))
-		params = append(params, phone)
-		paramCounter++
-	}
+	phone := strings.TrimSpace(req.Phone)
+	updater.SetString("phone", phone)
 
 	if req.Status != "" {
-		updates = append(updates, fmt.Sprintf("status = $%d", paramCounter))
-		params = append(params, req.Status)
-		paramCounter++
+		updater.SetString("status", string(req.Status))
 	}
 
-	// Если нет полей для обновления
-	if len(updates) == 0 {
+	// Если нет изменений - возвращаем текущие данные
+	query, args := updater.Where("id = $1", id).Build()
+	if query == "" {
 		return r.GetEmployeeByID(ctx, id)
 	}
 
-	// Добавляем updated_at
-	updates = append(updates, "updated_at = CURRENT_TIMESTAMP")
-
-	// Добавляем ID в параметры
-	params = append(params, id)
-
-	// Обновляем сотрудника
-	updateQuery := fmt.Sprintf(`
-		UPDATE employees 
-		SET %s
-		WHERE id = $%d
-	`, strings.Join(updates, ", "), paramCounter)
-
-	_, err = tx.Exec(ctx, updateQuery, params...)
+	// Выполняем обновление
+	_, err := r.pool.Exec(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update employee: %w", err)
 	}
 
-	// Коммитим транзакцию
-	if err := tx.Commit(ctx); err != nil {
-		return nil, fmt.Errorf("failed to commit transaction: %w", err)
-	}
-
-	// Получаем обновленного сотрудника
 	return r.GetEmployeeByID(ctx, id)
 }
 
-func (r *Repository) getEmployeeByIDTx(ctx context.Context, tx pgx.Tx, id string) (*Employee, error) {
+func (r *Repository) CreateEmployee(ctx context.Context, req CreateEmployeeRequest) (*Employee, error) {
+	// Валидация минимальных требований
+	firstName := strings.TrimSpace(req.FirstName)
+	if firstName == "" || len(firstName) < 2 {
+		return nil, fmt.Errorf("first name is required and must be at least 2 characters")
+	}
+
+	// Генерация ID
+	id := uuid.New().String()
+
+	// Подготавливаем данные
+	lastName := strings.TrimSpace(req.LastName)
+	email := strings.ToLower(strings.TrimSpace(req.Email))
+	phone := strings.TrimSpace(req.Phone)
+
+	// Если email пустой, устанавливаем NULL
+	var emailPtr *string
+	if email != "" && strings.Contains(email, "@") {
+		emailPtr = &email
+	}
+
+	// Если phone пустой, устанавливаем NULL
+	var phonePtr *string
+	if phone != "" {
+		phonePtr = &phone
+	}
+
 	query := `
-		SELECT id, first_name, last_name, email, phone,
+		INSERT INTO employees (
+			id, first_name, last_name, email, phone, status,
+			created_at, updated_at
+		) VALUES (
+			$1, $2, $3, $4, $5, $6,
+			CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+		)
+		RETURNING 
+			id, first_name, last_name, email, phone,
 			status, created_at, updated_at
-		FROM employees 
-		WHERE id = $1
 	`
 
 	var employee Employee
-	err := tx.QueryRow(ctx, query, id).Scan(
+	err := r.pool.QueryRow(ctx, query,
+		id,
+		firstName,
+		core.NullIfEmpty(lastName),
+		emailPtr,
+		phonePtr,
+		EmployeeStatusActive,
+	).Scan(
 		&employee.ID,
 		&employee.FirstName,
 		&employee.LastName,
@@ -234,7 +231,7 @@ func (r *Repository) getEmployeeByIDTx(ctx context.Context, tx pgx.Tx, id string
 	)
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to get employee in transaction: %w", err)
+		return nil, fmt.Errorf("failed to create employee: %w", err)
 	}
 
 	return &employee, nil

@@ -2,8 +2,10 @@ package hrm
 
 import (
 	"encoding/json"
+	"fmt"
 	"kroncl-server/internal/core"
 	"net/http"
+	"strings"
 )
 
 type Handlers struct {
@@ -53,7 +55,7 @@ func (h *Handlers) GetEmployees(w http.ResponseWriter, r *http.Request) {
 		pagination.Limit,
 	)
 	if err != nil {
-		core.SendError(w, http.StatusInternalServerError, "Failed to get employees.")
+		core.SendError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to get employees: %s", err.Error()))
 		return
 	}
 
@@ -98,4 +100,33 @@ func (h *Handlers) UpdateEmployee(w http.ResponseWriter, r *http.Request) {
 	}
 
 	core.SendSuccess(w, employee, "Employee updated successfully.")
+}
+
+func (h *Handlers) CreateEmployee(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
+		return
+	}
+
+	// Парсим тело запроса
+	var req CreateEmployeeRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		core.SendError(w, http.StatusBadRequest, "Invalid request body.")
+		return
+	}
+
+	// Валидация
+	if req.FirstName == "" || len(strings.TrimSpace(req.FirstName)) < 2 {
+		core.SendError(w, http.StatusBadRequest, "First name is required and must be at least 2 characters.")
+		return
+	}
+
+	// Создаем сотрудника
+	employee, err := h.repository.CreateEmployee(r.Context(), req)
+	if err != nil {
+		core.SendError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to create employee: %s", err.Error()))
+		return
+	}
+
+	core.SendSuccess(w, employee, "Employee created successfully.")
 }

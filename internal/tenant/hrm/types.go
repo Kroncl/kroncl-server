@@ -15,27 +15,24 @@ const (
 type Employee struct {
 	ID        string         `json:"id"`
 	FirstName string         `json:"first_name"`
-	LastName  string         `json:"last_name"`
-	Email     string         `json:"email,omitempty"`
-	Phone     string         `json:"phone,omitempty"`
+	LastName  *string        `json:"last_name"`
+	Email     *string        `json:"email"`
+	Phone     *string        `json:"phone"`
 	Status    EmployeeStatus `json:"status"`
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 }
 
-type EmployeeAccount struct {
-	ID         string    `json:"id"`
-	AccountID  string    `json:"account_id"`
-	EmployeeID string    `json:"employee_id"`
-	CreatedAt  time.Time `json:"created_at"`
+type EmployeeListItem struct {
+	Employee
+	AccountID       *string    `json:"account_id"`
+	LinkedAt        *time.Time `json:"linked_at"`
+	IsAccountLinked bool       `json:"is_account_linked"`
 }
 
-type EmployeeWithAccount struct {
-	Employee
-	Account         *accounts.AccountPublic `json:"account,omitempty"`
-	AccountID       *string                 `json:"account_id,omitempty"`
-	LinkedAt        *time.Time              `json:"linked_at,omitempty"`
-	IsAccountLinked bool                    `json:"is_account_linked"`
+type EmployeeDetail struct {
+	EmployeeListItem
+	Account *accounts.AccountPublic `json:"account,omitempty"`
 }
 
 type CreateEmployeeRequest struct {

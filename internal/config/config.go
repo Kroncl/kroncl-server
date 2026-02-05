@@ -47,7 +47,7 @@ func Load() (*Config, error) {
 		log.Printf("⚠️  Warning: %v", err)
 	}
 
-	dbConfig := loadDBConfigFromEnv()
+	dbConfig := LoadDBConfigFromEnv()
 
 	// Логируем конфиг (без пароля)
 	log.Printf("📋 Конфигурация загружена:")
@@ -69,7 +69,7 @@ func Load() (*Config, error) {
 		Database: dbConfig,
 		JWT: JWTConfig{
 			SecretKey:       getEnv("JWT_SECRET", "development-secret-key-change-in-production"),
-			AccessDuration:  15 * time.Minute,
+			AccessDuration:  30 * time.Minute,
 			RefreshDuration: 7 * 24 * time.Hour,
 		},
 		CORS: CORSConfig{
@@ -104,7 +104,7 @@ func loadEnvFile() error {
 	return fmt.Errorf(".env файл не найден")
 }
 
-func loadDBConfigFromEnv() utils.DBConfig {
+func LoadDBConfigFromEnv() utils.DBConfig {
 	port, err := strconv.Atoi(getEnv("DB_PORT", "5432"))
 	if err != nil {
 		port = 5432
