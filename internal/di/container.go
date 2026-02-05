@@ -1,4 +1,3 @@
-// internal/di/container.go
 package di
 
 import (
@@ -131,7 +130,7 @@ func (c *Container) initServices() error {
 }
 
 func (c *Container) initTenantRoutes() error {
-	c.TenantRoutes = tenant.NewRoutes(c.StorageService, c.PermissionService)
+	c.TenantRoutes = tenant.NewRoutes(c.StorageService, c.PermissionService, c.AccountsService)
 	return nil
 }
 

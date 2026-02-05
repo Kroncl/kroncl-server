@@ -3,6 +3,7 @@ package hrm
 import (
 	"context"
 	"fmt"
+	"kroncl-server/internal/accounts"
 	"kroncl-server/internal/core"
 	"strings"
 	"time"
@@ -12,11 +13,12 @@ import (
 )
 
 type Repository struct {
-	pool *pgxpool.Pool
+	pool            *pgxpool.Pool
+	accountsService *accounts.Service
 }
 
-func NewRepository(pool *pgxpool.Pool) *Repository {
-	return &Repository{pool: pool}
+func NewRepository(pool *pgxpool.Pool, accountsService *accounts.Service) *Repository {
+	return &Repository{pool: pool, accountsService: accountsService}
 }
 
 // GetEmployeeByID возвращает детальную информацию

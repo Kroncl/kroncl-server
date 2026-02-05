@@ -78,7 +78,7 @@ func New(cfg *config.Config, container *di.Container) chi.Router {
 						r.With(permissioner.RequirePermission(container.PermissionService, "storage.sources")).Get("/sources", container.StorageHandlers.GetSources)
 					})
 
-					// Тенантские модули (чистое подключение)
+					// encapsulated modules
 					container.TenantRoutes.Register(r)
 				})
 			})
