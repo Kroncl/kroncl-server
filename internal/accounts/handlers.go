@@ -302,3 +302,39 @@ func (h *Handlers) Update(w http.ResponseWriter, r *http.Request) {
 	// Отправляем профиль
 	core.SendSuccess(w, account, "Profile updated successfully")
 }
+
+// GetPublicAccounts возвращает список аккаунтов с пагинацией и поиском
+func (h *Handlers) GetPublicAccounts(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+
+	// Извлекаем параметры поиска
+	search := strings.TrimSpace(r.URL.Query().Get("search"))
+
+	// Получаем параметры пагинации
+	paginationParams := core.GetDefaultPaginationParams(r)
+
+	var accounts []AccountPublic
+	var pagination core.Pagination
+
+	accounts, pagination, err := h.service.GetPublicAccounts(
+		r.Context(),
+		search,
+		paginationParams,
+	)
+
+	if err != nil {
+		core.SendInternalError(w, fmt.Sprintf("Error receiving accounts: %s", err.Error()))
+		return
+	}
+
+	// Формируем ответ
+	response := map[string]interface{}{
+		"accounts":   accounts,
+		"pagination": pagination,
+	}
+
+	core.SendSuccess(w, response, "Accounts retrieved successfully")
+}

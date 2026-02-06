@@ -3,6 +3,8 @@ package accounts
 import (
 	"context"
 	"fmt"
+	"kroncl-server/internal/core"
+	"strconv"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
@@ -22,6 +24,90 @@ func scanAccountPublic(row pgx.Row) (*AccountPublic, error) {
 		return nil, err
 	}
 	return &account, nil
+}
+
+// GetPublicAccounts возвращает список AccountPublic с пагинацией и поиском
+// Показывает только аккаунты со статусом 'confirmed'
+func (s *Service) GetPublicAccounts(
+	ctx context.Context,
+	search string,
+	params core.PaginationParams,
+) ([]AccountPublic, core.Pagination, error) {
+	// Базовый запрос - только подтвержденные аккаунты
+	baseQuery := `
+        SELECT 
+            id, name, email, status,
+            COALESCE(avatar_url, '') as avatar_url,
+            created_at
+        FROM accounts
+        WHERE status = 'confirmed'
+    `
+
+	// Запрос для подсчета общего количества
+	countQuery := `
+        SELECT COUNT(*) 
+        FROM accounts
+        WHERE status = 'confirmed'
+    `
+
+	// Подготавливаем аргументы
+	var args []interface{}
+	var argCounter = 1
+
+	// Добавляем условия поиска если есть
+	if search != "" {
+		searchPattern := "%" + strings.ToLower(search) + "%"
+
+		whereCondition := `
+            AND (
+                LOWER(email) LIKE $` + strconv.Itoa(argCounter) + ` 
+                OR LOWER(name) LIKE $` + strconv.Itoa(argCounter) + `
+            )
+        `
+
+		baseQuery += whereCondition
+		countQuery += whereCondition
+		args = append(args, searchPattern)
+		argCounter++
+	}
+
+	// Получаем общее количество для пагинации
+	var total int
+	err := s.pool.QueryRow(ctx, countQuery, args...).Scan(&total)
+	if err != nil {
+		return nil, core.Pagination{}, fmt.Errorf("failed to count accounts: %w", err)
+	}
+
+	// Добавляем сортировку и лимиты для основного запроса
+	baseQuery += " ORDER BY created_at DESC"
+	baseQuery += " LIMIT $" + strconv.Itoa(argCounter) + " OFFSET $" + strconv.Itoa(argCounter+1)
+	args = append(args, params.Limit, params.Offset)
+
+	// Выполняем основной запрос
+	rows, err := s.pool.Query(ctx, baseQuery, args...)
+	if err != nil {
+		return nil, core.Pagination{}, fmt.Errorf("failed to query accounts: %w", err)
+	}
+	defer rows.Close()
+
+	// Собираем результаты
+	var accounts []AccountPublic
+	for rows.Next() {
+		account, err := scanAccountPublic(rows)
+		if err != nil {
+			return nil, core.Pagination{}, fmt.Errorf("failed to scan account: %w", err)
+		}
+		accounts = append(accounts, *account)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, core.Pagination{}, fmt.Errorf("rows iteration error: %w", err)
+	}
+
+	// Создаем пагинацию
+	pagination := core.NewPagination(total, params.Page, params.Limit)
+
+	return accounts, pagination, nil
 }
 
 // GetPublicByID возвращает один AccountPublic по ID

@@ -56,6 +56,12 @@ func New(cfg *config.Config, container *di.Container) chi.Router {
 		r.Group(func(r chi.Router) {
 			r.Use(container.JWTService.RequireAuth)
 
+			// Search for public accounts to invite to the company
+			r.Route("/accounts", func(r chi.Router) {
+				r.Get("/", container.AccountsHandlers.GetPublicAccounts)
+			})
+
+			// Companies protected routes
 			r.Route("/companies", func(r chi.Router) {
 				// Company creation
 				r.Post("/", container.CompaniesHandlers.Create)
@@ -72,13 +78,13 @@ func New(cfg *config.Config, container *di.Container) chi.Router {
 					r.Get("/", container.CompaniesHandlers.GetUserCompanyById)
 					r.With(permissioner.RequirePermission(container.PermissionService, "company.update")).Patch("/", container.CompaniesHandlers.Update)
 
-					// company storage
+					// Company storage
 					r.Route("/storage", func(r chi.Router) {
 						r.Get("/", container.StorageHandlers.Get)
 						r.With(permissioner.RequirePermission(container.PermissionService, "storage.sources")).Get("/sources", container.StorageHandlers.GetSources)
 					})
 
-					// company accounts (hrm part)
+					// Company accounts (hrm part)
 					r.Route("/accounts", func(r chi.Router) {
 						r.Use(permissioner.RequirePermission(container.PermissionService, "accounts"))
 						r.Get("/", container.CompaniesHandlers.GetCompanyMembers)
