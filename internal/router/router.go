@@ -50,6 +50,18 @@ func New(cfg *config.Config, container *di.Container) chi.Router {
 				r.Post("/confirm", container.AccountsHandlers.ConfirmEmail)
 				r.Post("/confirm/resend", container.AccountsHandlers.ResendConfirmationCode)
 			})
+
+			// Accounts -> companies invitations [protected]
+			r.Route("/invitations", func(r chi.Router) {
+				r.Use(container.JWTService.RequireAuth)
+
+				r.Get("/", container.AccountsHandlers.GetAccountInvitations)
+
+				r.Route("/{invitationId}", func(r chi.Router) {
+					r.Post("/accept", container.AccountsHandlers.AcceptAccountInvitation)
+					r.Post("/reject", container.AccountsHandlers.RejectAccountInvitation)
+				})
+			})
 		})
 
 		// Protected routes (require auth)
@@ -95,6 +107,7 @@ func New(cfg *config.Config, container *di.Container) chi.Router {
 
 							r.Get("/", container.CompaniesHandlers.GetCompanyInvitations)
 							r.With(permissioner.RequirePermission(container.PermissionService, "accounts.invitations.create")).Post("/", container.CompaniesHandlers.CreateCompanyInvitation)
+							r.With(permissioner.RequirePermission(container.PermissionService, "accounts.invitations.revoke")).Delete("/{invitationId}", container.CompaniesHandlers.RevokeInvitation)
 						})
 					})
 

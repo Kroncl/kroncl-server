@@ -428,3 +428,56 @@ func (h *Handlers) CreateCompanyInvitation(w http.ResponseWriter, r *http.Reques
 	// Отправляем успешный ответ
 	core.SendCreated(w, response.Invitation, response.Message)
 }
+
+// RevokeInvitation отзывает (удаляет) приглашение
+// + проверка принадлежности
+func (h *Handlers) RevokeInvitation(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete {
+		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+
+	// Получаем ID компании из URL
+	companyID := chi.URLParam(r, "id")
+	if companyID == "" {
+		core.SendValidationError(w, "Company ID required")
+		return
+	}
+
+	// Получаем ID приглашения из URL
+	invitationID := chi.URLParam(r, "invitationId")
+	if invitationID == "" {
+		core.SendValidationError(w, "Invitation ID required")
+		return
+	}
+
+	// Дополнительно: проверяем, что приглашение принадлежит этой компании
+	invitation, err := h.service.GetInvitationByID(r.Context(), invitationID)
+	if err != nil {
+		core.SendNotFound(w, "Invitation not found")
+		return
+	}
+
+	if invitation.CompanyID != companyID {
+		core.SendUnauthorized(w, "Invitation does not belong to this company")
+		return
+	}
+
+	// Отзываем приглашение
+	err = h.service.WithdrawInvitation(r.Context(), invitationID)
+	if err != nil {
+		if strings.Contains(err.Error(), "invitation not found") {
+			core.SendNotFound(w, err.Error())
+		} else {
+			core.SendInternalError(w, fmt.Sprintf("Failed to revoke invitation: %v", err))
+		}
+		return
+	}
+
+	// Отправляем успешный ответ
+	core.SendSuccess(w, map[string]interface{}{
+		"invitation_id": invitationID,
+		"company_id":    companyID,
+		"revoked":       true,
+	}, "Invitation revoked successfully")
+}

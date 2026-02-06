@@ -12,13 +12,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-const (
-	RoleOwner  = "owner"
-	RoleAdmin  = "admin"
-	RoleMember = "member"
-	RoleGuest  = "guest"
-)
-
 type Service struct {
 	pool    *pgxpool.Pool
 	storage *storage.Service

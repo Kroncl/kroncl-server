@@ -318,7 +318,6 @@ func (s *Service) CreateInvitationAtomic(
 }
 
 // UpdateInvitationStatus обновляет статус приглашения
-// Без проверки прав - права проверяются в другом слое
 func (s *Service) UpdateInvitationStatus(
 	ctx context.Context,
 	invitationID string,
@@ -621,4 +620,107 @@ func isValidEmail(email string) bool {
 	}
 
 	return true
+}
+
+// GetInvitationsByEmail возвращает все приглашения для указанного email
+func (s *Service) GetInvitationsByEmail(
+	ctx context.Context,
+	email string,
+	params GetInvitationsByEmailRequest,
+) (*GetInvitationsByEmailResponse, error) {
+	// Нормализуем email
+	normalizedEmail := strings.ToLower(email)
+
+	// Базовый запрос
+	baseQuery := `
+        SELECT 
+            ci.id, ci.email, ci.company_id, ci.status,
+            ci.created_at, ci.updated_at,
+            c.name as company_name,
+            c.avatar_url as company_avatar_url
+        FROM company_invitations ci
+        LEFT JOIN companies c ON ci.company_id = c.id
+        WHERE ci.email = $1
+    `
+
+	// Запрос для подсчета общего количества
+	countQuery := `
+        SELECT COUNT(*) 
+        FROM company_invitations
+        WHERE email = $1
+    `
+
+	// Подготавливаем аргументы
+	args := []interface{}{normalizedEmail}
+	argCounter := 2 // $1 уже занят email
+
+	// Добавляем фильтр по статусу если указан
+	if params.Status != "" {
+		// Валидируем статус
+		validStatuses := map[string]bool{
+			InvitationStatusWaiting:  true,
+			InvitationStatusAccepted: true,
+			InvitationStatusRejected: true,
+		}
+		if !validStatuses[params.Status] {
+			return nil, fmt.Errorf("invalid status filter. Allowed values: waiting, accepted, rejected")
+		}
+
+		whereCondition := ` AND ci.status = $` + strconv.Itoa(argCounter)
+		baseQuery += whereCondition
+		countQuery += ` AND status = $` + strconv.Itoa(argCounter)
+		args = append(args, params.Status)
+		argCounter++
+	}
+
+	// Получаем общее количество для пагинации
+	var total int
+	err := s.pool.QueryRow(ctx, countQuery, args...).Scan(&total)
+	if err != nil {
+		return nil, fmt.Errorf("failed to count invitations: %w", err)
+	}
+
+	// Добавляем сортировку и лимиты для основного запроса
+	baseQuery += " ORDER BY ci.created_at DESC"
+	baseQuery += " LIMIT $" + strconv.Itoa(argCounter) + " OFFSET $" + strconv.Itoa(argCounter+1)
+	args = append(args, params.Limit, params.Offset)
+
+	// Выполняем основной запрос
+	rows, err := s.pool.Query(ctx, baseQuery, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query invitations: %w", err)
+	}
+	defer rows.Close()
+
+	// Собираем результаты
+	var invitations []InvitationWithCompany
+	for rows.Next() {
+		var invitation InvitationWithCompany
+		err := rows.Scan(
+			&invitation.ID,
+			&invitation.Email,
+			&invitation.CompanyID,
+			&invitation.Status,
+			&invitation.CreatedAt,
+			&invitation.UpdatedAt,
+			&invitation.CompanyName,
+			&invitation.CompanyAvatarURL,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan invitation: %w", err)
+		}
+		invitations = append(invitations, invitation)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration error: %w", err)
+	}
+
+	// Создаем пагинацию
+	pagination := core.NewPagination(total, params.Page, params.Limit)
+
+	return &GetInvitationsByEmailResponse{
+		Invitations: invitations,
+		Pagination:  pagination,
+	}, nil
 }

@@ -74,7 +74,7 @@ type CompanyPublicMember struct {
 	Name      string    `json:"name"`
 	Email     string    `json:"email"`
 	Status    string    `json:"status"`
-	AvatarURL string    `json:"avatar_url"`
+	AvatarURL *string   `json:"avatar_url"`
 	CreatedAt time.Time `json:"created_at"` // дата создания аккаунта
 	RoleID    string    `json:"role_id"`
 	RoleCode  string    `json:"role_code"`
@@ -141,3 +141,27 @@ type GetInvitationsResponse struct {
 	Invitations []CompanyInvitation `json:"invitations"`
 	Pagination  core.Pagination     `json:"pagination"`
 }
+
+// Структуры для получения приглашений по email
+type InvitationWithCompany struct {
+	CompanyInvitation
+	CompanyName      string `json:"company_name"`
+	CompanyAvatarURL string `json:"company_avatar_url,omitempty"`
+}
+
+type GetInvitationsByEmailRequest struct {
+	Status string `json:"status,omitempty"`
+	core.PaginationParams
+}
+
+type GetInvitationsByEmailResponse struct {
+	Invitations []InvitationWithCompany `json:"invitations"`
+	Pagination  core.Pagination         `json:"pagination"`
+}
+
+const (
+	RoleOwner  = "owner"
+	RoleAdmin  = "admin"
+	RoleMember = "member"
+	RoleGuest  = "guest"
+)

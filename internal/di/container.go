@@ -117,8 +117,8 @@ func (c *Container) initServices() error {
 	c.StorageService = storage.NewService(storageRepo, c.Migrator, c.DB)
 
 	// Services
-	c.AccountsService = accounts.NewService(c.DB, c.JWTService)
 	c.CompaniesService = companies.NewService(c.DB, c.StorageService)
+	c.AccountsService = accounts.NewService(c.DB, c.JWTService, c.CompaniesService)
 	c.PermissionService = permissioner.NewService(c.DB)
 
 	// Handlers

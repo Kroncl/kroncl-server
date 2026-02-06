@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"kroncl-server/internal/auth"
+	"kroncl-server/internal/companies"
 	"kroncl-server/internal/core"
 	"strings"
 	"time"
@@ -15,15 +16,17 @@ import (
 
 // Service - бизнес-логика для работы с аккаунтами
 type Service struct {
-	pool       *pgxpool.Pool
-	jwtService *auth.JWTService
+	pool             *pgxpool.Pool
+	jwtService       *auth.JWTService
+	companiesService *companies.Service
 }
 
 // NewService создает новый экземпляр сервиса
-func NewService(pool *pgxpool.Pool, jwtService *auth.JWTService) *Service {
+func NewService(pool *pgxpool.Pool, jwtService *auth.JWTService, companiesService *companies.Service) *Service {
 	return &Service{
-		pool:       pool,
-		jwtService: jwtService,
+		pool:             pool,
+		jwtService:       jwtService,
+		companiesService: companiesService,
 	}
 }
 
