@@ -34,10 +34,12 @@ func NewRoutes(
 }
 
 func (rt *Routes) Register(r chi.Router) {
-	// Accounts - drop member
-	r.With(permissioner.RequirePermission(rt.permissionService, "accounts.delete")).Delete("/accounts/{accountId}", rt.withHRMHandlers(func(h *hrm.Handlers) http.HandlerFunc {
-		return h.RemoveEmployeeAccount
-	}))
+	// Accounts - employees actions
+	r.Route("/accounts", func(r chi.Router) {
+		r.With(permissioner.RequirePermission(rt.permissionService, "accounts.delete")).Delete("/{accountId}", rt.withHRMHandlers(func(h *hrm.Handlers) http.HandlerFunc {
+			return h.RemoveEmployeeAccount
+		}))
+	})
 
 	// HRM module
 	r.Route("/hrm", func(r chi.Router) {

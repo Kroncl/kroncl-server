@@ -89,10 +89,19 @@ func New(cfg *config.Config, container *di.Container) chi.Router {
 						r.Use(permissioner.RequirePermission(container.PermissionService, "accounts"))
 						r.Get("/", container.CompaniesHandlers.GetCompanyMembers)
 						r.Get("/{accountId}", container.CompaniesHandlers.GetCompanyMember)
+
+						r.Route("/invitations", func(r chi.Router) {
+							r.Use(permissioner.RequirePermission(container.PermissionService, "accounts.invitations"))
+
+							r.Get("/", container.CompaniesHandlers.GetCompanyInvitations)
+							r.With(permissioner.RequirePermission(container.PermissionService, "accounts.invitations.create")).Post("/", container.CompaniesHandlers.CreateCompanyInvitation)
+						})
 					})
 
 					// encapsulated modules
-					container.TenantRoutes.Register(r)
+					r.Route("/modules", func(r chi.Router) {
+						container.TenantRoutes.Register(r)
+					})
 				})
 			})
 		})
