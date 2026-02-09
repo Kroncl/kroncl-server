@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sync"
 	"time"
 
 	"kroncl-server/internal/core"
@@ -14,9 +15,10 @@ import (
 )
 
 type Service struct {
-	repository *Repository
-	migrator   *migrator.Migrator
-	globalPool *pgxpool.Pool // Добавляем поле для глобального пула
+	repository  *Repository
+	migrator    *migrator.Migrator
+	globalPool  *pgxpool.Pool
+	tenantPools sync.Map
 }
 
 func NewService(repository *Repository, migrator *migrator.Migrator, globalPool *pgxpool.Pool) *Service {
@@ -27,38 +29,34 @@ func NewService(repository *Repository, migrator *migrator.Migrator, globalPool 
 	}
 }
 
-// GetTenantPool возвращает пул соединений к схеме компании (тенанту)
 func (s *Service) GetTenantPool(ctx context.Context, companyID string) (*pgxpool.Pool, error) {
-	// Получаем информацию о хранилище компании
+	// Пытаемся получить из кэша
+	if pool, ok := s.tenantPools.Load(companyID); ok {
+		return pool.(*pgxpool.Pool), nil
+	}
+
+	// Создаём новый пул
 	storage, err := s.repository.GetStorageByCompanyID(ctx, companyID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get storage for company %s: %w", companyID, err)
+		return nil, fmt.Errorf("failed to get storage: %w", err)
 	}
 
-	if storage == nil {
-		return nil, fmt.Errorf("storage not found for company %s", companyID)
-	}
-
-	if storage.Status != StorageStatusActive {
-		return nil, fmt.Errorf("storage for company %s is not active (status: %s)", companyID, storage.Status)
-	}
-
-	// Создаем DSN с указанием схемы
 	dsn := s.buildTenantDSN(storage.SchemaName)
-
-	// Создаем пул для тенанта
 	tenantPool, err := pgxpool.New(ctx, dsn)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create tenant pool: %w", err)
+		return nil, fmt.Errorf("failed to create pool: %w", err)
 	}
 
-	// Проверяем соединение
-	if err := tenantPool.Ping(ctx); err != nil {
+	// Сохраняем в кэш
+	s.tenantPools.Store(companyID, tenantPool)
+
+	// Очистка при закрытии приложения
+	go func() {
+		<-ctx.Done()
 		tenantPool.Close()
-		return nil, fmt.Errorf("failed to ping tenant pool: %w", err)
-	}
+		s.tenantPools.Delete(companyID)
+	}()
 
-	log.Printf("✅ Tenant pool created for company %s, schema: %s", companyID, storage.SchemaName)
 	return tenantPool, nil
 }
 
@@ -95,27 +93,31 @@ func (s *Service) GetTenantPoolFromContext(ctx context.Context) (*pgxpool.Pool, 
 	return s.GetTenantPool(ctx, companyID)
 }
 
-// TenantPoolMiddleware middleware, который добавляет пул тенанта в контекст
+// TenantPoolMiddleware - переиспользуем существующий пул
 func (s *Service) TenantPoolMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Получаем companyID из контекста
 		companyID, ok := core.GetCompanyIDFromContext(r.Context())
 		if !ok {
 			core.SendError(w, http.StatusBadRequest, "Company context not found")
 			return
 		}
 
-		// Получаем пул для организации
+		// Получаем или создаём пул
 		tenantPool, err := s.GetTenantPool(r.Context(), companyID)
 		if err != nil {
-			core.SendError(w, http.StatusInternalServerError, "Failed to get company storage pool")
+			core.SendError(w, http.StatusInternalServerError, "Failed to get company storage")
 			return
 		}
 
-		// НЕ ЗАКРЫВАЕМ ЕБАНЫЙ ПУЛ
-		// defer tenantPool.Close()
+		// Проверяем, что пул жив
+		if err := tenantPool.Ping(r.Context()); err != nil {
+			// Удаляем битый пул из кэша
+			s.tenantPools.Delete(companyID)
+			core.SendError(w, http.StatusInternalServerError, "Storage connection lost")
+			return
+		}
 
-		// Добавляем пул в контекст
+		// Добавляем в контекст
 		ctx := context.WithValue(r.Context(), "tenant_pool", tenantPool)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
