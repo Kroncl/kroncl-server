@@ -69,7 +69,7 @@ func Load() (*Config, error) {
 		Database: dbConfig,
 		JWT: JWTConfig{
 			SecretKey:       getEnv("JWT_SECRET", "development-secret-key-change-in-production"),
-			AccessDuration:  30 * time.Minute,
+			AccessDuration:  60 * 24 * time.Minute, // dev
 			RefreshDuration: 7 * 24 * time.Hour,
 		},
 		CORS: CORSConfig{

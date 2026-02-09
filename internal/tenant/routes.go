@@ -70,18 +70,11 @@ func (rt *Routes) Register(r chi.Router) {
 // withHRMHandlers создает middleware, которое внедряет HRM хэндлеры
 func (rt *Routes) withHRMHandlers(factory func(*hrm.Handlers) http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		companyID, ok := core.GetCompanyIDFromContext(r.Context())
+		tenantPool, ok := rt.storageService.GetTenantPoolFromRequest(r)
 		if !ok {
-			core.SendError(w, http.StatusInternalServerError, "Company ID not found")
+			core.SendError(w, http.StatusInternalServerError, "Error getting a storage connection.")
 			return
 		}
-
-		tenantPool, err := rt.storageService.GetTenantPool(r.Context(), companyID)
-		if err != nil {
-			core.SendError(w, http.StatusInternalServerError, err.Error())
-			return
-		}
-		defer tenantPool.Close()
 
 		// Создаем хэндлеры
 		repo := hrm.NewRepository(tenantPool, rt.accountsService, rt.companiesService)

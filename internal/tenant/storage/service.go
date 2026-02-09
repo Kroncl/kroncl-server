@@ -112,8 +112,8 @@ func (s *Service) TenantPoolMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		// Закрываем пул после обработки запроса
-		defer tenantPool.Close()
+		// НЕ ЗАКРЫВАЕМ ЕБАНЫЙ ПУЛ
+		// defer tenantPool.Close()
 
 		// Добавляем пул в контекст
 		ctx := context.WithValue(r.Context(), "tenant_pool", tenantPool)
@@ -122,7 +122,7 @@ func (s *Service) TenantPoolMiddleware(next http.Handler) http.Handler {
 }
 
 // GetTenantPoolFromRequest извлекает пул тенанта из контекста запроса
-func GetTenantPoolFromRequest(r *http.Request) (*pgxpool.Pool, bool) {
+func (s *Service) GetTenantPoolFromRequest(r *http.Request) (*pgxpool.Pool, bool) {
 	pool, ok := r.Context().Value("tenant_pool").(*pgxpool.Pool)
 	return pool, ok
 }
