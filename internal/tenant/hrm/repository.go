@@ -162,15 +162,25 @@ func (r *Repository) UpdateEmployee(ctx context.Context, id string, req UpdateEm
 	}
 
 	lastName := strings.TrimSpace(req.LastName)
-	updater.SetString("last_name", lastName)
+	if lastName == "" {
+		updater.SetNull("last_name")
+	} else {
+		updater.SetString("last_name", lastName)
+	}
 
 	email := strings.ToLower(strings.TrimSpace(req.Email))
-	if email != "" && strings.Contains(email, "@") {
+	if email == "" {
+		updater.SetNull("email")
+	} else if strings.Contains(email, "@") {
 		updater.SetString("email", email)
 	}
 
 	phone := strings.TrimSpace(req.Phone)
-	updater.SetString("phone", phone)
+	if phone == "" {
+		updater.SetNull("phone")
+	} else {
+		updater.SetString("phone", phone)
+	}
 
 	if req.Status != "" {
 		updater.SetString("status", string(req.Status))
@@ -189,6 +199,18 @@ func (r *Repository) UpdateEmployee(ctx context.Context, id string, req UpdateEm
 	}
 
 	return r.GetEmployeeByID(ctx, id)
+}
+
+func (r *Repository) DeleteEmployee(ctx context.Context, id string) (bool, error) {
+	query := `DELETE FROM employees WHERE id = $1`
+	result, err := r.pool.Exec(ctx, query, id)
+
+	if err != nil {
+		return false, fmt.Errorf("failed to delete employee: %w", err)
+	}
+
+	rowsAffected := result.RowsAffected()
+	return rowsAffected > 0, nil
 }
 
 func (r *Repository) CreateEmployee(ctx context.Context, req CreateEmployeeRequest) (*Employee, error) {

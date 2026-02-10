@@ -40,6 +40,12 @@ func (u *Updater) SetString(field, value string) *Updater {
 	return u
 }
 
+// SetNull устанавливает NULL для поля
+func (u *Updater) SetNull(field string) *Updater {
+	u.sets = append(u.sets, fmt.Sprintf("%s = NULL", field))
+	return u
+}
+
 // SetNullableString добавляет строку или NULL
 func (u *Updater) SetNullableString(field string, value *string) *Updater {
 	return u.Set(field, value)

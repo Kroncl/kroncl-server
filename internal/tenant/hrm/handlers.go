@@ -113,6 +113,29 @@ func (h *Handlers) GetEmployees(w http.ResponseWriter, r *http.Request) {
 	core.SendSuccess(w, response, "Employees retrieved successfully.")
 }
 
+func (h *Handlers) DeleteEmployee(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete {
+		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
+		return
+	}
+
+	// Получаем ID сотрудника из URL параметра employeeId
+	employeeId := r.PathValue("employeeId")
+	if employeeId == "" {
+		core.SendError(w, http.StatusBadRequest, "Employee ID is required.")
+		return
+	}
+
+	// удаляем
+	ok, err := h.repository.DeleteEmployee(r.Context(), employeeId)
+	if err != nil {
+		core.SendError(w, http.StatusInternalServerError, "Failed to delete employee.")
+		return
+	}
+
+	core.SendSuccess(w, ok, "Employee deleted successfully.")
+}
+
 func (h *Handlers) UpdateEmployee(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPatch {
 		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
@@ -136,7 +159,7 @@ func (h *Handlers) UpdateEmployee(w http.ResponseWriter, r *http.Request) {
 	// Обновляем сотрудника
 	employee, err := h.repository.UpdateEmployee(r.Context(), employeeId, req)
 	if err != nil {
-		core.SendError(w, http.StatusInternalServerError, "Failed to update employee.")
+		core.SendError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to update employee. %s", err.Error()))
 		return
 	}
 

@@ -62,6 +62,9 @@ func (rt *Routes) Register(r chi.Router) {
 				r.With(permissioner.RequirePermission(rt.permissionService, "hrm.employees.update")).Patch("/", rt.withHRMHandlers(func(h *hrm.Handlers) http.HandlerFunc {
 					return h.UpdateEmployee
 				}))
+				r.With(permissioner.RequirePermission(rt.permissionService, "hrm.employees.delete")).Delete("/", rt.withHRMHandlers(func(h *hrm.Handlers) http.HandlerFunc {
+					return h.DeleteEmployee
+				}))
 			})
 		})
 	})
