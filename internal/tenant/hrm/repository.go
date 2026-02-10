@@ -6,6 +6,7 @@ import (
 	"kroncl-server/internal/accounts"
 	"kroncl-server/internal/companies"
 	"kroncl-server/internal/core"
+	"strconv"
 	"strings"
 	"time"
 
@@ -70,12 +71,25 @@ func (r *Repository) GetEmployeeByID(ctx context.Context, id string) (*EmployeeD
 	return &employee, nil
 }
 
-// GetEmployees возвращает список (только базовые данные + account_id)
-func (r *Repository) GetEmployees(ctx context.Context, offset, limit int) ([]EmployeeListItem, int, error) {
+func (r *Repository) GetEmployees(ctx context.Context, offset, limit int, search string) ([]EmployeeListItem, int, error) {
+	// Собираем условия WHERE
+	var whereClause string
+	var args []interface{}
+	argIndex := 1
+
+	if search != "" {
+		whereClause = `WHERE 
+			e.first_name ILIKE $` + strconv.Itoa(argIndex) + ` OR 
+			e.last_name ILIKE $` + strconv.Itoa(argIndex) + ` OR 
+			e.email ILIKE $` + strconv.Itoa(argIndex)
+		args = append(args, "%"+search+"%")
+		argIndex++
+	}
+
 	// Сначала получаем общее количество
-	countQuery := `SELECT COUNT(*) FROM employees`
+	countQuery := `SELECT COUNT(*) FROM employees e ` + whereClause
 	var total int
-	err := r.pool.QueryRow(ctx, countQuery).Scan(&total)
+	err := r.pool.QueryRow(ctx, countQuery, args...).Scan(&total)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to count employees: %w", err)
 	}
@@ -95,11 +109,13 @@ func (r *Repository) GetEmployees(ctx context.Context, offset, limit int) ([]Emp
 			ea.created_at as linked_at
 		FROM employees e
 		LEFT JOIN employee_account ea ON e.id = ea.employee_id
+		` + whereClause + `
 		ORDER BY e.created_at DESC
-		LIMIT $1 OFFSET $2
-	`
+		LIMIT $` + strconv.Itoa(argIndex) + ` OFFSET $` + strconv.Itoa(argIndex+1)
 
-	rows, err := r.pool.Query(ctx, query, limit, offset)
+	args = append(args, limit, offset)
+
+	rows, err := r.pool.Query(ctx, query, args...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to query employees: %w", err)
 	}

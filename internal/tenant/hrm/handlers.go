@@ -87,21 +87,20 @@ func (h *Handlers) GetEmployees(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Получаем параметры пагинации
 	pagination := core.GetDefaultPaginationParams(r)
+	search := r.URL.Query().Get("search")
 
-	// Получаем сотрудников
 	employees, total, err := h.repository.GetEmployees(
 		r.Context(),
 		pagination.Offset,
 		pagination.Limit,
+		search,
 	)
 	if err != nil {
 		core.SendError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to get employees: %s", err.Error()))
 		return
 	}
 
-	// Создаем ответ
 	response := map[string]interface{}{
 		"employees": employees,
 		"pagination": core.NewPagination(
