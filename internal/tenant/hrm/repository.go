@@ -287,6 +287,20 @@ func (r *Repository) LinkAccount(ctx context.Context, employeeId, accountId stri
 		return nil, fmt.Errorf("employee not found: %w", err)
 	}
 
+	// Проверяем, привязан ли аккаунт к другому сотруднику
+	checkQuery := `SELECT employee_id FROM employee_account WHERE account_id = $1`
+	var existingEmployeeId string
+	err = r.pool.QueryRow(ctx, checkQuery, accountId).Scan(&existingEmployeeId)
+
+	// Если аккаунт уже привязан к другому сотруднику - удаляем старую связь
+	if err == nil && existingEmployeeId != employeeId {
+		deleteQuery := `DELETE FROM employee_account WHERE account_id = $1`
+		_, err := r.pool.Exec(ctx, deleteQuery, accountId)
+		if err != nil {
+			return nil, fmt.Errorf("failed to remove existing account link: %w", err)
+		}
+	}
+
 	// Вставляем или обновляем связь
 	query := `
 		INSERT INTO employee_account (employee_id, account_id, created_at)
