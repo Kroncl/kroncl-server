@@ -49,3 +49,7 @@ type UpdateEmployeeRequest struct {
 	Phone     string         `json:"phone,omitempty" validate:"omitempty,min=6,max=50"`
 	Status    EmployeeStatus `json:"status,omitempty" validate:"omitempty,oneof=active inactive"`
 }
+
+type LinkAccountRequest struct {
+	AccountId string `json:"account_id"`
+}

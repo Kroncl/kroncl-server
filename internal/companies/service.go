@@ -391,3 +391,17 @@ func (s *Service) checkSlugUnique(ctx context.Context, slug string) (bool, error
 
 	return count == 0, nil
 }
+
+func (s *Service) CheckCompanyMembership(ctx context.Context, companyID, userID string) (bool, error) {
+	var exists bool
+	query := `
+		SELECT EXISTS(
+			SELECT 1 FROM companies c
+			JOIN company_accounts ca ON c.id = ca.company_id
+			WHERE c.id = $1 AND ca.account_id = $2
+		)
+	`
+
+	err := s.pool.QueryRow(ctx, query, companyID, userID).Scan(&exists)
+	return exists, err
+}

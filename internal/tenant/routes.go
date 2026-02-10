@@ -59,12 +59,24 @@ func (rt *Routes) Register(r chi.Router) {
 				r.Get("/", rt.withHRMHandlers(func(h *hrm.Handlers) http.HandlerFunc {
 					return h.GetEmployee
 				}))
-				r.With(permissioner.RequirePermission(rt.permissionService, "hrm.employees.update")).Patch("/", rt.withHRMHandlers(func(h *hrm.Handlers) http.HandlerFunc {
-					return h.UpdateEmployee
-				}))
+				// удаление
 				r.With(permissioner.RequirePermission(rt.permissionService, "hrm.employees.delete")).Delete("/", rt.withHRMHandlers(func(h *hrm.Handlers) http.HandlerFunc {
 					return h.DeleteEmployee
 				}))
+				// обновление
+				r.Group(func(r chi.Router) {
+					r.With(permissioner.RequirePermission(rt.permissionService, "hrm.employee.update"))
+
+					r.Patch("/", rt.withHRMHandlers(func(h *hrm.Handlers) http.HandlerFunc {
+						return h.UpdateEmployee
+					}))
+					r.Post("/link-account", rt.withHRMHandlers(func(h *hrm.Handlers) http.HandlerFunc {
+						return h.LinkAccountEmployee
+					}))
+					r.Post("/unlink-account", rt.withHRMHandlers(func(h *hrm.Handlers) http.HandlerFunc {
+						return h.UnlinkAccountEmployee
+					}))
+				})
 			})
 		})
 	})

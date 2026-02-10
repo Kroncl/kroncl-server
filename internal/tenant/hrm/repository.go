@@ -278,3 +278,51 @@ func (r *Repository) CreateEmployee(ctx context.Context, req CreateEmployeeReque
 
 	return &employee, nil
 }
+
+// LinkAccount связывает аккаунт с сотрудником
+func (r *Repository) LinkAccount(ctx context.Context, employeeId, accountId string) (*EmployeeDetail, error) {
+	// Проверяем, существует ли сотрудник
+	_, err := r.GetEmployeeByID(ctx, employeeId)
+	if err != nil {
+		return nil, fmt.Errorf("employee not found: %w", err)
+	}
+
+	// Вставляем или обновляем связь
+	query := `
+		INSERT INTO employee_account (employee_id, account_id, created_at)
+		VALUES ($1, $2, CURRENT_TIMESTAMP)
+		ON CONFLICT (employee_id) 
+		DO UPDATE SET 
+			account_id = EXCLUDED.account_id,
+			created_at = CURRENT_TIMESTAMP
+		RETURNING created_at
+	`
+
+	var linkedAt time.Time
+	err = r.pool.QueryRow(ctx, query, employeeId, accountId).Scan(&linkedAt)
+	if err != nil {
+		return nil, fmt.Errorf("failed to link account: %w", err)
+	}
+
+	// Возвращаем обновленные данные сотрудника
+	return r.GetEmployeeByID(ctx, employeeId)
+}
+
+// UnlinkAccount отвязывает аккаунт от сотрудника
+func (r *Repository) UnlinkAccount(ctx context.Context, employeeId string) (*EmployeeDetail, error) {
+	// Проверяем, существует ли сотрудник
+	_, err := r.GetEmployeeByID(ctx, employeeId)
+	if err != nil {
+		return nil, fmt.Errorf("employee not found: %w", err)
+	}
+
+	// Удаляем связь
+	query := `DELETE FROM employee_account WHERE employee_id = $1`
+	_, err = r.pool.Exec(ctx, query, employeeId)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unlink account: %w", err)
+	}
+
+	// Возвращаем обновленные данные сотрудника
+	return r.GetEmployeeByID(ctx, employeeId)
+}

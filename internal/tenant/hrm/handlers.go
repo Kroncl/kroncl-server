@@ -194,3 +194,75 @@ func (h *Handlers) CreateEmployee(w http.ResponseWriter, r *http.Request) {
 
 	core.SendSuccess(w, employee, "Employee created successfully.")
 }
+
+// привязка аккаунта
+func (h *Handlers) LinkAccountEmployee(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
+		return
+	}
+
+	// Получаем companyID из контекста
+	companyID, ok := core.GetCompanyIDFromContext(r.Context())
+	if !ok {
+		core.SendError(w, http.StatusBadRequest, "Company context not found.")
+		return
+	}
+
+	// Получаем ID сотрудника из URL параметра employeeId
+	employeeId := r.PathValue("employeeId")
+	if employeeId == "" {
+		core.SendError(w, http.StatusBadRequest, "Employee ID is required.")
+		return
+	}
+
+	// парсим тело запроса
+	var req LinkAccountRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		core.SendError(w, http.StatusBadRequest, "Invalid request body.")
+		return
+	}
+
+	// проверяем принадлежность аккаунта к компании
+	ok, err := h.repository.companiesService.CheckCompanyMembership(r.Context(), companyID, req.AccountId)
+	if err != nil {
+		core.SendError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to link account: %s", err.Error()))
+		return
+	}
+	if !ok {
+		core.SendError(w, http.StatusBadRequest, "The account does not belong to the company.")
+	}
+
+	// ебашим
+	employee, err := h.repository.LinkAccount(r.Context(), employeeId, req.AccountId)
+	if err != nil {
+		core.SendError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to link account: %s", err.Error()))
+		return
+	}
+
+	core.SendSuccess(w, employee, "Account linked successfully.")
+}
+
+// отвязка аккаунта
+func (h *Handlers) UnlinkAccountEmployee(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
+		return
+	}
+
+	// Получаем ID сотрудника из URL параметра employeeId
+	employeeId := r.PathValue("employeeId")
+	if employeeId == "" {
+		core.SendError(w, http.StatusBadRequest, "Employee ID is required.")
+		return
+	}
+
+	// ебашим
+	employee, err := h.repository.UnlinkAccount(r.Context(), employeeId)
+	if err != nil {
+		core.SendError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to unlink account. %s", err.Error()))
+		return
+	}
+
+	core.SendSuccess(w, employee, "Account unlinked successfully.")
+}
