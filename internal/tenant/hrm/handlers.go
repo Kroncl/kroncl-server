@@ -16,6 +16,11 @@ func NewHandlers(repository *Repository) *Handlers {
 	return &Handlers{repository: repository}
 }
 
+// -------
+// Цепочка действий с участием
+// глобального реестра акккаунтов
+// в идеале это дело потом вынести из модуля
+// -------
 func (h *Handlers) RemoveEmployeeAccount(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodDelete {
 		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
@@ -195,7 +200,10 @@ func (h *Handlers) CreateEmployee(w http.ResponseWriter, r *http.Request) {
 	core.SendSuccess(w, employee, "Employee created successfully.")
 }
 
-// привязка аккаунта
+// -------
+// привязка с проверкой
+// существования аккаунта в глоб.реестре
+// -------
 func (h *Handlers) LinkAccountEmployee(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
