@@ -3,6 +3,7 @@ package tenant
 import (
 	"kroncl-server/internal/accounts"
 	"kroncl-server/internal/companies"
+	"kroncl-server/internal/config"
 	"kroncl-server/internal/core"
 	"kroncl-server/internal/permissioner"
 	"kroncl-server/internal/tenant/hrm"
@@ -34,38 +35,41 @@ func NewRoutes(
 }
 
 func (rt *Routes) Register(r chi.Router) {
-	// Accounts - employees actions
+	// accounts -> employees actions
 	r.Route("/accounts", func(r chi.Router) {
-		r.With(permissioner.RequirePermission(rt.permissionService, "accounts.delete")).Delete("/{accountId}", rt.withHRMHandlers(func(h *hrm.Handlers) http.HandlerFunc {
-			return h.RemoveEmployeeAccount
-		}))
+		r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_ACCOUNTS_DELETE)).
+			Delete("/{accountId}", rt.withHRMHandlers(func(h *hrm.Handlers) http.HandlerFunc {
+				return h.RemoveEmployeeAccount
+			}))
 	})
 
 	// HRM module
 	r.Route("/hrm", func(r chi.Router) {
-		r.Use(permissioner.RequirePermission(rt.permissionService, "hrm"))
+		r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_HRM))
 
-		// Employees
+		// employees
 		r.Route("/employees", func(r chi.Router) {
-			r.Use(permissioner.RequirePermission(rt.permissionService, "hrm.employees"))
+			r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_HRM_EMPLOYEES))
 
 			r.Get("/", rt.withHRMHandlers(func(h *hrm.Handlers) http.HandlerFunc {
 				return h.GetEmployees
 			}))
-			r.With(permissioner.RequirePermission(rt.permissionService, "hrm.employees.create")).Post("/", rt.withHRMHandlers(func(h *hrm.Handlers) http.HandlerFunc {
-				return h.CreateEmployee
-			}))
+			r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_HRM_EMPLOYEES_CREATE)).
+				Post("/", rt.withHRMHandlers(func(h *hrm.Handlers) http.HandlerFunc {
+					return h.CreateEmployee
+				}))
 			r.Route("/{employeeId}", func(r chi.Router) {
 				r.Get("/", rt.withHRMHandlers(func(h *hrm.Handlers) http.HandlerFunc {
 					return h.GetEmployee
 				}))
 				// удаление
-				r.With(permissioner.RequirePermission(rt.permissionService, "hrm.employees.delete")).Delete("/", rt.withHRMHandlers(func(h *hrm.Handlers) http.HandlerFunc {
-					return h.DeleteEmployee
-				}))
+				r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_HRM_EMPLOYEES_DELETE)).
+					Delete("/", rt.withHRMHandlers(func(h *hrm.Handlers) http.HandlerFunc {
+						return h.DeleteEmployee
+					}))
 				// обновление
 				r.Group(func(r chi.Router) {
-					r.With(permissioner.RequirePermission(rt.permissionService, "hrm.employee.update"))
+					r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_HRM_EMPLOYEES_UPDATE))
 
 					r.Patch("/", rt.withHRMHandlers(func(h *hrm.Handlers) http.HandlerFunc {
 						return h.UpdateEmployee
@@ -80,10 +84,43 @@ func (rt *Routes) Register(r chi.Router) {
 			})
 		})
 	})
+
+	// FM module
+	r.Route("/fm", func(r chi.Router) {
+		r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_FM))
+
+		// transactions
+		r.Route("/transactions", func(r chi.Router) {
+			r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_FM_TRANSACTIONS))
+
+			r.Get("/", rt.withHRMHandlers(func(h *hrm.Handlers) http.HandlerFunc {
+				return h.GetEmployees
+			}))
+		})
+	})
 }
 
-// withHRMHandlers создает middleware, которое внедряет HRM хэндлеры
+// мидлвары для инъекции зависимостей
+// тенантских модулей
 func (rt *Routes) withHRMHandlers(factory func(*hrm.Handlers) http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		tenantPool, ok := rt.storageService.GetTenantPoolFromRequest(r)
+		if !ok {
+			core.SendError(w, http.StatusInternalServerError, "Error getting a storage connection.")
+			return
+		}
+
+		// Создаем хэндлеры
+		repo := hrm.NewRepository(tenantPool, rt.accountsService, rt.companiesService)
+		handlers := hrm.NewHandlers(repo)
+
+		// Вызываем целевой обработчик через фабрику
+		handler := factory(handlers)
+		handler(w, r)
+	}
+}
+
+func (rt *Routes) withFMHandlers(factory func(*hrm.Handlers) http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		tenantPool, ok := rt.storageService.GetTenantPoolFromRequest(r)
 		if !ok {

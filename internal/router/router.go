@@ -88,26 +88,28 @@ func New(cfg *config.Config, container *di.Container) chi.Router {
 					r.Use(container.StorageService.TenantPoolMiddleware)
 
 					r.Get("/", container.CompaniesHandlers.GetUserCompanyById)
-					r.With(permissioner.RequirePermission(container.PermissionService, "company.update")).Patch("/", container.CompaniesHandlers.Update)
+					r.With(permissioner.RequirePermission(container.PermissionService, config.PERMISSION_COMPANY_UPDATE)).Patch("/", container.CompaniesHandlers.Update)
 
 					// Company storage
 					r.Route("/storage", func(r chi.Router) {
 						r.Get("/", container.StorageHandlers.Get)
-						r.With(permissioner.RequirePermission(container.PermissionService, "storage.sources")).Get("/sources", container.StorageHandlers.GetSources)
+						r.With(permissioner.RequirePermission(container.PermissionService, config.PERMISSION_STORAGE_SOURCES)).Get("/sources", container.StorageHandlers.GetSources)
 					})
 
 					// Company accounts (hrm part)
 					r.Route("/accounts", func(r chi.Router) {
-						r.Use(permissioner.RequirePermission(container.PermissionService, "accounts"))
+						r.Use(permissioner.RequirePermission(container.PermissionService, config.PERMISSION_ACCOUNTS))
 						r.Get("/", container.CompaniesHandlers.GetCompanyMembers)
 						r.Get("/{accountId}", container.CompaniesHandlers.GetCompanyMember)
 
 						r.Route("/invitations", func(r chi.Router) {
-							r.Use(permissioner.RequirePermission(container.PermissionService, "accounts.invitations"))
+							r.Use(permissioner.RequirePermission(container.PermissionService, config.PERMISSION_ACCOUNTS_INVITATIONS))
 
 							r.Get("/", container.CompaniesHandlers.GetCompanyInvitations)
-							r.With(permissioner.RequirePermission(container.PermissionService, "accounts.invitations.create")).Post("/", container.CompaniesHandlers.CreateCompanyInvitation)
-							r.With(permissioner.RequirePermission(container.PermissionService, "accounts.invitations.revoke")).Delete("/{invitationId}", container.CompaniesHandlers.RevokeInvitation)
+							r.With(permissioner.RequirePermission(container.PermissionService, config.PERMISSION_ACCOUNTS_INVITATIONS_CREATE)).
+								Post("/", container.CompaniesHandlers.CreateCompanyInvitation)
+							r.With(permissioner.RequirePermission(container.PermissionService, config.PERMISSION_ACCOUNTS_INVITATIONS_REVOKE)).
+								Delete("/{invitationId}", container.CompaniesHandlers.RevokeInvitation)
 						})
 					})
 
