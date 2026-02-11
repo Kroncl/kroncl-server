@@ -72,24 +72,37 @@ func (r *Repository) GetEmployeeByID(ctx context.Context, id string) (*EmployeeD
 }
 
 func (r *Repository) GetEmployees(ctx context.Context, offset, limit int, search string) ([]EmployeeListItem, int, error) {
-	// Собираем условия WHERE
 	var whereClause string
 	var args []interface{}
+	var whereConditions []string
 	argIndex := 1
 
+	// Всегда фильтруем по активным сотрудникам
+	whereConditions = append(whereConditions, "e.status = $"+strconv.Itoa(argIndex))
+	args = append(args, EmployeeStatusActive)
+	argIndex++
+
 	if search != "" {
-		whereClause = `WHERE 
-			e.first_name ILIKE $` + strconv.Itoa(argIndex) + ` OR 
-			e.last_name ILIKE $` + strconv.Itoa(argIndex) + ` OR 
-			e.email ILIKE $` + strconv.Itoa(argIndex)
+		// Добавляем поисковые условия в скобки
+		searchConditions := []string{
+			"e.first_name ILIKE $" + strconv.Itoa(argIndex),
+			"e.last_name ILIKE $" + strconv.Itoa(argIndex),
+			"e.email ILIKE $" + strconv.Itoa(argIndex),
+		}
+		whereConditions = append(whereConditions, "("+strings.Join(searchConditions, " OR ")+")")
 		args = append(args, "%"+search+"%")
 		argIndex++
+	}
+
+	// Собираем все условия через AND
+	if len(whereConditions) > 0 {
+		whereClause = "WHERE " + strings.Join(whereConditions, " AND ")
 	}
 
 	// Сначала получаем общее количество
 	countQuery := `SELECT COUNT(*) FROM employees e ` + whereClause
 	var total int
-	err := r.pool.QueryRow(ctx, countQuery, args...).Scan(&total)
+	err := r.pool.QueryRow(ctx, countQuery, args[:argIndex-1]...).Scan(&total)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to count employees: %w", err)
 	}
@@ -113,9 +126,10 @@ func (r *Repository) GetEmployees(ctx context.Context, offset, limit int, search
 		ORDER BY e.created_at DESC
 		LIMIT $` + strconv.Itoa(argIndex) + ` OFFSET $` + strconv.Itoa(argIndex+1)
 
-	args = append(args, limit, offset)
+	// Добавляем параметры пагинации
+	allArgs := append(args, limit, offset)
 
-	rows, err := r.pool.Query(ctx, query, args...)
+	rows, err := r.pool.Query(ctx, query, allArgs...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to query employees: %w", err)
 	}
@@ -201,9 +215,10 @@ func (r *Repository) UpdateEmployee(ctx context.Context, id string, req UpdateEm
 	return r.GetEmployeeByID(ctx, id)
 }
 
+// ДИАКТИВАЦИЯ (не перманентное удаление)
 func (r *Repository) DeleteEmployee(ctx context.Context, id string) (bool, error) {
-	query := `DELETE FROM employees WHERE id = $1`
-	result, err := r.pool.Exec(ctx, query, id)
+	query := `UPDATE employees SET status = $1 WHERE id = $2`
+	result, err := r.pool.Exec(ctx, query, EmployeeStatusInactive, id)
 
 	if err != nil {
 		return false, fmt.Errorf("failed to delete employee: %w", err)
