@@ -112,7 +112,7 @@ const (
 type TransactionCategory struct {
 	ID          string                       `json:"id"`
 	Name        string                       `json:"name"`
-	Description *string                      `json:"description,omitempty"`
+	Description *string                      `json:"description"`
 	Direction   TransactionCategoryDirection `json:"direction"`
 	System      bool                         `json:"system"`
 	Slug        string                       `json:"slug"`
