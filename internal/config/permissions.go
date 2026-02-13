@@ -11,7 +11,6 @@ const (
 	PERMISSION_HRM                               = "hrm"
 	PERMISSION_HRM_EMPLOYEES                     = "hrm.employees"
 	PERMISSION_HRM_EMPLOYEES_CREATE              = "hrm.employees.create"
-	PERMISSION_HRM_EMPLOYEES_DELETE              = "hrm.employees.delete"
 	PERMISSION_HRM_EMPLOYEES_UPDATE              = "hrm.employees.update"
 	PERMISSION_FM                                = "fm"
 	PERMISSION_FM_TRANSACTIONS                   = "fm.transactions"

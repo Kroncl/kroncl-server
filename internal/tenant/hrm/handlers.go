@@ -118,8 +118,9 @@ func (h *Handlers) GetEmployees(w http.ResponseWriter, r *http.Request) {
 	core.SendSuccess(w, response, "Employees retrieved successfully.")
 }
 
-func (h *Handlers) DeleteEmployee(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodDelete {
+// деактивация
+func (h *Handlers) DeactivateEmployee(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
 		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
 		return
 	}
@@ -131,14 +132,38 @@ func (h *Handlers) DeleteEmployee(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// удаляем
-	ok, err := h.repository.DeleteEmployee(r.Context(), employeeId)
+	// деактивируем
+	ok, err := h.repository.DeactivateEmployee(r.Context(), employeeId)
 	if err != nil {
-		core.SendError(w, http.StatusInternalServerError, "Failed to delete employee.")
+		core.SendError(w, http.StatusInternalServerError, "Failed to deactivate employee.")
 		return
 	}
 
-	core.SendSuccess(w, ok, "Employee deleted successfully.")
+	core.SendSuccess(w, ok, "Employee deactivated successfully.")
+}
+
+// активация
+func (h *Handlers) ActivateEmployee(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
+		return
+	}
+
+	// Получаем ID сотрудника из URL параметра employeeId
+	employeeId := r.PathValue("employeeId")
+	if employeeId == "" {
+		core.SendError(w, http.StatusBadRequest, "Employee ID is required.")
+		return
+	}
+
+	// восстанавливаем
+	ok, err := h.repository.ActivateEmployee(r.Context(), employeeId)
+	if err != nil {
+		core.SendError(w, http.StatusInternalServerError, "Failed to activate employee.")
+		return
+	}
+
+	core.SendSuccess(w, ok, "Employee activated successfully.")
 }
 
 func (h *Handlers) UpdateEmployee(w http.ResponseWriter, r *http.Request) {

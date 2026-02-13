@@ -63,15 +63,17 @@ func (rt *Routes) Register(r chi.Router) {
 				r.Get("/", rt.withHRMHandlers(func(h *hrm.Handlers) http.HandlerFunc {
 					return h.GetEmployee
 				}))
-				// удаление
-				r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_HRM_EMPLOYEES_DELETE)).
-					Delete("/", rt.withHRMHandlers(func(h *hrm.Handlers) http.HandlerFunc {
-						return h.DeleteEmployee
-					}))
+
 				// обновление
 				r.Group(func(r chi.Router) {
 					r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_HRM_EMPLOYEES_UPDATE))
 
+					r.Post("/deactivate", rt.withHRMHandlers(func(h *hrm.Handlers) http.HandlerFunc {
+						return h.DeactivateEmployee
+					}))
+					r.Post("/activate", rt.withHRMHandlers(func(h *hrm.Handlers) http.HandlerFunc {
+						return h.ActivateEmployee
+					}))
 					r.Patch("/", rt.withHRMHandlers(func(h *hrm.Handlers) http.HandlerFunc {
 						return h.UpdateEmployee
 					}))

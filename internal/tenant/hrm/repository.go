@@ -215,13 +215,36 @@ func (r *Repository) UpdateEmployee(ctx context.Context, id string, req UpdateEm
 	return r.GetEmployeeByID(ctx, id)
 }
 
-// ДИАКТИВАЦИЯ (не перманентное удаление)
-func (r *Repository) DeleteEmployee(ctx context.Context, id string) (bool, error) {
+// ДЕАКТИВАЦИЯ (не перманентное удаление)
+func (r *Repository) DeactivateEmployee(ctx context.Context, id string) (bool, error) {
+	_, err := r.GetEmployeeByID(ctx, id)
+	if err != nil {
+		return false, err
+	}
+
 	query := `UPDATE employees SET status = $1 WHERE id = $2`
 	result, err := r.pool.Exec(ctx, query, EmployeeStatusInactive, id)
 
 	if err != nil {
-		return false, fmt.Errorf("failed to delete employee: %w", err)
+		return false, fmt.Errorf("failed to deactivate employee: %w", err)
+	}
+
+	rowsAffected := result.RowsAffected()
+	return rowsAffected > 0, nil
+}
+
+// АКТИВАЦИЯ
+func (r *Repository) ActivateEmployee(ctx context.Context, id string) (bool, error) {
+	_, err := r.GetEmployeeByID(ctx, id)
+	if err != nil {
+		return false, err
+	}
+
+	query := `UPDATE employees SET status = $1 WHERE id = $2`
+	result, err := r.pool.Exec(ctx, query, EmployeeStatusActive, id)
+
+	if err != nil {
+		return false, fmt.Errorf("failed to activate employee: %w", err)
 	}
 
 	rowsAffected := result.RowsAffected()
