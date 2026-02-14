@@ -89,7 +89,11 @@ func (a *Application) shutdown() error {
 		log.Println("All goroutines stopped")
 	}
 
-	// Close resources
+	// Close resources - здесь вызываем CloseAll для storage service
+	if a.container.StorageService != nil {
+		a.container.StorageService.CloseAll()
+	}
+
 	a.container.Close()
 
 	log.Println("Application stopped")

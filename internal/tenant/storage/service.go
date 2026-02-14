@@ -47,15 +47,8 @@ func (s *Service) GetTenantPool(ctx context.Context, companyID string) (*pgxpool
 		return nil, fmt.Errorf("failed to create pool: %w", err)
 	}
 
-	// Сохраняем в кэш
+	// Сохраняем в кэш — без горутины!
 	s.tenantPools.Store(companyID, tenantPool)
-
-	// Очистка при закрытии приложения
-	go func() {
-		<-ctx.Done()
-		tenantPool.Close()
-		s.tenantPools.Delete(companyID)
-	}()
 
 	return tenantPool, nil
 }
@@ -206,6 +199,14 @@ func (s *Service) GetStorageStatus(ctx context.Context, companyID string) (*Stor
 		SchemaName:   storage.SchemaName,
 		SchemaExists: schemaExists,
 	}, nil
+}
+
+func (s *Service) CloseAll() {
+	s.tenantPools.Range(func(key, value interface{}) bool {
+		pool := value.(*pgxpool.Pool)
+		pool.Close()
+		return true
+	})
 }
 
 func (s *Service) getStatusMessage(status StorageStatus) string {

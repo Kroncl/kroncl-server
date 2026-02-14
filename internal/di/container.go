@@ -138,4 +138,7 @@ func (c *Container) Close() {
 	if c.DB != nil {
 		c.DB.Close()
 	}
+	if c.StorageService != nil {
+		c.StorageService.CloseAll()
+	}
 }
