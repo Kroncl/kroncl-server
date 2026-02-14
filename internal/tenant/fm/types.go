@@ -41,6 +41,7 @@ type Transaction struct {
 	Direction  TransactionDirection   `json:"direction"`
 	Status     TransactionStatus      `json:"status"`
 	Comment    *string                `json:"comment"`
+	ReverseTo  *string                `json:"reverse_to"`
 	CreatedAt  time.Time              `json:"created_at"`
 	Metadata   map[string]interface{} `json:"metadata"`
 }

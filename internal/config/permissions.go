@@ -15,6 +15,7 @@ const (
 	PERMISSION_FM                                = "fm"
 	PERMISSION_FM_TRANSACTIONS                   = "fm.transactions"
 	PERMISSION_FM_TRANSACTIONS_CREATE            = "fm.transactions.create"
+	PERMISSION_FM_TRANSACTIONS_REVERSE           = "fm.transactions.reverse"
 	PERMISSION_FM_TRANSACTIONS_CATEGORIES        = "fm.transactions.categories"
 	PERMISSION_FM_TRANSACTIONS_CATEGORIES_CREATE = "fm.transactions.categories.create"
 	PERMISSION_FM_TRANSACTIONS_CATEGORIES_UPDATE = "fm.transactions.categories.update"

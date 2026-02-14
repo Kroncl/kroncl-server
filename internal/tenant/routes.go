@@ -111,6 +111,12 @@ func (rt *Routes) Register(r chi.Router) {
 				r.Get("/", rt.withFMHandlers(func(h *fm.Handlers) http.HandlerFunc {
 					return h.GetTransaction
 				}))
+
+				// create reverse transaction
+				r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_FM_TRANSACTIONS_REVERSE)).
+					Post("/reverse", rt.withFMHandlers(func(h *fm.Handlers) http.HandlerFunc {
+						return h.CreateReverseTransaction
+					}))
 			})
 
 			// transactions categories

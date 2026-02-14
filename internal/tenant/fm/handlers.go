@@ -179,6 +179,28 @@ func (h *Handlers) GetTransactions(w http.ResponseWriter, r *http.Request) {
 	core.SendSuccess(w, response, "Transactions retrieved successfully.")
 }
 
+func (h *Handlers) CreateReverseTransaction(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
+		return
+	}
+
+	// Получаем ID транзакции из URL
+	transactionID := r.PathValue("transactionId")
+	if transactionID == "" {
+		core.SendError(w, http.StatusBadRequest, "Transaction ID is required.")
+		return
+	}
+
+	transaction, err := h.repository.CreateReverseTransaction(r.Context(), transactionID)
+	if err != nil {
+		core.SendNotFound(w, fmt.Sprintf("Failed create reverse transaction: %s", err.Error()))
+		return
+	}
+
+	core.SendSuccess(w, transaction, "Reverse transaction created successfully.")
+}
+
 // --------
 // CATEGORIES
 // базовый круд без хуйни
