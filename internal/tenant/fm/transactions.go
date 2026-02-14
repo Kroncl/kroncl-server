@@ -38,7 +38,7 @@ func (r *Repository) CreateTransaction(ctx context.Context, req CreateTransactio
 
 	// Валидация валюты
 	switch req.Currency {
-	case CurrencyRUB, CurrencyUSD, CurrencyEUR, CurrencyKZT:
+	case CurrencyRUB:
 		// OK
 	default:
 		return nil, fmt.Errorf("invalid currency: %s", req.Currency)

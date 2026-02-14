@@ -28,9 +28,9 @@ type CurrencyType string
 
 const (
 	CurrencyRUB CurrencyType = "RUB"
-	CurrencyUSD CurrencyType = "USD"
-	CurrencyEUR CurrencyType = "EUR"
-	CurrencyKZT CurrencyType = "KZT"
+	// CurrencyUSD CurrencyType = "USD"
+	// CurrencyEUR CurrencyType = "EUR"
+	// CurrencyKZT CurrencyType = "KZT"
 )
 
 // Transaction represents a financial transaction record
@@ -66,7 +66,7 @@ type TransactionDetail struct {
 // CreateTransactionRequest represents request to create transaction
 type CreateTransactionRequest struct {
 	BaseAmount int64                  `json:"base_amount" validate:"required,gt=0"` // рубли/тенге/доллары/евро
-	Currency   CurrencyType           `json:"currency" validate:"required,oneof=RUB USD EUR KZT"`
+	Currency   CurrencyType           `json:"currency" validate:"required,oneof=RUB"`
 	Direction  TransactionDirection   `json:"direction" validate:"required,oneof=income expense"`
 	Comment    string                 `json:"comment,omitempty" validate:"omitempty,max=500"`
 	CategoryID string                 `json:"category_id,omitempty" validate:"omitempty,uuid"`

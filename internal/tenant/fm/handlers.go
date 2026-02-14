@@ -388,3 +388,101 @@ func (h *Handlers) DeleteCategory(w http.ResponseWriter, r *http.Request) {
 		"deleted":     true,
 	}, "Category deleted successfully.")
 }
+
+// --------
+// ANALYSIS
+// --------
+
+func (h *Handlers) GetAnalysisSummary(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
+		return
+	}
+
+	// Парсим параметры дат
+	var startDate, endDate *time.Time
+
+	if startStr := r.URL.Query().Get("start_date"); startStr != "" {
+		t, err := time.Parse(time.RFC3339, startStr)
+		if err == nil {
+			startDate = &t
+		}
+	}
+
+	if endStr := r.URL.Query().Get("end_date"); endStr != "" {
+		t, err := time.Parse(time.RFC3339, endStr)
+		if err == nil {
+			endDate = &t
+		}
+	}
+
+	summary, err := h.repository.GetAnalysisSummary(r.Context(), startDate, endDate)
+	if err != nil {
+		core.SendInternalError(w, fmt.Sprintf("Failed to get analysis summary: %s", err.Error()))
+		return
+	}
+
+	core.SendSuccess(w, summary, "Analysis summary retrieved successfully.")
+}
+
+// func (h *Handlers) GetDailyStats(w http.ResponseWriter, r *http.Request) {
+// 	if r.Method != http.MethodGet {
+// 		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
+// 		return
+// 	}
+
+// 	var startDate, endDate *time.Time
+
+// 	if startStr := r.URL.Query().Get("start_date"); startStr != "" {
+// 		t, err := time.Parse(time.RFC3339, startStr)
+// 		if err == nil {
+// 			startDate = &t
+// 		}
+// 	}
+
+// 	if endStr := r.URL.Query().Get("end_date"); endStr != "" {
+// 		t, err := time.Parse(time.RFC3339, endStr)
+// 		if err == nil {
+// 			endDate = &t
+// 		}
+// 	}
+
+// 	stats, err := h.repository.GetDailyStats(r.Context(), startDate, endDate)
+// 	if err != nil {
+// 		core.SendInternalError(w, fmt.Sprintf("Failed to get daily stats: %s", err.Error()))
+// 		return
+// 	}
+
+// 	core.SendSuccess(w, stats, "Daily stats retrieved successfully.")
+// }
+
+func (h *Handlers) GetGroupedTransactions(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
+		return
+	}
+
+	groupBy := GroupBy(r.URL.Query().Get("group_by"))
+	if groupBy == "" {
+		core.SendValidationError(w, "group_by parameter is required (category/employee/day/month)")
+		return
+	}
+
+	var startDate, endDate *time.Time
+	if startStr := r.URL.Query().Get("start_date"); startStr != "" {
+		t, _ := time.Parse(time.RFC3339, startStr)
+		startDate = &t
+	}
+	if endStr := r.URL.Query().Get("end_date"); endStr != "" {
+		t, _ := time.Parse(time.RFC3339, endStr)
+		endDate = &t
+	}
+
+	stats, err := h.repository.GetGroupedTransactions(r.Context(), groupBy, startDate, endDate)
+	if err != nil {
+		core.SendInternalError(w, fmt.Sprintf("Failed to get grouped stats: %s", err.Error()))
+		return
+	}
+
+	core.SendSuccess(w, stats, "Grouped stats retrieved successfully.")
+}

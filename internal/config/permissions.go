@@ -20,4 +20,5 @@ const (
 	PERMISSION_FM_TRANSACTIONS_CATEGORIES_CREATE = "fm.transactions.categories.create"
 	PERMISSION_FM_TRANSACTIONS_CATEGORIES_UPDATE = "fm.transactions.categories.update"
 	PERMISSION_FM_TRANSACTIONS_CATEGORIES_DELETE = "fm.transactions.categories.delete"
+	PERMISSION_FM_ANALYSIS                       = "fm.analysis"
 )

@@ -145,6 +145,18 @@ func (rt *Routes) Register(r chi.Router) {
 				})
 			})
 		})
+
+		// analysis
+		r.Route("/analysis", func(r chi.Router) {
+			r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_FM_ANALYSIS))
+
+			r.Get("/summary", rt.withFMHandlers(func(h *fm.Handlers) http.HandlerFunc {
+				return h.GetAnalysisSummary
+			}))
+			r.Get("/grouped", rt.withFMHandlers(func(h *fm.Handlers) http.HandlerFunc {
+				return h.GetGroupedTransactions
+			}))
+		})
 	})
 }
 
