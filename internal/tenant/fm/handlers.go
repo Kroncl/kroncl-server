@@ -710,3 +710,271 @@ func (h *Handlers) DeactivateCounterparty(w http.ResponseWriter, r *http.Request
 
 	core.SendSuccess(w, counterparty, "Counterparty deactivated successfully.")
 }
+
+// --------
+// CREDITS
+// --------
+
+func (h *Handlers) GetCredit(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
+		return
+	}
+
+	// Получаем ID кредита из URL
+	creditID := r.PathValue("creditId")
+	if creditID == "" {
+		core.SendError(w, http.StatusBadRequest, "Credit ID is required.")
+		return
+	}
+
+	credit, err := h.repository.GetCreditByID(r.Context(), creditID)
+	if err != nil {
+		core.SendNotFound(w, "Credit not found.")
+		return
+	}
+
+	core.SendSuccess(w, credit, "Credit retrieved successfully.")
+}
+
+func (h *Handlers) GetCredits(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
+		return
+	}
+
+	// Параметры пагинации
+	pagination := core.GetDefaultPaginationParams(r)
+
+	// Парсим query параметры в структуру фильтров
+	var filters GetCreditsRequest
+	filters.Page = pagination.Page
+	filters.Limit = pagination.Limit
+
+	if typeStr := r.URL.Query().Get("type"); typeStr != "" {
+		t := CreditType(typeStr)
+		if t != CreditTypeDebt && t != CreditTypeCredit {
+			core.SendValidationError(w, "Invalid type. Use 'debt' or 'credit'.")
+			return
+		}
+		filters.Type = &t
+	}
+
+	if statusStr := r.URL.Query().Get("status"); statusStr != "" {
+		s := CreditStatus(statusStr)
+		if s != CreditStatusActive && s != CreditStatusClosed {
+			core.SendValidationError(w, "Invalid status. Use 'active' or 'closed'.")
+			return
+		}
+		filters.Status = &s
+	}
+
+	if search := r.URL.Query().Get("search"); search != "" {
+		filters.Search = &search
+	}
+
+	credits, total, err := h.repository.GetCredits(
+		r.Context(),
+		pagination.Offset,
+		pagination.Limit,
+		filters,
+	)
+	if err != nil {
+		core.SendInternalError(w, fmt.Sprintf("Failed to get credits: %s", err.Error()))
+		return
+	}
+
+	response := map[string]interface{}{
+		"credits": credits,
+		"pagination": core.NewPagination(
+			total,
+			pagination.Page,
+			pagination.Limit,
+		),
+	}
+
+	core.SendSuccess(w, response, "Credits retrieved successfully.")
+}
+
+func (h *Handlers) CreateCredit(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
+		return
+	}
+
+	// Парсим тело запроса
+	var req CreateCreditRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		core.SendError(w, http.StatusBadRequest, "Invalid request body.")
+		return
+	}
+
+	// Валидация
+	if strings.TrimSpace(req.Name) == "" {
+		core.SendError(w, http.StatusBadRequest, "Credit name is required.")
+		return
+	}
+	if req.Type == "" {
+		core.SendError(w, http.StatusBadRequest, "Credit type is required.")
+		return
+	}
+	if req.Type != CreditTypeDebt && req.Type != CreditTypeCredit {
+		core.SendValidationError(w, "Invalid type. Use 'debt' or 'credit'.")
+		return
+	}
+	if req.TotalAmount <= 0 {
+		core.SendError(w, http.StatusBadRequest, "Total amount must be greater than 0.")
+		return
+	}
+	if req.Currency == "" {
+		core.SendError(w, http.StatusBadRequest, "Currency is required.")
+		return
+	}
+	if req.StartDate.IsZero() || req.EndDate.IsZero() {
+		core.SendError(w, http.StatusBadRequest, "Start date and end date are required.")
+		return
+	}
+	if req.EndDate.Before(req.StartDate) {
+		core.SendError(w, http.StatusBadRequest, "End date must be after start date.")
+		return
+	}
+	if req.CounterpartyID == "" {
+		core.SendError(w, http.StatusBadRequest, "Counterparty ID is required.")
+		return
+	}
+	if req.InterestRate < 0 || req.InterestRate > 100 {
+		core.SendError(w, http.StatusBadRequest, "Interest rate must be between 0 and 100.")
+		return
+	}
+
+	credit, err := h.repository.CreateCredit(r.Context(), req)
+	if err != nil {
+		errorMsg := err.Error()
+		switch {
+		case strings.Contains(errorMsg, "counterparty not found"):
+			core.SendNotFound(w, "Counterparty not found.")
+		default:
+			core.SendInternalError(w, fmt.Sprintf("Failed to create credit: %s", errorMsg))
+		}
+		return
+	}
+
+	core.SendSuccess(w, credit, "Credit created successfully.")
+}
+
+func (h *Handlers) UpdateCredit(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPatch {
+		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
+		return
+	}
+
+	// Получаем ID кредита из URL
+	creditID := r.PathValue("creditId")
+	if creditID == "" {
+		core.SendError(w, http.StatusBadRequest, "Credit ID is required.")
+		return
+	}
+
+	// Парсим тело запроса
+	var req UpdateCreditRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		core.SendError(w, http.StatusBadRequest, "Invalid request body.")
+		return
+	}
+
+	// Валидация типа если указан
+	if req.Type != nil {
+		if *req.Type != CreditTypeDebt && *req.Type != CreditTypeCredit {
+			core.SendValidationError(w, "Invalid type. Use 'debt' or 'credit'.")
+			return
+		}
+	}
+
+	// Валидация дат если обе указаны
+	if req.StartDate != nil && req.EndDate != nil {
+		if req.EndDate.Before(*req.StartDate) {
+			core.SendError(w, http.StatusBadRequest, "End date must be after start date.")
+			return
+		}
+	}
+
+	// Валидация процентной ставки если указана
+	if req.InterestRate != nil {
+		if *req.InterestRate < 0 || *req.InterestRate > 100 {
+			core.SendError(w, http.StatusBadRequest, "Interest rate must be between 0 and 100.")
+			return
+		}
+	}
+
+	credit, err := h.repository.UpdateCredit(r.Context(), creditID, req)
+	if err != nil {
+		errorMsg := err.Error()
+		switch {
+		case strings.Contains(errorMsg, "credit not found"):
+			core.SendNotFound(w, "Credit not found.")
+		case strings.Contains(errorMsg, "counterparty not found"):
+			core.SendNotFound(w, "Counterparty not found.")
+		default:
+			core.SendInternalError(w, fmt.Sprintf("Failed to update credit: %s", errorMsg))
+		}
+		return
+	}
+
+	core.SendSuccess(w, credit, "Credit updated successfully.")
+}
+
+func (h *Handlers) ActivateCredit(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
+		return
+	}
+
+	// Получаем ID кредита из URL
+	creditID := r.PathValue("creditId")
+	if creditID == "" {
+		core.SendError(w, http.StatusBadRequest, "Credit ID is required.")
+		return
+	}
+
+	credit, err := h.repository.ActivateCredit(r.Context(), creditID)
+	if err != nil {
+		errorMsg := err.Error()
+		switch {
+		case strings.Contains(errorMsg, "credit not found"):
+			core.SendNotFound(w, "Credit not found.")
+		default:
+			core.SendInternalError(w, fmt.Sprintf("Failed to activate credit: %s", errorMsg))
+		}
+		return
+	}
+
+	core.SendSuccess(w, credit, "Credit activated successfully.")
+}
+
+func (h *Handlers) DeactivateCredit(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
+		return
+	}
+
+	// Получаем ID кредита из URL
+	creditID := r.PathValue("creditId")
+	if creditID == "" {
+		core.SendError(w, http.StatusBadRequest, "Credit ID is required.")
+		return
+	}
+
+	credit, err := h.repository.DeactivateCredit(r.Context(), creditID)
+	if err != nil {
+		errorMsg := err.Error()
+		switch {
+		case strings.Contains(errorMsg, "credit not found"):
+			core.SendNotFound(w, "Credit not found.")
+		default:
+			core.SendInternalError(w, fmt.Sprintf("Failed to deactivate credit: %s", errorMsg))
+		}
+		return
+	}
+
+	core.SendSuccess(w, credit, "Credit deactivated successfully.")
+}

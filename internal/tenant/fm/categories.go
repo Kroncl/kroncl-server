@@ -280,3 +280,20 @@ func (r *Repository) DeleteCategory(ctx context.Context, id string) (bool, error
 	rowsAffected := result.RowsAffected()
 	return rowsAffected > 0, nil
 }
+
+// GetCategoryIDBySlug возвращает ID категории по slug
+func (r *Repository) GetCategoryIDBySlug(ctx context.Context, slug string) (string, error) {
+	query := `
+        SELECT id
+        FROM transaction_categories
+        WHERE slug = $1
+    `
+
+	var id string
+	err := r.pool.QueryRow(ctx, query, slug).Scan(&id)
+	if err != nil {
+		return "", fmt.Errorf("failed to get category id by slug: %w", err)
+	}
+
+	return id, nil
+}
