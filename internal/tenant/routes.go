@@ -206,6 +206,14 @@ func (rt *Routes) Register(r chi.Router) {
 				r.Get("/", rt.withFMHandlers(func(h *fm.Handlers) http.HandlerFunc {
 					return h.GetCredit
 				}))
+				r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_FM_CREDITS_TRANSACTIONS)).
+					Get("/transactions", rt.withFMHandlers(func(h *fm.Handlers) http.HandlerFunc {
+						return h.GetCreditTransactions
+					}))
+				r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_FM_CREDITS_PAY)).
+					Post("/pay", rt.withFMHandlers(func(h *fm.Handlers) http.HandlerFunc {
+						return h.PayCredit
+					}))
 
 				// [update credit] no hard delete!
 				r.Group(func(r chi.Router) {
@@ -221,15 +229,14 @@ func (rt *Routes) Register(r chi.Router) {
 						return h.ActivateCredit
 					}))
 				})
-
-				// r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_FM_CREDITS_PAY)).
-				// 	Post("/pay", rt.withFMHandlers(func(h *fm.Handlers) http.HandlerFunc {
-				// 		return h.PayCredit
-				// 	}))
 			})
 		})
 	})
 }
+
+// -------
+// INJECTION
+// -------
 
 // мидлвары для инъекции зависимостей
 // тенантских модулей

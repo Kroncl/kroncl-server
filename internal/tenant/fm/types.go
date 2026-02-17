@@ -300,3 +300,12 @@ type CreditsResponse struct {
 	Limit   int            `json:"limit"`
 	Pages   int            `json:"pages"`
 }
+
+// PayCreditRequest represents request to make a payment towards a credit
+type PayCreditRequest struct {
+	CreditID   string    `json:"credit_id" validate:"required,uuid"`
+	EmployeeID string    `json:"employee_id" validate:"required,uuid"`
+	Amount     int64     `json:"amount" validate:"required,gt=0"`
+	PaidAt     time.Time `json:"paid_at" validate:"required"`
+	Comment    string    `json:"comment,omitempty"`
+}

@@ -27,5 +27,6 @@ const (
 	PERMISSION_FM_CREDITS                        = "fm.credits"
 	PERMISSION_FM_CREDITS_CREATE                 = "fm.credits.create"
 	PERMISSION_FM_CREDITS_UPDATE                 = "fm.credits.update"
+	PERMISSION_FM_CREDITS_TRANSACTIONS           = "fm.credits.transactions"
 	PERMISSION_FM_CREDITS_PAY                    = "fm.credits.pay"
 )

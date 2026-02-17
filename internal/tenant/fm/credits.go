@@ -486,3 +486,245 @@ func (r *Repository) DeactivateCredit(ctx context.Context, id string) (*CreditDe
 
 	return r.GetCreditByID(ctx, id)
 }
+
+// ---------
+// PAYMENTS
+// ---------
+
+// PayCredit creates a transaction and links it to a credit
+func (r *Repository) PayCredit(ctx context.Context, req PayCreditRequest) (*TransactionDetail, error) {
+	// Начинаем транзакцию БД
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// 1. Получаем кредит и считаем остаток
+	var totalAmount int64
+	var paidAmount int64
+	var creditType CreditType
+	var creditStatus CreditStatus
+
+	creditQuery := `
+        SELECT 
+            c.total_amount,
+            c.type,
+            c.status,
+            COALESCE(SUM(t.base_amount), 0) as paid
+        FROM credits c
+        LEFT JOIN credit_transactions ct ON c.id = ct.credit_id
+        LEFT JOIN transactions t ON ct.transaction_id = t.id AND t.reverse_to IS NULL
+        WHERE c.id = $1
+        GROUP BY c.id, c.total_amount, c.type, c.status
+    `
+
+	err = tx.QueryRow(ctx, creditQuery, req.CreditID).Scan(
+		&totalAmount,
+		&creditType,
+		&creditStatus,
+		&paidAmount,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get credit: %w", err)
+	}
+
+	// Проверяем, что кредит активен
+	if creditStatus != CreditStatusActive {
+		return nil, fmt.Errorf("credit is not active")
+	}
+
+	// Проверяем, что платеж не превышает остаток
+	remaining := totalAmount - paidAmount
+	if req.Amount > remaining {
+		return nil, fmt.Errorf("payment amount (%d) exceeds remaining debt (%d)", req.Amount, remaining)
+	}
+
+	// 2. Определяем направление транзакции на основе типа кредита
+	direction := TransactionDirectionExpense
+	if creditType == CreditTypeCredit {
+		direction = TransactionDirectionIncome
+	}
+
+	// 3. Получаем ID категории для кредитов/займов
+	var categoryID string
+	if creditType == CreditTypeCredit {
+		categoryID, err = r.GetCategoryIDBySlug(ctx, "credit")
+	} else {
+		categoryID, err = r.GetCategoryIDBySlug(ctx, "dept")
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get category: %w", err)
+	}
+
+	// 4. Создаем транзакцию
+	transactionQuery := `
+        INSERT INTO transactions (
+            id, base_amount, currency, direction, status, comment,
+            created_at, metadata
+        ) VALUES (
+            gen_random_uuid(), $1, $2, $3, $4, $5,
+            $6, $7
+        )
+        RETURNING id
+    `
+
+	var transactionID string
+	err = tx.QueryRow(ctx, transactionQuery,
+		req.Amount,
+		CurrencyRUB,
+		direction,
+		TransactionStatusCompleted,
+		req.Comment,
+		req.PaidAt,
+		nil, // metadata
+	).Scan(&transactionID)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to create transaction: %w", err)
+	}
+
+	// 5. Создаем связь с сотрудником
+	linkEmployeeQuery := `
+        INSERT INTO transaction_employee (
+            id, employee_id, transaction_id, created_at
+        ) VALUES (
+            gen_random_uuid(), $1, $2, $3
+        )
+    `
+	_, err = tx.Exec(ctx, linkEmployeeQuery, req.EmployeeID, transactionID, req.PaidAt)
+	if err != nil {
+		return nil, fmt.Errorf("failed to link employee: %w", err)
+	}
+
+	// 6. Создаем связь с категорией
+	linkCategoryQuery := `
+        INSERT INTO transaction_category (
+            id, transaction_id, category_id, created_at
+        ) VALUES (
+            gen_random_uuid(), $1, $2, $3
+        )
+    `
+	_, err = tx.Exec(ctx, linkCategoryQuery, transactionID, categoryID, req.PaidAt)
+	if err != nil {
+		return nil, fmt.Errorf("failed to link category: %w", err)
+	}
+
+	// 7. Создаем связь с кредитом
+	linkCreditQuery := `
+        INSERT INTO credit_transactions (
+            id, credit_id, transaction_id, created_at
+        ) VALUES (
+            gen_random_uuid(), $1, $2, $3
+        )
+    `
+	_, err = tx.Exec(ctx, linkCreditQuery, req.CreditID, transactionID, req.PaidAt)
+	if err != nil {
+		return nil, fmt.Errorf("failed to link credit: %w", err)
+	}
+
+	// Коммитим транзакцию
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	// Возвращаем созданную транзакцию
+	return r.GetTransactionByID(ctx, transactionID)
+}
+
+// GetCreditTransactions returns list of transactions for a credit
+func (r *Repository) GetCreditTransactions(ctx context.Context, creditID string, offset, limit int) ([]TransactionDetail, int64, error) {
+	// Получаем общее количество
+	countQuery := `SELECT COUNT(*) FROM credit_transactions WHERE credit_id = $1`
+	var total int64
+	err := r.pool.QueryRow(ctx, countQuery, creditID).Scan(&total)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to count credit transactions: %w", err)
+	}
+
+	// Получаем транзакции с пагинацией
+	query := `
+        SELECT 
+            t.id,
+            t.base_amount,
+            t.currency,
+            t.direction,
+            t.status,
+            t.comment,
+            t.reverse_to,
+            t.created_at,
+            t.metadata,
+            te.employee_id,
+            e.first_name,
+            e.last_name,
+            tc.category_id,
+            c.name as category_name,
+            c.description as category_description,
+            c.direction as category_direction,
+            c.created_at as category_created_at,
+            c.updated_at as category_updated_at,
+            c.slug as category_slug
+        FROM credit_transactions ct
+        JOIN transactions t ON ct.transaction_id = t.id
+        LEFT JOIN transaction_employee te ON t.id = te.transaction_id
+        LEFT JOIN employees e ON te.employee_id = e.id
+        LEFT JOIN transaction_category tc ON t.id = tc.transaction_id
+        LEFT JOIN transaction_categories c ON tc.category_id = c.id
+        WHERE ct.credit_id = $1
+        ORDER BY t.created_at DESC
+        LIMIT $2 OFFSET $3
+    `
+
+	rows, err := r.pool.Query(ctx, query, creditID, limit, offset)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to query credit transactions: %w", err)
+	}
+	defer rows.Close()
+
+	var transactions []TransactionDetail
+	for rows.Next() {
+		var detail TransactionDetail
+		var employeeID, employeeFirstName, employeeLastName *string
+		var categoryID, categoryName, categoryDescription *string
+		var reverseTo *string
+		var categoryDirection *TransactionCategoryDirection
+		var categoryCreatedAt, categoryUpdatedAt *time.Time
+		var categorySlug *string
+
+		err := rows.Scan(
+			&detail.ID,
+			&detail.BaseAmount,
+			&detail.Currency,
+			&detail.Direction,
+			&detail.Status,
+			&detail.Comment,
+			&reverseTo,
+			&detail.CreatedAt,
+			&detail.Metadata,
+			&employeeID,
+			&employeeFirstName,
+			&employeeLastName,
+			&categoryID,
+			&categoryName,
+			&categoryDescription,
+			&categoryDirection,
+			&categoryCreatedAt,
+			&categoryUpdatedAt,
+			&categorySlug,
+		)
+		if err != nil {
+			return nil, 0, fmt.Errorf("failed to scan transaction: %w", err)
+		}
+
+		detail.ReverseTo = reverseTo
+		detail.EmployeeID = employeeID
+		detail.EmployeeFirstName = employeeFirstName
+		detail.EmployeeLastName = employeeLastName
+		detail.CategoryID = categoryID
+		detail.CategoryName = categoryName
+
+		transactions = append(transactions, detail)
+	}
+
+	return transactions, total, nil
+}

@@ -978,3 +978,101 @@ func (h *Handlers) DeactivateCredit(w http.ResponseWriter, r *http.Request) {
 
 	core.SendSuccess(w, credit, "Credit deactivated successfully.")
 }
+
+// --------
+// CREDIT PAYMENTS
+// --------
+
+func (h *Handlers) PayCredit(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
+		return
+	}
+
+	// Получаем ID кредита из URL
+	creditID := r.PathValue("creditId")
+	if creditID == "" {
+		core.SendError(w, http.StatusBadRequest, "Credit ID is required.")
+		return
+	}
+
+	// Парсим тело запроса
+	var req PayCreditRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		core.SendError(w, http.StatusBadRequest, "Invalid request body.")
+		return
+	}
+
+	req.CreditID = creditID
+
+	// Валидация
+	if req.Amount <= 0 {
+		core.SendError(w, http.StatusBadRequest, "Payment amount must be greater than 0.")
+		return
+	}
+	if req.EmployeeID == "" {
+		core.SendError(w, http.StatusBadRequest, "Employee ID is required.")
+		return
+	}
+	if req.PaidAt.IsZero() {
+		core.SendError(w, http.StatusBadRequest, "Payment date is required.")
+		return
+	}
+
+	transaction, err := h.repository.PayCredit(r.Context(), req)
+	if err != nil {
+		errorMsg := err.Error()
+		switch {
+		case strings.Contains(errorMsg, "credit not found"):
+			core.SendNotFound(w, "Credit not found.")
+		case strings.Contains(errorMsg, "credit is not active"):
+			core.SendValidationError(w, "Credit is not active.")
+		case strings.Contains(errorMsg, "exceeds remaining debt"):
+			core.SendValidationError(w, errorMsg)
+		default:
+			core.SendInternalError(w, fmt.Sprintf("Failed to process payment: %s", errorMsg))
+		}
+		return
+	}
+
+	core.SendSuccess(w, transaction, "Payment processed successfully.")
+}
+
+func (h *Handlers) GetCreditTransactions(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
+		return
+	}
+
+	// Получаем ID кредита из URL
+	creditID := r.PathValue("creditId")
+	if creditID == "" {
+		core.SendError(w, http.StatusBadRequest, "Credit ID is required.")
+		return
+	}
+
+	// Параметры пагинации
+	pagination := core.GetDefaultPaginationParams(r)
+
+	transactions, total, err := h.repository.GetCreditTransactions(
+		r.Context(),
+		creditID,
+		pagination.Offset,
+		pagination.Limit,
+	)
+	if err != nil {
+		core.SendInternalError(w, fmt.Sprintf("Failed to get credit transactions: %s", err.Error()))
+		return
+	}
+
+	response := map[string]interface{}{
+		"transactions": transactions,
+		"pagination": core.NewPagination(
+			int(total),
+			pagination.Page,
+			pagination.Limit,
+		),
+	}
+
+	core.SendSuccess(w, response, "Credit transactions retrieved successfully.")
+}
