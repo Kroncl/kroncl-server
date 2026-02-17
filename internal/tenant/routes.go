@@ -157,6 +157,73 @@ func (rt *Routes) Register(r chi.Router) {
 				return h.GetGroupedTransactions
 			}))
 		})
+
+		// counterparties
+		r.Route("/counterparties", func(r chi.Router) {
+			r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_FM_COUNTERPARTIES))
+
+			r.Get("/", rt.withFMHandlers(func(h *fm.Handlers) http.HandlerFunc {
+				return h.GetCounterparties
+			}))
+			r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_FM_COUNTERPARTIES_CREATE)).
+				Post("/", rt.withFMHandlers(func(h *fm.Handlers) http.HandlerFunc {
+					return h.CreateCounterparty
+				}))
+			r.Route("/{counterpartyId}", func(r chi.Router) {
+				r.Get("/", rt.withFMHandlers(func(h *fm.Handlers) http.HandlerFunc {
+					return h.GetCounterparty
+				}))
+
+				// [update counterparty] no hard delete!
+				r.Group(func(r chi.Router) {
+					r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_FM_COUNTERPARTIES_UPDATE))
+
+					r.Patch("/", rt.withFMHandlers(func(h *fm.Handlers) http.HandlerFunc {
+						return h.UpdateCounterparty
+					}))
+					r.Post("/deactivate", rt.withFMHandlers(func(h *fm.Handlers) http.HandlerFunc {
+						return h.DeactivateCounterparty
+					}))
+					r.Post("/activate", rt.withFMHandlers(func(h *fm.Handlers) http.HandlerFunc {
+						return h.ActivateCounterparty
+					}))
+				})
+			})
+		})
+
+		// credits
+		// r.Route("/credits", func(r chi.Router) {
+		// 	r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_FM_COUNTERPARTIES))
+
+		// 	r.Get("/", rt.withFMHandlers(func(h *fm.Handlers) http.HandlerFunc {
+		// 		return h.GetCredits
+		// 	}))
+		// 	r.Route("/{creditId}", func(r chi.Router) {
+		// 		r.Get("/", rt.withFMHandlers(func(h *fm.Handlers) http.HandlerFunc {
+		// 			return h.GetCredit
+		// 		}))
+
+		// 		// [update credit] no hard delete!
+		// 		r.Group(func(r chi.Router) {
+		// 			r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_FM_COUNTERPARTIES_UPDATE))
+
+		// 			r.Patch("/", rt.withFMHandlers(func(h *fm.Handlers) http.HandlerFunc {
+		// 				return h.UpdateCredit
+		// 			}))
+		// 			r.Post("/deactivate", rt.withFMHandlers(func(h *fm.Handlers) http.HandlerFunc {
+		// 				return h.DeactivateCredit
+		// 			}))
+		// 			r.Post("/deactivate", rt.withFMHandlers(func(h *fm.Handlers) http.HandlerFunc {
+		// 				return h.ActivateCredit
+		// 			}))
+		// 		})
+
+		// 		r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_FM_CREDITS_PAY)).
+		// 			Post("/pay", rt.withFMHandlers(func(h *fm.Handlers) http.HandlerFunc {
+		// 				return h.PayCredit
+		// 			}))
+		// 	})
+		// })
 	})
 }
 

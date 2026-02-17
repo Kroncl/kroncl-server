@@ -21,4 +21,11 @@ const (
 	PERMISSION_FM_TRANSACTIONS_CATEGORIES_UPDATE = "fm.transactions.categories.update"
 	PERMISSION_FM_TRANSACTIONS_CATEGORIES_DELETE = "fm.transactions.categories.delete"
 	PERMISSION_FM_ANALYSIS                       = "fm.analysis"
+	PERMISSION_FM_COUNTERPARTIES                 = "fm.counterparties"
+	PERMISSION_FM_COUNTERPARTIES_CREATE          = "fm.counterparties.create"
+	PERMISSION_FM_COUNTERPARTIES_UPDATE          = "fm.counterparties.update"
+	PERMISSION_FM_CREDITS                        = "fm.credits"
+	PERMISSION_FM_CREDITS_CREATE                 = "fm.credits.create"
+	PERMISSION_FM_CREDITS_UPDATE                 = "fm.credits.update"
+	PERMISSION_FM_CREDITS_PAY                    = "fm.credits.pay"
 )

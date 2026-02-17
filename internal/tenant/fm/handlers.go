@@ -486,3 +486,227 @@ func (h *Handlers) GetGroupedTransactions(w http.ResponseWriter, r *http.Request
 
 	core.SendSuccess(w, stats, "Grouped stats retrieved successfully.")
 }
+
+// --------
+// COUNTERPARTIES
+// --------
+
+func (h *Handlers) GetCounterparty(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
+		return
+	}
+
+	// Получаем ID контрагента из URL
+	counterpartyID := r.PathValue("counterpartyId")
+	if counterpartyID == "" {
+		core.SendError(w, http.StatusBadRequest, "Counterparty ID is required.")
+		return
+	}
+
+	counterparty, err := h.repository.GetCounterpartyByID(r.Context(), counterpartyID)
+	if err != nil {
+		core.SendNotFound(w, "Counterparty not found.")
+		return
+	}
+
+	core.SendSuccess(w, counterparty, "Counterparty retrieved successfully.")
+}
+
+func (h *Handlers) GetCounterparties(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
+		return
+	}
+
+	// Параметры пагинации
+	pagination := core.GetDefaultPaginationParams(r)
+
+	// Парсим query параметры в структуру фильтров
+	var filters GetCounterpartiesRequest
+	filters.Page = pagination.Page
+	filters.Limit = pagination.Limit
+
+	if typeStr := r.URL.Query().Get("type"); typeStr != "" {
+		t := CounterpartyType(typeStr)
+		if t != CounterpartyTypeBank && t != CounterpartyTypeOrganization && t != CounterpartyTypePerson {
+			core.SendValidationError(w, "Invalid type. Use 'bank', 'organization' or 'person'.")
+			return
+		}
+		filters.Type = &t
+	}
+
+	if statusStr := r.URL.Query().Get("status"); statusStr != "" {
+		s := CounterpartyStatus(statusStr)
+		if s != CounterpartyStatusActive && s != CounterpartyStatusInactive {
+			core.SendValidationError(w, "Invalid status. Use 'active' or 'inactive'.")
+			return
+		}
+		filters.Status = &s
+	}
+
+	if search := r.URL.Query().Get("search"); search != "" {
+		filters.Search = &search
+	}
+
+	counterparties, total, err := h.repository.GetCounterparties(
+		r.Context(),
+		pagination.Offset,
+		pagination.Limit,
+		filters,
+	)
+	if err != nil {
+		core.SendInternalError(w, fmt.Sprintf("Failed to get counterparties: %s", err.Error()))
+		return
+	}
+
+	response := map[string]interface{}{
+		"counterparties": counterparties,
+		"pagination": core.NewPagination(
+			total,
+			pagination.Page,
+			pagination.Limit,
+		),
+	}
+
+	core.SendSuccess(w, response, "Counterparties retrieved successfully.")
+}
+
+func (h *Handlers) CreateCounterparty(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
+		return
+	}
+
+	// Парсим тело запроса
+	var req CreateCounterpartyRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		core.SendError(w, http.StatusBadRequest, "Invalid request body.")
+		return
+	}
+
+	// Валидация
+	if strings.TrimSpace(req.Name) == "" {
+		core.SendError(w, http.StatusBadRequest, "Counterparty name is required.")
+		return
+	}
+	if req.Type == "" {
+		core.SendError(w, http.StatusBadRequest, "Counterparty type is required.")
+		return
+	}
+	if req.Type != CounterpartyTypeBank && req.Type != CounterpartyTypeOrganization && req.Type != CounterpartyTypePerson {
+		core.SendValidationError(w, "Invalid type. Use 'bank', 'organization' or 'person'.")
+		return
+	}
+	if req.Status != "" && req.Status != CounterpartyStatusActive && req.Status != CounterpartyStatusInactive {
+		core.SendValidationError(w, "Invalid status. Use 'active' or 'inactive'.")
+		return
+	}
+
+	counterparty, err := h.repository.CreateCounterparty(r.Context(), req)
+	if err != nil {
+		core.SendInternalError(w, fmt.Sprintf("Failed to create counterparty: %s", err.Error()))
+		return
+	}
+
+	core.SendSuccess(w, counterparty, "Counterparty created successfully.")
+}
+
+func (h *Handlers) UpdateCounterparty(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPatch {
+		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
+		return
+	}
+
+	// Получаем ID контрагента из URL
+	counterpartyID := r.PathValue("counterpartyId")
+	if counterpartyID == "" {
+		core.SendError(w, http.StatusBadRequest, "Counterparty ID is required.")
+		return
+	}
+
+	// Парсим тело запроса
+	var req UpdateCounterpartyRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		core.SendError(w, http.StatusBadRequest, "Invalid request body.")
+		return
+	}
+
+	// Валидация типа если указан
+	if req.Type != nil {
+		if *req.Type != CounterpartyTypeBank && *req.Type != CounterpartyTypeOrganization && *req.Type != CounterpartyTypePerson {
+			core.SendValidationError(w, "Invalid type. Use 'bank', 'organization' or 'person'.")
+			return
+		}
+	}
+
+	counterparty, err := h.repository.UpdateCounterparty(r.Context(), counterpartyID, req)
+	if err != nil {
+		errorMsg := err.Error()
+		switch {
+		case strings.Contains(errorMsg, "counterparty not found"):
+			core.SendNotFound(w, "Counterparty not found.")
+		default:
+			core.SendInternalError(w, fmt.Sprintf("Failed to update counterparty: %s", errorMsg))
+		}
+		return
+	}
+
+	core.SendSuccess(w, counterparty, "Counterparty updated successfully.")
+}
+
+func (h *Handlers) ActivateCounterparty(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
+		return
+	}
+
+	// Получаем ID контрагента из URL
+	counterpartyID := r.PathValue("counterpartyId")
+	if counterpartyID == "" {
+		core.SendError(w, http.StatusBadRequest, "Counterparty ID is required.")
+		return
+	}
+
+	counterparty, err := h.repository.ActivateCounterparty(r.Context(), counterpartyID)
+	if err != nil {
+		errorMsg := err.Error()
+		switch {
+		case strings.Contains(errorMsg, "counterparty not found"):
+			core.SendNotFound(w, "Counterparty not found.")
+		default:
+			core.SendInternalError(w, fmt.Sprintf("Failed to activate counterparty: %s", errorMsg))
+		}
+		return
+	}
+
+	core.SendSuccess(w, counterparty, "Counterparty activated successfully.")
+}
+
+func (h *Handlers) DeactivateCounterparty(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
+		return
+	}
+
+	// Получаем ID контрагента из URL
+	counterpartyID := r.PathValue("counterpartyId")
+	if counterpartyID == "" {
+		core.SendError(w, http.StatusBadRequest, "Counterparty ID is required.")
+		return
+	}
+
+	counterparty, err := h.repository.DeactivateCounterparty(r.Context(), counterpartyID)
+	if err != nil {
+		errorMsg := err.Error()
+		switch {
+		case strings.Contains(errorMsg, "counterparty not found"):
+			core.SendNotFound(w, "Counterparty not found.")
+		default:
+			core.SendInternalError(w, fmt.Sprintf("Failed to deactivate counterparty: %s", errorMsg))
+		}
+		return
+	}
+
+	core.SendSuccess(w, counterparty, "Counterparty deactivated successfully.")
+}
