@@ -4,16 +4,21 @@ import (
 	"encoding/json"
 	"fmt"
 	"kroncl-server/internal/core"
+	"kroncl-server/internal/tenant/logs"
 	"net/http"
 	"strings"
 )
 
 type Handlers struct {
-	repository *Repository
+	repository  *Repository
+	logsService *logs.Service
 }
 
-func NewHandlers(repository *Repository) *Handlers {
-	return &Handlers{repository: repository}
+func NewHandlers(repository *Repository, logsService *logs.Service) *Handlers {
+	return &Handlers{
+		repository:  repository,
+		logsService: logsService,
+	}
 }
 
 // -------

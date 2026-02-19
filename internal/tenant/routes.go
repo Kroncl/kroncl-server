@@ -8,6 +8,7 @@ import (
 	"kroncl-server/internal/permissioner"
 	"kroncl-server/internal/tenant/fm"
 	"kroncl-server/internal/tenant/hrm"
+	"kroncl-server/internal/tenant/logs"
 	"kroncl-server/internal/tenant/storage"
 	"net/http"
 
@@ -250,7 +251,8 @@ func (rt *Routes) withHRMHandlers(factory func(*hrm.Handlers) http.HandlerFunc) 
 
 		// Создаем хэндлеры
 		repo := hrm.NewRepository(tenantPool, rt.accountsService, rt.companiesService)
-		handlers := hrm.NewHandlers(repo)
+		logsService := logs.NewService(tenantPool)
+		handlers := hrm.NewHandlers(repo, logsService)
 
 		// Вызываем целевой обработчик через фабрику
 		handler := factory(handlers)
@@ -268,7 +270,8 @@ func (rt *Routes) withFMHandlers(factory func(*fm.Handlers) http.HandlerFunc) ht
 
 		hrmRepo := hrm.NewRepository(tenantPool, rt.accountsService, rt.companiesService)
 		fmRepo := fm.NewRepository(tenantPool, hrmRepo)
-		fmHandlers := fm.NewHandlers(fmRepo)
+		logsService := logs.NewService(tenantPool)
+		fmHandlers := fm.NewHandlers(fmRepo, logsService)
 
 		// Вызываем целевой обработчик через фабрику
 		handler := factory(fmHandlers)

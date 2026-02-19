@@ -3,18 +3,24 @@ package fm
 import (
 	"encoding/json"
 	"fmt"
+	"kroncl-server/internal/config"
 	"kroncl-server/internal/core"
+	"kroncl-server/internal/tenant/logs"
 	"net/http"
 	"strings"
 	"time"
 )
 
 type Handlers struct {
-	repository *Repository
+	repository  *Repository
+	logsService *logs.Service
 }
 
-func NewHandlers(repository *Repository) *Handlers {
-	return &Handlers{repository: repository}
+func NewHandlers(repository *Repository, logsService *logs.Service) *Handlers {
+	return &Handlers{
+		repository:  repository,
+		logsService: logsService,
+	}
 }
 
 // --------
@@ -99,6 +105,13 @@ func (h *Handlers) GetTransactions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Получаем accountID из контекста (после JWT middleware)
+	accountID, ok := core.GetUserIDFromContext(r.Context())
+	if !ok {
+		core.SendError(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
 	// Параметры пагинации
 	pagination := core.GetDefaultPaginationParams(r)
 
@@ -163,9 +176,36 @@ func (h *Handlers) GetTransactions(w http.ResponseWriter, r *http.Request) {
 		filters,
 	)
 	if err != nil {
+		// Логируем ошибку
+		h.logsService.Log(r.Context(), config.PERMISSION_FM_TRANSACTIONS, accountID,
+			logs.WithStatus(logs.LogStatusError),
+			logs.WithUserAgent(r.UserAgent()),
+			logs.WithMetadata("error", err.Error()),
+			logs.WithMetadata("path", r.URL.Path),
+		)
 		core.SendInternalError(w, fmt.Sprintf("Failed to get transactions: %s", err.Error()))
 		return
 	}
+
+	// Логируем успешный просмотр
+	h.logsService.Log(r.Context(), config.PERMISSION_FM_TRANSACTIONS, accountID,
+		logs.WithStatus(logs.LogStatusSuccess),
+		logs.WithUserAgent(r.UserAgent()),
+		logs.WithMetadata("filters", map[string]interface{}{
+			"start_date":  filters.StartDate,
+			"end_date":    filters.EndDate,
+			"direction":   filters.Direction,
+			"status":      filters.Status,
+			"category_id": filters.CategoryID,
+			"employee_id": filters.EmployeeID,
+			"search":      filters.Search,
+		}),
+		logs.WithMetadata("pagination", map[string]int{
+			"page":  pagination.Page,
+			"limit": pagination.Limit,
+		}),
+		logs.WithMetadata("result_count", len(transactions)),
+	)
 
 	response := map[string]interface{}{
 		"transactions": transactions,
