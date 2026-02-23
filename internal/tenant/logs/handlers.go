@@ -2,6 +2,7 @@ package logs
 
 import (
 	"fmt"
+	"kroncl-server/internal/config"
 	"kroncl-server/internal/core"
 	"net/http"
 	"strconv"
@@ -25,18 +26,43 @@ func (h *Handlers) GetLog(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	accountID, ok := core.GetUserIDFromContext(r.Context())
+	if !ok {
+		core.SendError(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
 	// Получаем ID лога из URL
 	logID := r.PathValue("logId")
 	if logID == "" {
+		h.service.Log(r.Context(), config.PERMISSION_LOGS, accountID,
+			WithStatus(LogStatusError),
+			WithUserAgent(r.UserAgent()),
+			WithMetadata("error", "Log ID is required"),
+			WithMetadata("path", r.URL.Path),
+		)
 		core.SendError(w, http.StatusBadRequest, "Log ID is required.")
 		return
 	}
 
 	log, err := h.service.GetLogByID(r.Context(), logID)
 	if err != nil {
+		h.service.Log(r.Context(), config.PERMISSION_LOGS, accountID,
+			WithStatus(LogStatusError),
+			WithUserAgent(r.UserAgent()),
+			WithMetadata("error", "Log not found"),
+			WithMetadata("path", r.URL.Path),
+			WithMetadata("log_id", logID),
+		)
 		core.SendNotFound(w, "Log not found.")
 		return
 	}
+
+	h.service.Log(r.Context(), config.PERMISSION_LOGS, accountID,
+		WithStatus(LogStatusSuccess),
+		WithUserAgent(r.UserAgent()),
+		WithMetadata("log_id", logID),
+	)
 
 	core.SendSuccess(w, log, "Log retrieved successfully.")
 }
@@ -45,6 +71,12 @@ func (h *Handlers) GetLog(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) GetLogs(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
+		return
+	}
+
+	accountID, ok := core.GetUserIDFromContext(r.Context())
+	if !ok {
+		core.SendError(w, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
 
@@ -57,8 +89,8 @@ func (h *Handlers) GetLogs(w http.ResponseWriter, r *http.Request) {
 	req.Limit = pagination.Limit
 
 	// Account ID filter
-	if accountID := r.URL.Query().Get("account_id"); accountID != "" {
-		req.AccountID = &accountID
+	if accountIDFilter := r.URL.Query().Get("account_id"); accountIDFilter != "" {
+		req.AccountID = &accountIDFilter
 	}
 
 	// Key filter
@@ -70,6 +102,13 @@ func (h *Handlers) GetLogs(w http.ResponseWriter, r *http.Request) {
 	if status := r.URL.Query().Get("status"); status != "" {
 		s := LogStatus(status)
 		if s != LogStatusSuccess && s != LogStatusError && s != LogStatusPending {
+			h.service.Log(r.Context(), config.PERMISSION_LOGS, accountID,
+				WithStatus(LogStatusError),
+				WithUserAgent(r.UserAgent()),
+				WithMetadata("error", "Invalid status"),
+				WithMetadata("status", status),
+				WithMetadata("path", r.URL.Path),
+			)
 			core.SendValidationError(w, "Invalid status. Use 'success', 'error', or 'pending'.")
 			return
 		}
@@ -111,9 +150,36 @@ func (h *Handlers) GetLogs(w http.ResponseWriter, r *http.Request) {
 
 	logs, total, err := h.service.GetLogs(r.Context(), req)
 	if err != nil {
+		h.service.Log(r.Context(), config.PERMISSION_LOGS, accountID,
+			WithStatus(LogStatusError),
+			WithUserAgent(r.UserAgent()),
+			WithMetadata("error", err.Error()),
+			WithMetadata("path", r.URL.Path),
+		)
 		core.SendInternalError(w, fmt.Sprintf("Failed to get logs: %s", err.Error()))
 		return
 	}
+
+	// Логируем успешный просмотр логов (мета-логирование)
+	h.service.Log(r.Context(), config.PERMISSION_LOGS, accountID,
+		WithStatus(LogStatusSuccess),
+		WithUserAgent(r.UserAgent()),
+		WithMetadata("filters", map[string]interface{}{
+			"account_id":      req.AccountID,
+			"key":             req.Key,
+			"status":          req.Status,
+			"min_criticality": req.MinCriticality,
+			"max_criticality": req.MaxCriticality,
+			"start_date":      req.StartDate,
+			"end_date":        req.EndDate,
+			"search":          req.Search,
+		}),
+		WithMetadata("pagination", map[string]int{
+			"page":  pagination.Page,
+			"limit": pagination.Limit,
+		}),
+		WithMetadata("result_count", len(logs)),
+	)
 
 	response := map[string]interface{}{
 		"logs": logs,

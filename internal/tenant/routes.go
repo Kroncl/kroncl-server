@@ -45,6 +45,18 @@ func (rt *Routes) Register(r chi.Router) {
 			}))
 	})
 
+	// logs tech actions
+	r.Route("/logs", func(r chi.Router) {
+		r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_LOGS))
+
+		r.Get("/", rt.withLogsHandlers(func(h *logs.Handlers) http.HandlerFunc {
+			return h.GetLogs
+		}))
+		r.Get("/{logId}", rt.withLogsHandlers(func(h *logs.Handlers) http.HandlerFunc {
+			return h.GetLog
+		}))
+	})
+
 	// HRM module
 	r.Route("/hrm", func(r chi.Router) {
 		r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_HRM))
@@ -238,6 +250,23 @@ func (rt *Routes) Register(r chi.Router) {
 // -------
 // INJECTION
 // -------
+
+func (rt *Routes) withLogsHandlers(factory func(*logs.Handlers) http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		tenantPool, ok := rt.storageService.GetTenantPoolFromRequest(r)
+		if !ok {
+			core.SendError(w, http.StatusInternalServerError, "Error getting a storage connection.")
+			return
+		}
+
+		logsService := logs.NewService(tenantPool)
+		logsHandlers := logs.NewHandlers(logsService)
+
+		// Вызываем целевой обработчик через фабрику
+		handler := factory(logsHandlers)
+		handler(w, r)
+	}
+}
 
 // мидлвары для инъекции зависимостей
 // тенантских модулей

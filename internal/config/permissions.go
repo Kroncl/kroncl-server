@@ -3,6 +3,7 @@ package config
 const (
 	PERMISSION_COMPANY_UPDATE                    = "company.update"
 	PERMISSION_STORAGE_SOURCES                   = "storage.sources"
+	PERMISSION_LOGS                              = "logs"
 	PERMISSION_ACCOUNTS                          = "accounts"
 	PERMISSION_ACCOUNTS_DELETE                   = "accounts.delete"
 	PERMISSION_ACCOUNTS_INVITATIONS              = "accounts.invitations"
