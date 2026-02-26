@@ -23,6 +23,16 @@ func NewUpdater(table string) *Updater {
 	}
 }
 
+// GetSets возвращает количество полей для обновления
+func (u *Updater) GetSets() int {
+	return len(u.sets)
+}
+
+// HasChanges возвращает true если есть что обновлять
+func (u *Updater) HasChanges() bool {
+	return len(u.sets) > 0
+}
+
 // Set добавляет поле для обновления (если не nil)
 func (u *Updater) Set(field string, value interface{}) *Updater {
 	if value != nil {

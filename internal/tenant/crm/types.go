@@ -46,6 +46,7 @@ type CreateClientRequest struct {
 	Comment    *string                `json:"comment,omitempty"`
 	Type       ClientType             `json:"type" validate:"required,oneof=individual legal"`
 	Status     ClientStatus           `json:"status,omitempty"` // defaults to active
+	SourceID   string                 `json:"source_id" validate:"required"`
 	Metadata   map[string]interface{} `json:"metadata,omitempty"`
 }
 
@@ -57,6 +58,7 @@ type UpdateClientRequest struct {
 	Phone      *string                 `json:"phone,omitempty"`
 	Email      *string                 `json:"email,omitempty"`
 	Comment    *string                 `json:"comment,omitempty"`
+	SourceID   *string                 `json:"source_id,omitempty"`
 	Type       *ClientType             `json:"type,omitempty" validate:"omitempty,oneof=individual legal"`
 	Status     *ClientStatus           `json:"status,omitempty" validate:"omitempty,oneof=active inactive"`
 	Metadata   *map[string]interface{} `json:"metadata,omitempty"`
@@ -173,5 +175,5 @@ type ClientSourceLink struct {
 // ClientDetail represents detailed client view with sources
 type ClientDetail struct {
 	Client
-	Sources []ClientSource `json:"sources"`
+	Source ClientSource `json:"source"`
 }

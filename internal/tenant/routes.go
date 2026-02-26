@@ -207,7 +207,7 @@ func (rt *Routes) Register(r chi.Router) {
 
 		// credits
 		r.Route("/credits", func(r chi.Router) {
-			r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_FM_COUNTERPARTIES))
+			r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_FM_CREDITS))
 
 			r.Get("/", rt.withFMHandlers(func(h *fm.Handlers) http.HandlerFunc {
 				return h.GetCredits
@@ -285,37 +285,37 @@ func (rt *Routes) Register(r chi.Router) {
 		})
 
 		// clients
-		// r.Route("/clients", func(r chi.Router) {
-		// 	r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_CRM_CLIENTS))
+		r.Route("/clients", func(r chi.Router) {
+			r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_CRM_CLIENTS))
 
-		// 	r.Get("/", rt.withCrmHandlers(func(h *crm.Handlers) http.HandlerFunc {
-		// 		return h.GetClients
-		// 	}))
-		// 	r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_CRM_CLIENTS_CREATE)).
-		// 		Post("/", rt.withCrmHandlers(func(h *crm.Handlers) http.HandlerFunc {
-		// 			return h.CreateClient
-		// 		}))
-		// 	r.Route("/{clientId}", func(r chi.Router) {
-		// 		r.Get("/", rt.withCrmHandlers(func(h *crm.Handlers) http.HandlerFunc {
-		// 			return h.GetClient
-		// 		}))
+			r.Get("/", rt.withCrmHandlers(func(h *crm.Handlers) http.HandlerFunc {
+				return h.GetClients
+			}))
+			r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_CRM_CLIENTS_CREATE)).
+				Post("/", rt.withCrmHandlers(func(h *crm.Handlers) http.HandlerFunc {
+					return h.CreateClient
+				}))
+			r.Route("/{clientId}", func(r chi.Router) {
+				r.Get("/", rt.withCrmHandlers(func(h *crm.Handlers) http.HandlerFunc {
+					return h.GetClient
+				}))
 
-		// 		// [update client] no hard delete!
-		// 		r.Group(func(r chi.Router) {
-		// 			r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_CRM_CLIENTS_UPDATE))
+				// [update client] no hard delete!
+				r.Group(func(r chi.Router) {
+					r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_CRM_CLIENTS_UPDATE))
 
-		// 			r.Patch("/", rt.withCrmHandlers(func(h *crm.Handlers) http.HandlerFunc {
-		// 				return h.UpdateClient
-		// 			}))
-		// 			r.Post("/deactivate", rt.withCrmHandlers(func(h *crm.Handlers) http.HandlerFunc {
-		// 				return h.DeactivateClient
-		// 			}))
-		// 			r.Post("/activate", rt.withCrmHandlers(func(h *crm.Handlers) http.HandlerFunc {
-		// 				return h.ActivateClient
-		// 			}))
-		// 		})
-		// 	})
-		// })
+					r.Patch("/", rt.withCrmHandlers(func(h *crm.Handlers) http.HandlerFunc {
+						return h.UpdateClient
+					}))
+					r.Post("/deactivate", rt.withCrmHandlers(func(h *crm.Handlers) http.HandlerFunc {
+						return h.DeactivateClient
+					}))
+					r.Post("/activate", rt.withCrmHandlers(func(h *crm.Handlers) http.HandlerFunc {
+						return h.ActivateClient
+					}))
+				})
+			})
+		})
 	})
 }
 
