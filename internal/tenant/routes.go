@@ -6,6 +6,7 @@ import (
 	"kroncl-server/internal/config"
 	"kroncl-server/internal/core"
 	"kroncl-server/internal/permissioner"
+	"kroncl-server/internal/tenant/crm"
 	"kroncl-server/internal/tenant/fm"
 	"kroncl-server/internal/tenant/hrm"
 	"kroncl-server/internal/tenant/logs"
@@ -245,6 +246,77 @@ func (rt *Routes) Register(r chi.Router) {
 			})
 		})
 	})
+
+	// CRM module
+	r.Route("/crm", func(r chi.Router) {
+		r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_CRM))
+
+		// sources
+		r.Route("/sources", func(r chi.Router) {
+			r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_CRM_SOURCES))
+
+			r.Get("/", rt.withCrmHandlers(func(h *crm.Handlers) http.HandlerFunc {
+				return h.GetClientSources
+			}))
+			r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_CRM_SOURCES_CREATE)).
+				Post("/", rt.withCrmHandlers(func(h *crm.Handlers) http.HandlerFunc {
+					return h.CreateClientSource
+				}))
+			r.Route("/{sourceId}", func(r chi.Router) {
+				r.Get("/", rt.withCrmHandlers(func(h *crm.Handlers) http.HandlerFunc {
+					return h.GetClientSource
+				}))
+
+				// [update source] no hard delete!
+				r.Group(func(r chi.Router) {
+					r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_CRM_SOURCES_UPDATE))
+
+					r.Patch("/", rt.withCrmHandlers(func(h *crm.Handlers) http.HandlerFunc {
+						return h.UpdateClientSource
+					}))
+					r.Post("/deactivate", rt.withCrmHandlers(func(h *crm.Handlers) http.HandlerFunc {
+						return h.DeactivateClientSource
+					}))
+					r.Post("/activate", rt.withCrmHandlers(func(h *crm.Handlers) http.HandlerFunc {
+						return h.ActivateClientSource
+					}))
+				})
+			})
+		})
+
+		// clients
+		// r.Route("/clients", func(r chi.Router) {
+		// 	r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_CRM_CLIENTS))
+
+		// 	r.Get("/", rt.withCrmHandlers(func(h *crm.Handlers) http.HandlerFunc {
+		// 		return h.GetClients
+		// 	}))
+		// 	r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_CRM_CLIENTS_CREATE)).
+		// 		Post("/", rt.withCrmHandlers(func(h *crm.Handlers) http.HandlerFunc {
+		// 			return h.CreateClient
+		// 		}))
+		// 	r.Route("/{clientId}", func(r chi.Router) {
+		// 		r.Get("/", rt.withCrmHandlers(func(h *crm.Handlers) http.HandlerFunc {
+		// 			return h.GetClient
+		// 		}))
+
+		// 		// [update client] no hard delete!
+		// 		r.Group(func(r chi.Router) {
+		// 			r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_CRM_CLIENTS_UPDATE))
+
+		// 			r.Patch("/", rt.withCrmHandlers(func(h *crm.Handlers) http.HandlerFunc {
+		// 				return h.UpdateClient
+		// 			}))
+		// 			r.Post("/deactivate", rt.withCrmHandlers(func(h *crm.Handlers) http.HandlerFunc {
+		// 				return h.DeactivateClient
+		// 			}))
+		// 			r.Post("/activate", rt.withCrmHandlers(func(h *crm.Handlers) http.HandlerFunc {
+		// 				return h.ActivateClient
+		// 			}))
+		// 		})
+		// 	})
+		// })
+	})
 }
 
 // -------
@@ -304,6 +376,24 @@ func (rt *Routes) withFMHandlers(factory func(*fm.Handlers) http.HandlerFunc) ht
 
 		// Вызываем целевой обработчик через фабрику
 		handler := factory(fmHandlers)
+		handler(w, r)
+	}
+}
+
+func (rt *Routes) withCrmHandlers(factory func(*crm.Handlers) http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		tenantPool, ok := rt.storageService.GetTenantPoolFromRequest(r)
+		if !ok {
+			core.SendError(w, http.StatusInternalServerError, "Error getting a storage connection.")
+			return
+		}
+
+		crmRepo := crm.NewRepository(tenantPool)
+		logsService := logs.NewService(tenantPool)
+		crmHandlers := crm.NewHandlers(crmRepo, logsService)
+
+		// Вызываем целевой обработчик через фабрику
+		handler := factory(crmHandlers)
 		handler(w, r)
 	}
 }

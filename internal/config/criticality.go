@@ -59,6 +59,15 @@ var PermissionCriticality = map[string]CriticalityLevel{
 	PERMISSION_FM_CREDITS_UPDATE:       7, // обновление кредита
 	PERMISSION_FM_CREDITS_TRANSACTIONS: 4, // просмотр платежей по кредиту
 	PERMISSION_FM_CREDITS_PAY:          8, // платёж по кредиту
+
+	// ========== CRM (2-8) ==========
+	PERMISSION_CRM:                2,
+	PERMISSION_CRM_CLIENTS:        3,
+	PERMISSION_CRM_CLIENTS_CREATE: 8,
+	PERMISSION_CRM_CLIENTS_UPDATE: 7,
+	PERMISSION_CRM_SOURCES:        3,
+	PERMISSION_CRM_SOURCES_CREATE: 8,
+	PERMISSION_CRM_SOURCES_UPDATE: 7,
 }
 
 // GetCriticality returns criticality level for a permission

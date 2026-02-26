@@ -30,4 +30,11 @@ const (
 	PERMISSION_FM_CREDITS_UPDATE                 = "fm.credits.update"
 	PERMISSION_FM_CREDITS_TRANSACTIONS           = "fm.credits.transactions"
 	PERMISSION_FM_CREDITS_PAY                    = "fm.credits.pay"
+	PERMISSION_CRM                               = "crm"
+	PERMISSION_CRM_CLIENTS                       = "crm.clients"
+	PERMISSION_CRM_CLIENTS_CREATE                = "crm.clients.create"
+	PERMISSION_CRM_CLIENTS_UPDATE                = "crm.clients.update"
+	PERMISSION_CRM_SOURCES                       = "crm.sources"
+	PERMISSION_CRM_SOURCES_CREATE                = "crm.sources.create"
+	PERMISSION_CRM_SOURCES_UPDATE                = "crm.sources.update"
 )
