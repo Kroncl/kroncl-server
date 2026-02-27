@@ -66,11 +66,12 @@ type UpdateClientRequest struct {
 
 // GetClientsRequest represents request params for listing clients
 type GetClientsRequest struct {
-	Page   int           `json:"page" validate:"omitempty,min=1"`
-	Limit  int           `json:"limit" validate:"omitempty,min=1,max=100"`
-	Type   *ClientType   `json:"type,omitempty"`
-	Status *ClientStatus `json:"status,omitempty"`
-	Search *string       `json:"search,omitempty"`
+	Page     int           `json:"page" validate:"omitempty,min=1"`
+	Limit    int           `json:"limit" validate:"omitempty,min=1,max=100"`
+	Type     *ClientType   `json:"type,omitempty"`
+	Status   *ClientStatus `json:"status,omitempty"`
+	Search   *string       `json:"search,omitempty"`
+	SourceID *string       `json:"source_id,omitempty"`
 }
 
 // ClientsResponse represents paginated response

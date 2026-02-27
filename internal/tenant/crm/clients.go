@@ -76,9 +76,8 @@ func (r *Repository) GetClientByID(ctx context.Context, id string) (*ClientDetai
 
 // GetClients возвращает список клиентов с пагинацией, фильтрацией и их источниками
 func (r *Repository) GetClients(ctx context.Context, req GetClientsRequest) ([]ClientDetail, int, error) {
-	var whereClause string
 	var args []interface{}
-	var whereConditions []string
+	var conditions []string
 	argIndex := 1
 
 	// Вычисляем offset
@@ -87,19 +86,28 @@ func (r *Repository) GetClients(ctx context.Context, req GetClientsRequest) ([]C
 		offset = 0
 	}
 
+	// Добавляем фильтр по источнику если есть (должен быть ПЕРВЫМ)
+	if req.SourceID != nil && *req.SourceID != "" {
+		conditions = append(conditions, "csl.source_id = $"+strconv.Itoa(argIndex))
+		args = append(args, *req.SourceID)
+		argIndex++
+	}
+
+	// Условия для clients
 	if req.Type != nil {
-		whereConditions = append(whereConditions, "c.type = $"+strconv.Itoa(argIndex))
+		conditions = append(conditions, "c.type = $"+strconv.Itoa(argIndex))
 		args = append(args, *req.Type)
 		argIndex++
 	}
 
 	if req.Status != nil {
-		whereConditions = append(whereConditions, "c.status = $"+strconv.Itoa(argIndex))
+		conditions = append(conditions, "c.status = $"+strconv.Itoa(argIndex))
 		args = append(args, *req.Status)
 		argIndex++
 	}
 
 	if req.Search != nil && *req.Search != "" {
+		// Только текстовые поля, исключаем UUID
 		searchConditions := []string{
 			"c.first_name ILIKE $" + strconv.Itoa(argIndex),
 			"c.last_name ILIKE $" + strconv.Itoa(argIndex),
@@ -108,35 +116,40 @@ func (r *Repository) GetClients(ctx context.Context, req GetClientsRequest) ([]C
 			"c.email ILIKE $" + strconv.Itoa(argIndex),
 			"c.comment ILIKE $" + strconv.Itoa(argIndex),
 		}
-		whereConditions = append(whereConditions, "("+strings.Join(searchConditions, " OR ")+")")
+		conditions = append(conditions, "("+strings.Join(searchConditions, " OR ")+")")
 		args = append(args, "%"+*req.Search+"%")
 		argIndex++
 	}
 
-	if len(whereConditions) > 0 {
-		whereClause = "WHERE " + strings.Join(whereConditions, " AND ")
+	// Базовый запрос с JOIN
+	baseQuery := `
+		FROM clients c
+		INNER JOIN client_source csl ON c.id = csl.client_id
+		INNER JOIN client_sources cs ON csl.source_id = cs.id
+	`
+
+	// Формируем WHERE
+	whereClause := ""
+	if len(conditions) > 0 {
+		whereClause = "WHERE " + strings.Join(conditions, " AND ")
 	}
 
 	// Получаем общее количество
-	countQuery := `SELECT COUNT(*) FROM clients c ` + whereClause
+	countQuery := "SELECT COUNT(*) " + baseQuery + " " + whereClause
 	var total int
-	err := r.pool.QueryRow(ctx, countQuery, args[:argIndex-1]...).Scan(&total)
+	err := r.pool.QueryRow(ctx, countQuery, args...).Scan(&total)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to count clients: %w", err)
 	}
 
-	// Получаем клиентов с пагинацией и их источниками одним запросом
+	// Получаем клиентов с пагинацией
 	query := `
 		SELECT 
 			c.id, c.first_name, c.last_name, c.patronymic, c.phone, c.email, c.comment, 
 			c.type, c.status, c.metadata, c.created_at, c.updated_at,
 			cs.id, cs.name, cs.url, cs.type, cs.comment, cs.system, cs.status, cs.metadata, cs.created_at, cs.updated_at
-		FROM clients c
-		INNER JOIN client_source csl ON c.id = csl.client_id
-		INNER JOIN client_sources cs ON csl.source_id = cs.id
-		` + whereClause + `
-		ORDER BY 
-			c.created_at DESC
+	` + baseQuery + " " + whereClause + `
+		ORDER BY c.created_at DESC
 		LIMIT $` + strconv.Itoa(argIndex) + ` OFFSET $` + strconv.Itoa(argIndex+1)
 
 	allArgs := append(args, req.Limit, offset)
@@ -182,7 +195,7 @@ func (r *Repository) GetClients(ctx context.Context, req GetClientsRequest) ([]C
 
 		clientDetails = append(clientDetails, ClientDetail{
 			Client: client,
-			Source: source, // теперь Source, не Sources
+			Source: source,
 		})
 	}
 

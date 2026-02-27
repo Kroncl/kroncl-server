@@ -661,6 +661,11 @@ func (h *Handlers) GetClients(w http.ResponseWriter, r *http.Request) {
 		req.Search = &search
 	}
 
+	// Source filter
+	if sourceID := r.URL.Query().Get("source_id"); sourceID != "" {
+		req.SourceID = &sourceID
+	}
+
 	clients, total, err := h.repository.GetClients(r.Context(), req)
 	if err != nil {
 		h.logsService.Log(r.Context(), config.PERMISSION_CRM_CLIENTS, accountID,
@@ -677,9 +682,10 @@ func (h *Handlers) GetClients(w http.ResponseWriter, r *http.Request) {
 		logs.WithStatus(logs.LogStatusSuccess),
 		logs.WithUserAgent(r.UserAgent()),
 		logs.WithMetadata("filters", map[string]interface{}{
-			"type":   req.Type,
-			"status": req.Status,
-			"search": req.Search,
+			"type":      req.Type,
+			"status":    req.Status,
+			"search":    req.Search,
+			"source_id": req.SourceID,
 		}),
 		logs.WithMetadata("pagination", map[string]int{
 			"page":  pagination.Page,
