@@ -37,4 +37,5 @@ const (
 	PERMISSION_CRM_SOURCES                       = "crm.sources"
 	PERMISSION_CRM_SOURCES_CREATE                = "crm.sources.create"
 	PERMISSION_CRM_SOURCES_UPDATE                = "crm.sources.update"
+	PERMISSION_CRM_ANALYSIS                      = "crm.analysis"
 )

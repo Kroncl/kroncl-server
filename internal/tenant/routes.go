@@ -316,6 +316,18 @@ func (rt *Routes) Register(r chi.Router) {
 				})
 			})
 		})
+
+		// analysis
+		r.Route("/analysis", func(r chi.Router) {
+			r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_CRM_ANALYSIS))
+
+			r.Get("/summary", rt.withCrmHandlers(func(h *crm.Handlers) http.HandlerFunc {
+				return h.GetClientsSummary
+			}))
+			r.Get("/grouped", rt.withCrmHandlers(func(h *crm.Handlers) http.HandlerFunc {
+				return h.GetGroupedClients
+			}))
+		})
 	})
 }
 
