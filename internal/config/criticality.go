@@ -68,6 +68,17 @@ var PermissionCriticality = map[string]CriticalityLevel{
 	PERMISSION_CRM_SOURCES:        3,
 	PERMISSION_CRM_SOURCES_CREATE: 8,
 	PERMISSION_CRM_SOURCES_UPDATE: 7,
+	PERMISSION_CRM_ANALYSIS:       1,
+
+	// ========== WM (2-8) ==========
+	PERMISSION_WM:                           2,
+	PERMISSION_WM_CATALOG:                   2,
+	PERMISSION_WM_CATALOG_CATEGORIES:        2,
+	PERMISSION_WM_CATALOG_CATEGORIES_CREATE: 8,
+	PERMISSION_WM_CATALOG_CATEGORIES_UPDATE: 7,
+	PERMISSION_WM_CATALOG_UNITS:             2,
+	PERMISSION_WM_CATALOG_UNITS_CREATE:      8,
+	PERMISSION_WM_CATALOG_UNITS_UPDATE:      7,
 }
 
 // GetCriticality returns criticality level for a permission

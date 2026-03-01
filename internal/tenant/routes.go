@@ -11,6 +11,7 @@ import (
 	"kroncl-server/internal/tenant/hrm"
 	"kroncl-server/internal/tenant/logs"
 	"kroncl-server/internal/tenant/storage"
+	wm "kroncl-server/internal/tenant/wm/catalog"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -255,15 +256,15 @@ func (rt *Routes) Register(r chi.Router) {
 		r.Route("/sources", func(r chi.Router) {
 			r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_CRM_SOURCES))
 
-			r.Get("/", rt.withCrmHandlers(func(h *crm.Handlers) http.HandlerFunc {
+			r.Get("/", rt.withCRMHandlers(func(h *crm.Handlers) http.HandlerFunc {
 				return h.GetClientSources
 			}))
 			r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_CRM_SOURCES_CREATE)).
-				Post("/", rt.withCrmHandlers(func(h *crm.Handlers) http.HandlerFunc {
+				Post("/", rt.withCRMHandlers(func(h *crm.Handlers) http.HandlerFunc {
 					return h.CreateClientSource
 				}))
 			r.Route("/{sourceId}", func(r chi.Router) {
-				r.Get("/", rt.withCrmHandlers(func(h *crm.Handlers) http.HandlerFunc {
+				r.Get("/", rt.withCRMHandlers(func(h *crm.Handlers) http.HandlerFunc {
 					return h.GetClientSource
 				}))
 
@@ -271,13 +272,13 @@ func (rt *Routes) Register(r chi.Router) {
 				r.Group(func(r chi.Router) {
 					r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_CRM_SOURCES_UPDATE))
 
-					r.Patch("/", rt.withCrmHandlers(func(h *crm.Handlers) http.HandlerFunc {
+					r.Patch("/", rt.withCRMHandlers(func(h *crm.Handlers) http.HandlerFunc {
 						return h.UpdateClientSource
 					}))
-					r.Post("/deactivate", rt.withCrmHandlers(func(h *crm.Handlers) http.HandlerFunc {
+					r.Post("/deactivate", rt.withCRMHandlers(func(h *crm.Handlers) http.HandlerFunc {
 						return h.DeactivateClientSource
 					}))
-					r.Post("/activate", rt.withCrmHandlers(func(h *crm.Handlers) http.HandlerFunc {
+					r.Post("/activate", rt.withCRMHandlers(func(h *crm.Handlers) http.HandlerFunc {
 						return h.ActivateClientSource
 					}))
 				})
@@ -288,15 +289,15 @@ func (rt *Routes) Register(r chi.Router) {
 		r.Route("/clients", func(r chi.Router) {
 			r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_CRM_CLIENTS))
 
-			r.Get("/", rt.withCrmHandlers(func(h *crm.Handlers) http.HandlerFunc {
+			r.Get("/", rt.withCRMHandlers(func(h *crm.Handlers) http.HandlerFunc {
 				return h.GetClients
 			}))
 			r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_CRM_CLIENTS_CREATE)).
-				Post("/", rt.withCrmHandlers(func(h *crm.Handlers) http.HandlerFunc {
+				Post("/", rt.withCRMHandlers(func(h *crm.Handlers) http.HandlerFunc {
 					return h.CreateClient
 				}))
 			r.Route("/{clientId}", func(r chi.Router) {
-				r.Get("/", rt.withCrmHandlers(func(h *crm.Handlers) http.HandlerFunc {
+				r.Get("/", rt.withCRMHandlers(func(h *crm.Handlers) http.HandlerFunc {
 					return h.GetClient
 				}))
 
@@ -304,13 +305,13 @@ func (rt *Routes) Register(r chi.Router) {
 				r.Group(func(r chi.Router) {
 					r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_CRM_CLIENTS_UPDATE))
 
-					r.Patch("/", rt.withCrmHandlers(func(h *crm.Handlers) http.HandlerFunc {
+					r.Patch("/", rt.withCRMHandlers(func(h *crm.Handlers) http.HandlerFunc {
 						return h.UpdateClient
 					}))
-					r.Post("/deactivate", rt.withCrmHandlers(func(h *crm.Handlers) http.HandlerFunc {
+					r.Post("/deactivate", rt.withCRMHandlers(func(h *crm.Handlers) http.HandlerFunc {
 						return h.DeactivateClient
 					}))
-					r.Post("/activate", rt.withCrmHandlers(func(h *crm.Handlers) http.HandlerFunc {
+					r.Post("/activate", rt.withCRMHandlers(func(h *crm.Handlers) http.HandlerFunc {
 						return h.ActivateClient
 					}))
 				})
@@ -321,12 +322,88 @@ func (rt *Routes) Register(r chi.Router) {
 		r.Route("/analysis", func(r chi.Router) {
 			r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_CRM_ANALYSIS))
 
-			r.Get("/summary", rt.withCrmHandlers(func(h *crm.Handlers) http.HandlerFunc {
+			r.Get("/summary", rt.withCRMHandlers(func(h *crm.Handlers) http.HandlerFunc {
 				return h.GetClientsSummary
 			}))
-			r.Get("/grouped", rt.withCrmHandlers(func(h *crm.Handlers) http.HandlerFunc {
+			r.Get("/grouped", rt.withCRMHandlers(func(h *crm.Handlers) http.HandlerFunc {
 				return h.GetGroupedClients
 			}))
+		})
+	})
+
+	// WM module
+	r.Route("/wm", func(r chi.Router) {
+		r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_WM))
+
+		// catalog
+		r.Route("/catalog", func(r chi.Router) {
+			r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_WM_CATALOG))
+
+			// categories
+			r.Route("/categories", func(r chi.Router) {
+				r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_WM_CATALOG_CATEGORIES))
+
+				r.Get("/", rt.withWMHandlers(func(h *wm.Handlers) http.HandlerFunc {
+					return h.GetCatalogCategories
+				}))
+				r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_WM_CATALOG_CATEGORIES_CREATE)).
+					Post("/", rt.withWMHandlers(func(h *wm.Handlers) http.HandlerFunc {
+						return h.CreateCatalogCategory
+					}))
+				r.Route("/{categoryId}", func(r chi.Router) {
+					r.Get("/", rt.withWMHandlers(func(h *wm.Handlers) http.HandlerFunc {
+						return h.GetCatalogCategory
+					}))
+
+					// [update category] no hard delete!
+					r.Group(func(r chi.Router) {
+						r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_WM_CATALOG_CATEGORIES_UPDATE))
+
+						r.Patch("/", rt.withWMHandlers(func(h *wm.Handlers) http.HandlerFunc {
+							return h.UpdateCatalogCategory
+						}))
+						r.Post("/deactivate", rt.withWMHandlers(func(h *wm.Handlers) http.HandlerFunc {
+							return h.DeactivateCatalogCategory
+						}))
+						r.Post("/activate", rt.withWMHandlers(func(h *wm.Handlers) http.HandlerFunc {
+							return h.ActivateCatalogCategory
+						}))
+					})
+				})
+			})
+
+			// units
+			r.Route("/units", func(r chi.Router) {
+				r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_WM_CATALOG_UNITS))
+
+				r.Get("/", rt.withWMHandlers(func(h *wm.Handlers) http.HandlerFunc {
+					return h.GetCatalogUnits
+				}))
+				r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_WM_CATALOG_UNITS_CREATE)).
+					Post("/", rt.withWMHandlers(func(h *wm.Handlers) http.HandlerFunc {
+						return h.CreateCatalogUnit
+					}))
+				r.Route("/{unitId}", func(r chi.Router) {
+					r.Get("/", rt.withWMHandlers(func(h *wm.Handlers) http.HandlerFunc {
+						return h.GetCatalogUnits
+					}))
+
+					// [update unit] no hard delete!
+					r.Group(func(r chi.Router) {
+						r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_WM_CATALOG_UNITS_UPDATE))
+
+						r.Patch("/", rt.withWMHandlers(func(h *wm.Handlers) http.HandlerFunc {
+							return h.UpdateCatalogUnit
+						}))
+						r.Post("/deactivate", rt.withWMHandlers(func(h *wm.Handlers) http.HandlerFunc {
+							return h.DeactivateCatalogUnit
+						}))
+						r.Post("/activate", rt.withWMHandlers(func(h *wm.Handlers) http.HandlerFunc {
+							return h.ActivateCatalogUnit
+						}))
+					})
+				})
+			})
 		})
 	})
 }
@@ -392,7 +469,7 @@ func (rt *Routes) withFMHandlers(factory func(*fm.Handlers) http.HandlerFunc) ht
 	}
 }
 
-func (rt *Routes) withCrmHandlers(factory func(*crm.Handlers) http.HandlerFunc) http.HandlerFunc {
+func (rt *Routes) withCRMHandlers(factory func(*crm.Handlers) http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		tenantPool, ok := rt.storageService.GetTenantPoolFromRequest(r)
 		if !ok {
@@ -406,6 +483,24 @@ func (rt *Routes) withCrmHandlers(factory func(*crm.Handlers) http.HandlerFunc) 
 
 		// Вызываем целевой обработчик через фабрику
 		handler := factory(crmHandlers)
+		handler(w, r)
+	}
+}
+
+func (rt *Routes) withWMHandlers(factory func(*wm.Handlers) http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		tenantPool, ok := rt.storageService.GetTenantPoolFromRequest(r)
+		if !ok {
+			core.SendError(w, http.StatusInternalServerError, "Error getting a storage connection.")
+			return
+		}
+
+		wmRepo := wm.NewRepository(tenantPool)
+		logsService := logs.NewService(tenantPool)
+		wmHandlers := wm.NewHandlers(wmRepo, logsService)
+
+		// Вызываем целевой обработчик через фабрику
+		handler := factory(wmHandlers)
 		handler(w, r)
 	}
 }

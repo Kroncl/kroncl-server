@@ -2,7 +2,7 @@
 -- Type: tenant
 -- Created: 2026-02-28 08:53:54
 
--- Catalog unit-category pivot table (many-to-many)
+-- Catalog unit-category pivot table
 CREATE TABLE catalog_unit_category (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     unit_id uuid NOT NULL REFERENCES catalog_units(id) ON DELETE CASCADE,

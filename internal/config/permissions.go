@@ -38,4 +38,12 @@ const (
 	PERMISSION_CRM_SOURCES_CREATE                = "crm.sources.create"
 	PERMISSION_CRM_SOURCES_UPDATE                = "crm.sources.update"
 	PERMISSION_CRM_ANALYSIS                      = "crm.analysis"
+	PERMISSION_WM                                = "wm"
+	PERMISSION_WM_CATALOG                        = "wm.catalog"
+	PERMISSION_WM_CATALOG_CATEGORIES             = "wm.catalog.categories"
+	PERMISSION_WM_CATALOG_CATEGORIES_CREATE      = "wm.catalog.categories.create"
+	PERMISSION_WM_CATALOG_CATEGORIES_UPDATE      = "wm.catalog.categories.update"
+	PERMISSION_WM_CATALOG_UNITS                  = "wm.catalog.units"
+	PERMISSION_WM_CATALOG_UNITS_CREATE           = "wm.catalog.units.create"
+	PERMISSION_WM_CATALOG_UNITS_UPDATE           = "wm.catalog.units.update"
 )
