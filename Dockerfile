@@ -32,6 +32,9 @@ COPY --from=builder /app/migrations ./migrations
 COPY wait-for-it.sh .
 COPY docker-entrypoint.sh .
 
+RUN sed -i 's/\r$//' wait-for-it.sh docker-entrypoint.sh && \
+    chmod +x wait-for-it.sh docker-entrypoint.sh
+    
 # Делаем скрипты исполняемыми
 RUN chmod +x wait-for-it.sh docker-entrypoint.sh
 
