@@ -58,6 +58,8 @@ services:
         condition: service_healthy
     networks:
       - kroncl-network
+    volumes:
+    - ./migrations:/app/migrations
 
 volumes:
   postgres_data:

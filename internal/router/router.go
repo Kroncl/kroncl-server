@@ -40,26 +40,36 @@ func New(cfg *config.Config, container *di.Container) chi.Router {
 			r.Post("/reg", container.AccountsHandlers.Register)
 			r.Get("/check-email-unique", container.AccountsHandlers.CheckEmailUnique)
 			r.Post("/auth", container.AccountsHandlers.Login)
+			r.Post("/fingerprints/auth", container.AccountsHandlers.LoginWithFingerprint)
 			r.Post("/refresh", container.AccountsHandlers.Refresh)
 
-			// Protected auth routes
+			// account [protected]
 			r.Group(func(r chi.Router) {
 				r.Use(container.JWTService.RequireAuth)
+
 				r.Get("/", container.AccountsHandlers.GetProfile)
 				r.Patch("/", container.AccountsHandlers.Update)
 				r.Post("/confirm", container.AccountsHandlers.ConfirmEmail)
 				r.Post("/confirm/resend", container.AccountsHandlers.ResendConfirmationCode)
-			})
 
-			// Accounts -> companies invitations [protected]
-			r.Route("/invitations", func(r chi.Router) {
-				r.Use(container.JWTService.RequireAuth)
+				// Accounts -> companies invitations [protected]
+				r.Route("/invitations", func(r chi.Router) {
+					r.Get("/", container.AccountsHandlers.GetAccountInvitations)
 
-				r.Get("/", container.AccountsHandlers.GetAccountInvitations)
+					r.Route("/{invitationId}", func(r chi.Router) {
+						r.Post("/accept", container.AccountsHandlers.AcceptAccountInvitation)
+						r.Post("/reject", container.AccountsHandlers.RejectAccountInvitation)
+					})
+				})
 
-				r.Route("/{invitationId}", func(r chi.Router) {
-					r.Post("/accept", container.AccountsHandlers.AcceptAccountInvitation)
-					r.Post("/reject", container.AccountsHandlers.RejectAccountInvitation)
+				// Account -> fingerprints
+				r.Route("/fingerprints", func(r chi.Router) {
+					r.Get("/", container.AccountsHandlers.GetFingerprints)
+					r.Post("/", container.AccountsHandlers.CreateFingerprint)
+
+					r.Route("/{fingerprintId}", func(r chi.Router) {
+						r.Post("/revoke", container.AccountsHandlers.RevokeFingerprint)
+					})
 				})
 			})
 		})
