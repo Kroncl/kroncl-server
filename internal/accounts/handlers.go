@@ -571,7 +571,7 @@ func (h *Handlers) LoginWithFingerprint(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	accessToken, refreshToken, err := h.service.LoginWithFingerprint(r.Context(), req.Key)
+	accessToken, refreshToken, account, err := h.service.LoginWithFingerprint(r.Context(), req.Key)
 	if err != nil {
 		core.SendUnauthorized(w, err.Error())
 		return
@@ -580,6 +580,7 @@ func (h *Handlers) LoginWithFingerprint(w http.ResponseWriter, r *http.Request) 
 	response := FingerprintLoginResponse{
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
+		User:         account,
 	}
 
 	core.SendSuccess(w, response, "Login successful")

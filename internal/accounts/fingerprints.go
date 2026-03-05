@@ -86,7 +86,7 @@ func (s *Service) CreateFingerprint(ctx context.Context, accountID string, expir
 }
 
 // LoginWithFingerprint вход по фингерпринту
-func (s *Service) LoginWithFingerprint(ctx context.Context, key string) (accessToken, refreshToken string, err error) {
+func (s *Service) LoginWithFingerprint(ctx context.Context, key string) (accessToken, refreshToken string, account *Account, err error) {
 	// Достаём все фингерпринты (или используем частичный индекс)
 	query := `
         SELECT 
@@ -101,7 +101,7 @@ func (s *Service) LoginWithFingerprint(ctx context.Context, key string) (accessT
 
 	rows, err := s.pool.Query(ctx, query)
 	if err != nil {
-		return "", "", fmt.Errorf("login failed: %w", err)
+		return "", "", nil, fmt.Errorf("login failed: %w", err)
 	}
 	defer rows.Close()
 
@@ -133,7 +133,7 @@ func (s *Service) LoginWithFingerprint(ctx context.Context, key string) (accessT
 	}
 
 	if !found {
-		return "", "", fmt.Errorf("invalid fingerprint key")
+		return "", "", nil, fmt.Errorf("invalid fingerprint key")
 	}
 
 	// Обновляем last_used_at
@@ -147,27 +147,27 @@ func (s *Service) LoginWithFingerprint(ctx context.Context, key string) (accessT
 	}
 
 	// Получаем аккаунт для проверки статуса
-	account, err := s.GetByID(ctx, accountID)
+	account, err = s.GetByID(ctx, accountID)
 	if err != nil {
-		return "", "", fmt.Errorf("account not found")
+		return "", "", nil, fmt.Errorf("account not found")
 	}
 
 	if account.Status != "confirmed" {
-		return "", "", fmt.Errorf("account not confirmed")
+		return "", "", nil, fmt.Errorf("account not confirmed")
 	}
 
 	// Генерируем токены
 	accessToken, err = s.jwtService.GenerateAccessToken(account.ID)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to generate access token: %w", err)
+		return "", "", nil, fmt.Errorf("failed to generate access token: %w", err)
 	}
 
 	refreshToken, err = s.jwtService.GenerateRefreshToken(account.ID)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to generate refresh token: %w", err)
+		return "", "", nil, fmt.Errorf("failed to generate refresh token: %w", err)
 	}
 
-	return accessToken, refreshToken, nil
+	return accessToken, refreshToken, account, nil
 }
 
 func (s *Service) verifyFingerprint(hash, key string) bool {
