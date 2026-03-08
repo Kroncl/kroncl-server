@@ -385,7 +385,7 @@ func (rt *Routes) Register(r chi.Router) {
 					}))
 				r.Route("/{unitId}", func(r chi.Router) {
 					r.Get("/", rt.withWMHandlers(func(h *wm.Handlers) http.HandlerFunc {
-						return h.GetCatalogUnits
+						return h.GetCatalogUnit
 					}))
 
 					// [update unit] no hard delete!
