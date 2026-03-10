@@ -28,11 +28,6 @@ func NewHandlers(repository *Repository, logsService *logs.Service) *Handlers {
 // --------
 
 func (h *Handlers) CreateTransaction(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
-		return
-	}
-
 	accountID, ok := core.GetUserIDFromContext(r.Context())
 	if !ok {
 		core.SendError(w, http.StatusUnauthorized, "Unauthorized")
@@ -151,11 +146,6 @@ func (h *Handlers) CreateTransaction(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) GetTransaction(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
-		return
-	}
-
 	accountID, ok := core.GetUserIDFromContext(r.Context())
 	if !ok {
 		core.SendError(w, http.StatusUnauthorized, "Unauthorized")
@@ -198,11 +188,6 @@ func (h *Handlers) GetTransaction(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) GetTransactions(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
-		return
-	}
-
 	// Получаем accountID из контекста (после JWT middleware)
 	accountID, ok := core.GetUserIDFromContext(r.Context())
 	if !ok {
@@ -332,11 +317,6 @@ func (h *Handlers) GetTransactions(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) CreateReverseTransaction(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
-		return
-	}
-
 	accountID, ok := core.GetUserIDFromContext(r.Context())
 	if !ok {
 		core.SendError(w, http.StatusUnauthorized, "Unauthorized")
@@ -385,11 +365,6 @@ func (h *Handlers) CreateReverseTransaction(w http.ResponseWriter, r *http.Reque
 // --------
 
 func (h *Handlers) GetCategory(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
-		return
-	}
-
 	accountID, ok := core.GetUserIDFromContext(r.Context())
 	if !ok {
 		core.SendError(w, http.StatusUnauthorized, "Unauthorized")
@@ -432,11 +407,6 @@ func (h *Handlers) GetCategory(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) GetCategories(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
-		return
-	}
-
 	accountID, ok := core.GetUserIDFromContext(r.Context())
 	if !ok {
 		core.SendError(w, http.StatusUnauthorized, "Unauthorized")
@@ -511,11 +481,6 @@ func (h *Handlers) GetCategories(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) CreateCategory(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
-		return
-	}
-
 	accountID, ok := core.GetUserIDFromContext(r.Context())
 	if !ok {
 		core.SendError(w, http.StatusUnauthorized, "Unauthorized")
@@ -592,11 +557,6 @@ func (h *Handlers) CreateCategory(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) UpdateCategory(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPatch {
-		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
-		return
-	}
-
 	accountID, ok := core.GetUserIDFromContext(r.Context())
 	if !ok {
 		core.SendError(w, http.StatusUnauthorized, "Unauthorized")
@@ -679,11 +639,6 @@ func (h *Handlers) UpdateCategory(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) DeleteCategory(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodDelete {
-		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
-		return
-	}
-
 	accountID, ok := core.GetUserIDFromContext(r.Context())
 	if !ok {
 		core.SendError(w, http.StatusUnauthorized, "Unauthorized")
@@ -757,11 +712,6 @@ func (h *Handlers) DeleteCategory(w http.ResponseWriter, r *http.Request) {
 // --------
 
 func (h *Handlers) GetAnalysisSummary(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
-		return
-	}
-
 	accountID, ok := core.GetUserIDFromContext(r.Context())
 	if !ok {
 		core.SendError(w, http.StatusUnauthorized, "Unauthorized")
@@ -810,11 +760,6 @@ func (h *Handlers) GetAnalysisSummary(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) GetGroupedTransactions(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
-		return
-	}
-
 	accountID, ok := core.GetUserIDFromContext(r.Context())
 	if !ok {
 		core.SendError(w, http.StatusUnauthorized, "Unauthorized")
@@ -873,11 +818,6 @@ func (h *Handlers) GetGroupedTransactions(w http.ResponseWriter, r *http.Request
 // --------
 
 func (h *Handlers) GetCounterparty(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
-		return
-	}
-
 	accountID, ok := core.GetUserIDFromContext(r.Context())
 	if !ok {
 		core.SendError(w, http.StatusUnauthorized, "Unauthorized")
@@ -920,11 +860,6 @@ func (h *Handlers) GetCounterparty(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) GetCounterparties(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
-		return
-	}
-
 	accountID, ok := core.GetUserIDFromContext(r.Context())
 	if !ok {
 		core.SendError(w, http.StatusUnauthorized, "Unauthorized")
@@ -1020,11 +955,6 @@ func (h *Handlers) GetCounterparties(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) CreateCounterparty(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
-		return
-	}
-
 	accountID, ok := core.GetUserIDFromContext(r.Context())
 	if !ok {
 		core.SendError(w, http.StatusUnauthorized, "Unauthorized")
@@ -1112,11 +1042,6 @@ func (h *Handlers) CreateCounterparty(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) UpdateCounterparty(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPatch {
-		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
-		return
-	}
-
 	accountID, ok := core.GetUserIDFromContext(r.Context())
 	if !ok {
 		core.SendError(w, http.StatusUnauthorized, "Unauthorized")
@@ -1199,11 +1124,6 @@ func (h *Handlers) UpdateCounterparty(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) ActivateCounterparty(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
-		return
-	}
-
 	accountID, ok := core.GetUserIDFromContext(r.Context())
 	if !ok {
 		core.SendError(w, http.StatusUnauthorized, "Unauthorized")
@@ -1259,11 +1179,6 @@ func (h *Handlers) ActivateCounterparty(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h *Handlers) DeactivateCounterparty(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
-		return
-	}
-
 	accountID, ok := core.GetUserIDFromContext(r.Context())
 	if !ok {
 		core.SendError(w, http.StatusUnauthorized, "Unauthorized")
@@ -1323,11 +1238,6 @@ func (h *Handlers) DeactivateCounterparty(w http.ResponseWriter, r *http.Request
 // --------
 
 func (h *Handlers) GetCredit(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
-		return
-	}
-
 	accountID, ok := core.GetUserIDFromContext(r.Context())
 	if !ok {
 		core.SendError(w, http.StatusUnauthorized, "Unauthorized")
@@ -1370,11 +1280,6 @@ func (h *Handlers) GetCredit(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) GetCredits(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
-		return
-	}
-
 	accountID, ok := core.GetUserIDFromContext(r.Context())
 	if !ok {
 		core.SendError(w, http.StatusUnauthorized, "Unauthorized")
@@ -1470,11 +1375,6 @@ func (h *Handlers) GetCredits(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) CreateCredit(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
-		return
-	}
-
 	accountID, ok := core.GetUserIDFromContext(r.Context())
 	if !ok {
 		core.SendError(w, http.StatusUnauthorized, "Unauthorized")
@@ -1626,11 +1526,6 @@ func (h *Handlers) CreateCredit(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) UpdateCredit(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPatch {
-		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
-		return
-	}
-
 	accountID, ok := core.GetUserIDFromContext(r.Context())
 	if !ok {
 		core.SendError(w, http.StatusUnauthorized, "Unauthorized")
@@ -1749,11 +1644,6 @@ func (h *Handlers) UpdateCredit(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) ActivateCredit(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
-		return
-	}
-
 	accountID, ok := core.GetUserIDFromContext(r.Context())
 	if !ok {
 		core.SendError(w, http.StatusUnauthorized, "Unauthorized")
@@ -1809,11 +1699,6 @@ func (h *Handlers) ActivateCredit(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) DeactivateCredit(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
-		return
-	}
-
 	accountID, ok := core.GetUserIDFromContext(r.Context())
 	if !ok {
 		core.SendError(w, http.StatusUnauthorized, "Unauthorized")
@@ -1873,11 +1758,6 @@ func (h *Handlers) DeactivateCredit(w http.ResponseWriter, r *http.Request) {
 // --------
 
 func (h *Handlers) PayCredit(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
-		return
-	}
-
 	accountID, ok := core.GetUserIDFromContext(r.Context())
 	if !ok {
 		core.SendError(w, http.StatusUnauthorized, "Unauthorized")
@@ -2001,11 +1881,6 @@ func (h *Handlers) PayCredit(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) GetCreditTransactions(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
-		return
-	}
-
 	accountID, ok := core.GetUserIDFromContext(r.Context())
 	if !ok {
 		core.SendError(w, http.StatusUnauthorized, "Unauthorized")

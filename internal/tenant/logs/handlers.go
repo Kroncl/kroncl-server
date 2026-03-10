@@ -21,11 +21,6 @@ func NewHandlers(service *Service) *Handlers {
 
 // GetLog возвращает один лог по ID
 func (h *Handlers) GetLog(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
-		return
-	}
-
 	accountID, ok := core.GetUserIDFromContext(r.Context())
 	if !ok {
 		core.SendError(w, http.StatusUnauthorized, "Unauthorized")
@@ -69,11 +64,6 @@ func (h *Handlers) GetLog(w http.ResponseWriter, r *http.Request) {
 
 // GetLogs возвращает список логов с пагинацией и фильтрацией
 func (h *Handlers) GetLogs(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
-		return
-	}
-
 	accountID, ok := core.GetUserIDFromContext(r.Context())
 	if !ok {
 		core.SendError(w, http.StatusUnauthorized, "Unauthorized")

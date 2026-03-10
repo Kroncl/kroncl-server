@@ -11,7 +11,7 @@ import (
 	"kroncl-server/internal/tenant/hrm"
 	"kroncl-server/internal/tenant/logs"
 	"kroncl-server/internal/tenant/storage"
-	wm "kroncl-server/internal/tenant/wm/catalog"
+	"kroncl-server/internal/tenant/wm"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -402,6 +402,43 @@ func (rt *Routes) Register(r chi.Router) {
 							return h.ActivateCatalogUnit
 						}))
 					})
+				})
+			})
+		})
+
+		// stocks
+		r.Route("/stocks", func(r chi.Router) {
+			r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_WM_STOCKS))
+
+			// batches
+			r.Route("/batches", func(r chi.Router) {
+				r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_WM_STOCKS_BATCHES))
+
+				r.Get("/", rt.withWMHandlers(func(h *wm.Handlers) http.HandlerFunc {
+					return h.GetStockBatches
+				}))
+				r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_WM_STOCKS_BATCHES_CREATE)).
+					Post("/", rt.withWMHandlers(func(h *wm.Handlers) http.HandlerFunc {
+						return h.CreateStockBatch
+					}))
+				r.Route("/{batchId}", func(r chi.Router) {
+					r.Get("/", rt.withWMHandlers(func(h *wm.Handlers) http.HandlerFunc {
+						return h.GetStockBatch
+					}))
+				})
+			})
+
+			// positions
+			r.Route("/positions", func(r chi.Router) {
+				r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_WM_STOCKS_POSITIONS))
+
+				r.Get("/", rt.withWMHandlers(func(h *wm.Handlers) http.HandlerFunc {
+					return h.GetStockPositions
+				}))
+				r.Route("/{positionId}", func(r chi.Router) {
+					r.Get("/", rt.withWMHandlers(func(h *wm.Handlers) http.HandlerFunc {
+						return h.GetStockPosition
+					}))
 				})
 			})
 		})

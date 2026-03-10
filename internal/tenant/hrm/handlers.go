@@ -28,11 +28,6 @@ func NewHandlers(repository *Repository, logsService *logs.Service) *Handlers {
 // в идеале это дело потом вынести из модуля
 // -------
 func (h *Handlers) RemoveEmployeeAccount(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodDelete {
-		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
-		return
-	}
-
 	accountID, ok := core.GetUserIDFromContext(r.Context())
 	if !ok {
 		core.SendError(w, http.StatusUnauthorized, "Unauthorized")
@@ -109,11 +104,6 @@ func (h *Handlers) RemoveEmployeeAccount(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *Handlers) GetEmployee(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
-		return
-	}
-
 	accountID, ok := core.GetUserIDFromContext(r.Context())
 	if !ok {
 		core.SendError(w, http.StatusUnauthorized, "Unauthorized")
@@ -157,11 +147,6 @@ func (h *Handlers) GetEmployee(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) GetEmployees(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
-		return
-	}
-
 	accountID, ok := core.GetUserIDFromContext(r.Context())
 	if !ok {
 		core.SendError(w, http.StatusUnauthorized, "Unauthorized")
@@ -215,11 +200,6 @@ func (h *Handlers) GetEmployees(w http.ResponseWriter, r *http.Request) {
 
 // деактивация
 func (h *Handlers) DeactivateEmployee(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
-		return
-	}
-
 	accountID, ok := core.GetUserIDFromContext(r.Context())
 	if !ok {
 		core.SendError(w, http.StatusUnauthorized, "Unauthorized")
@@ -280,11 +260,6 @@ func (h *Handlers) DeactivateEmployee(w http.ResponseWriter, r *http.Request) {
 
 // активация
 func (h *Handlers) ActivateEmployee(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
-		return
-	}
-
 	accountID, ok := core.GetUserIDFromContext(r.Context())
 	if !ok {
 		core.SendError(w, http.StatusUnauthorized, "Unauthorized")
@@ -344,11 +319,6 @@ func (h *Handlers) ActivateEmployee(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) UpdateEmployee(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPatch {
-		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
-		return
-	}
-
 	accountID, ok := core.GetUserIDFromContext(r.Context())
 	if !ok {
 		core.SendError(w, http.StatusUnauthorized, "Unauthorized")
@@ -417,11 +387,6 @@ func (h *Handlers) UpdateEmployee(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) CreateEmployee(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
-		return
-	}
-
 	accountID, ok := core.GetUserIDFromContext(r.Context())
 	if !ok {
 		core.SendError(w, http.StatusUnauthorized, "Unauthorized")
@@ -482,11 +447,6 @@ func (h *Handlers) CreateEmployee(w http.ResponseWriter, r *http.Request) {
 // существования аккаунта в глоб.реестре
 // -------
 func (h *Handlers) LinkAccountEmployee(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
-		return
-	}
-
 	accountID, ok := core.GetUserIDFromContext(r.Context())
 	if !ok {
 		core.SendError(w, http.StatusUnauthorized, "Unauthorized")
@@ -592,11 +552,6 @@ func (h *Handlers) LinkAccountEmployee(w http.ResponseWriter, r *http.Request) {
 
 // отвязка аккаунта
 func (h *Handlers) UnlinkAccountEmployee(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
-		return
-	}
-
 	accountID, ok := core.GetUserIDFromContext(r.Context())
 	if !ok {
 		core.SendError(w, http.StatusUnauthorized, "Unauthorized")

@@ -46,4 +46,8 @@ const (
 	PERMISSION_WM_CATALOG_UNITS                  = "wm.catalog.units"
 	PERMISSION_WM_CATALOG_UNITS_CREATE           = "wm.catalog.units.create"
 	PERMISSION_WM_CATALOG_UNITS_UPDATE           = "wm.catalog.units.update"
+	PERMISSION_WM_STOCKS                         = "wm.stocks"
+	PERMISSION_WM_STOCKS_BATCHES                 = "wm.stocks.batches"
+	PERMISSION_WM_STOCKS_BATCHES_CREATE          = "wm.stocks.batches.create"
+	PERMISSION_WM_STOCKS_POSITIONS               = "wm.stocks.positions"
 )

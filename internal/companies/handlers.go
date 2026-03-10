@@ -23,11 +23,6 @@ func NewHandlers(service *Service) *Handlers {
 
 // получение одного участника компании
 func (h *Handlers) GetCompanyMember(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
-		return
-	}
-
 	// получаем ID компании из URL
 	companyID := chi.URLParam(r, "id")
 	if companyID == "" {
@@ -55,11 +50,6 @@ func (h *Handlers) GetCompanyMember(w http.ResponseWriter, r *http.Request) {
 
 // получение участников компании с фильтрами (расширенная версия)
 func (h *Handlers) GetCompanyMembers(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
-		return
-	}
-
 	// получаем ID компании из URL
 	companyID := chi.URLParam(r, "id")
 	if companyID == "" {
@@ -111,11 +101,6 @@ func (h *Handlers) GetCompanyMembers(w http.ResponseWriter, r *http.Request) {
 
 // получение организации
 func (h *Handlers) GetUserCompanyById(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
-		return
-	}
-
 	// получаем пользователя из контекста
 	account, ok := auth.GetUserFromContext(r.Context())
 	if !ok {

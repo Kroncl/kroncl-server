@@ -18,11 +18,6 @@ func NewHandlers(service *Service) *Handlers {
 
 // получение ресурсов хранилища
 func (h *Handlers) GetSources(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
-		return
-	}
-
 	// Получаем company_id из URL параметра
 	companyID := chi.URLParam(r, "id")
 	if companyID == "" {
@@ -47,11 +42,6 @@ func (h *Handlers) GetSources(w http.ResponseWriter, r *http.Request) {
 
 // получение хранилища (полный объект)
 func (h *Handlers) Get(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed.")
-		return
-	}
-
 	// Получаем company_id из URL параметра
 	companyID := chi.URLParam(r, "id")
 	if companyID == "" {

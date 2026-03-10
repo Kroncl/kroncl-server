@@ -79,6 +79,10 @@ var PermissionCriticality = map[string]CriticalityLevel{
 	PERMISSION_WM_CATALOG_UNITS:             2,
 	PERMISSION_WM_CATALOG_UNITS_CREATE:      8,
 	PERMISSION_WM_CATALOG_UNITS_UPDATE:      7,
+	PERMISSION_WM_STOCKS:                    2,
+	PERMISSION_WM_STOCKS_BATCHES:            2,
+	PERMISSION_WM_STOCKS_BATCHES_CREATE:     9,
+	PERMISSION_WM_STOCKS_POSITIONS:          2,
 }
 
 // GetCriticality returns criticality level for a permission
