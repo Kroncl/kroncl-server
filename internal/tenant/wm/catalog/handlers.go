@@ -594,6 +594,23 @@ func (h *Handlers) GetCatalogUnits(w http.ResponseWriter, r *http.Request) {
 		req.InventoryType = &it
 	}
 
+	// Tracking detail filter (НОВЫЙ!)
+	if trackingDetailStr := r.URL.Query().Get("tracking_detail"); trackingDetailStr != "" {
+		td := TrackingDetail(trackingDetailStr)
+		if td != TrackingDetailBatch && td != TrackingDetailSerial {
+			h.logsService.Log(r.Context(), config.PERMISSION_WM_CATALOG_UNITS, accountID,
+				logs.WithStatus(logs.LogStatusError),
+				logs.WithUserAgent(r.UserAgent()),
+				logs.WithMetadata("error", "Invalid tracking detail"),
+				logs.WithMetadata("tracking_detail", trackingDetailStr),
+				logs.WithMetadata("path", r.URL.Path),
+			)
+			core.SendValidationError(w, "Invalid tracking detail. Use 'batch' or 'serial'.")
+			return
+		}
+		req.TrackingDetail = &td
+	}
+
 	// Category filter
 	if categoryID := r.URL.Query().Get("category_id"); categoryID != "" {
 		req.CategoryID = &categoryID
@@ -620,11 +637,12 @@ func (h *Handlers) GetCatalogUnits(w http.ResponseWriter, r *http.Request) {
 		logs.WithStatus(logs.LogStatusSuccess),
 		logs.WithUserAgent(r.UserAgent()),
 		logs.WithMetadata("filters", map[string]interface{}{
-			"type":           req.Type,
-			"status":         req.Status,
-			"inventory_type": req.InventoryType,
-			"category_id":    req.CategoryID,
-			"search":         req.Search,
+			"type":            req.Type,
+			"status":          req.Status,
+			"inventory_type":  req.InventoryType,
+			"tracking_detail": req.TrackingDetail, // НОВЫЙ!
+			"category_id":     req.CategoryID,
+			"search":          req.Search,
 		}),
 		logs.WithMetadata("pagination", map[string]int{
 			"page":  pagination.Page,
@@ -763,6 +781,44 @@ func (h *Handlers) CreateCatalogUnit(w http.ResponseWriter, r *http.Request) {
 				logs.WithMetadata("inventory_type", req.InventoryType),
 			)
 			core.SendValidationError(w, "Service cannot be tracked.")
+
+		// НОВЫЕ ОШИБКИ ДЛЯ TRACKING_DETAIL
+		case strings.Contains(errorMsg, "tracking detail (batch/serial) is required"):
+			h.logsService.Log(r.Context(), config.PERMISSION_WM_CATALOG_UNITS_CREATE, accountID,
+				logs.WithStatus(logs.LogStatusError),
+				logs.WithUserAgent(r.UserAgent()),
+				logs.WithMetadata("error", errorMsg),
+				logs.WithMetadata("path", r.URL.Path),
+			)
+			core.SendValidationError(w, "Для складских товаров необходимо указать тип учета: batch (партионный) или serial (поштучный).")
+
+		case strings.Contains(errorMsg, "tracked type (fifo/lifo) is required for batch tracking"):
+			h.logsService.Log(r.Context(), config.PERMISSION_WM_CATALOG_UNITS_CREATE, accountID,
+				logs.WithStatus(logs.LogStatusError),
+				logs.WithUserAgent(r.UserAgent()),
+				logs.WithMetadata("error", errorMsg),
+				logs.WithMetadata("path", r.URL.Path),
+			)
+			core.SendValidationError(w, "Для партионного учета (batch) необходимо указать метод списания: FIFO или LIFO.")
+
+		case strings.Contains(errorMsg, "tracked type must be nil for serial tracking"):
+			h.logsService.Log(r.Context(), config.PERMISSION_WM_CATALOG_UNITS_CREATE, accountID,
+				logs.WithStatus(logs.LogStatusError),
+				logs.WithUserAgent(r.UserAgent()),
+				logs.WithMetadata("error", errorMsg),
+				logs.WithMetadata("path", r.URL.Path),
+			)
+			core.SendValidationError(w, "Для поштучного учета (serial) метод списания (FIFO/LIFO) не применяется.")
+
+		case strings.Contains(errorMsg, "tracking detail must be nil for untracked items"):
+			h.logsService.Log(r.Context(), config.PERMISSION_WM_CATALOG_UNITS_CREATE, accountID,
+				logs.WithStatus(logs.LogStatusError),
+				logs.WithUserAgent(r.UserAgent()),
+				logs.WithMetadata("error", errorMsg),
+				logs.WithMetadata("path", r.URL.Path),
+			)
+			core.SendValidationError(w, "Для товаров без учета (untracked) нельзя указывать детализацию учета.")
+
 		case strings.Contains(errorMsg, "tracked type (fifo/lifo) is required"):
 			h.logsService.Log(r.Context(), config.PERMISSION_WM_CATALOG_UNITS_CREATE, accountID,
 				logs.WithStatus(logs.LogStatusError),
@@ -771,6 +827,7 @@ func (h *Handlers) CreateCatalogUnit(w http.ResponseWriter, r *http.Request) {
 				logs.WithMetadata("path", r.URL.Path),
 			)
 			core.SendValidationError(w, "Tracked type (FIFO/LIFO) is required for tracked items.")
+
 		case strings.Contains(errorMsg, "purchase price is required"):
 			h.logsService.Log(r.Context(), config.PERMISSION_WM_CATALOG_UNITS_CREATE, accountID,
 				logs.WithStatus(logs.LogStatusError),
@@ -779,6 +836,7 @@ func (h *Handlers) CreateCatalogUnit(w http.ResponseWriter, r *http.Request) {
 				logs.WithMetadata("path", r.URL.Path),
 			)
 			core.SendValidationError(w, "Purchase price is required for tracked items.")
+
 		case strings.Contains(errorMsg, "service cannot have purchase price"):
 			h.logsService.Log(r.Context(), config.PERMISSION_WM_CATALOG_UNITS_CREATE, accountID,
 				logs.WithStatus(logs.LogStatusError),
@@ -787,6 +845,7 @@ func (h *Handlers) CreateCatalogUnit(w http.ResponseWriter, r *http.Request) {
 				logs.WithMetadata("path", r.URL.Path),
 			)
 			core.SendValidationError(w, "Service cannot have purchase price.")
+
 		case strings.Contains(errorMsg, "category with id") && strings.Contains(errorMsg, "not found"):
 			h.logsService.Log(r.Context(), config.PERMISSION_WM_CATALOG_UNITS_CREATE, accountID,
 				logs.WithStatus(logs.LogStatusError),
@@ -796,6 +855,7 @@ func (h *Handlers) CreateCatalogUnit(w http.ResponseWriter, r *http.Request) {
 				logs.WithMetadata("category_id", req.CategoryID),
 			)
 			core.SendValidationError(w, errorMsg)
+
 		default:
 			h.logsService.Log(r.Context(), config.PERMISSION_WM_CATALOG_UNITS_CREATE, accountID,
 				logs.WithStatus(logs.LogStatusError),
@@ -814,6 +874,8 @@ func (h *Handlers) CreateCatalogUnit(w http.ResponseWriter, r *http.Request) {
 		logs.WithMetadata("unit_id", unit.ID),
 		logs.WithMetadata("name", req.Name),
 		logs.WithMetadata("type", req.Type),
+		logs.WithMetadata("inventory_type", req.InventoryType),
+		logs.WithMetadata("tracking_detail", req.TrackingDetail), // НОВЫЙ!
 	)
 
 	core.SendSuccess(w, unit, "Unit created successfully.")
@@ -887,6 +949,21 @@ func (h *Handlers) UpdateCatalogUnit(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Валидация tracking_detail если указан (НОВЫЙ!)
+	if req.TrackingDetail != nil {
+		if *req.TrackingDetail != TrackingDetailBatch && *req.TrackingDetail != TrackingDetailSerial {
+			h.logsService.Log(r.Context(), config.PERMISSION_WM_CATALOG_UNITS_UPDATE, accountID,
+				logs.WithStatus(logs.LogStatusError),
+				logs.WithUserAgent(r.UserAgent()),
+				logs.WithMetadata("error", "Invalid tracking detail"),
+				logs.WithMetadata("tracking_detail", *req.TrackingDetail),
+				logs.WithMetadata("path", r.URL.Path),
+			)
+			core.SendValidationError(w, "Invalid tracking detail. Use 'batch' or 'serial'.")
+			return
+		}
+	}
+
 	unit, err := h.repository.UpdateCatalogUnit(r.Context(), unitID, req)
 	if err != nil {
 		errorMsg := err.Error()
@@ -900,6 +977,7 @@ func (h *Handlers) UpdateCatalogUnit(w http.ResponseWriter, r *http.Request) {
 				logs.WithMetadata("unit_id", unitID),
 			)
 			core.SendNotFound(w, "Unit not found.")
+
 		case strings.Contains(errorMsg, "service cannot be tracked"):
 			h.logsService.Log(r.Context(), config.PERMISSION_WM_CATALOG_UNITS_UPDATE, accountID,
 				logs.WithStatus(logs.LogStatusError),
@@ -908,6 +986,44 @@ func (h *Handlers) UpdateCatalogUnit(w http.ResponseWriter, r *http.Request) {
 				logs.WithMetadata("path", r.URL.Path),
 			)
 			core.SendValidationError(w, "Service cannot be tracked.")
+
+		// НОВЫЕ ОШИБКИ ДЛЯ TRACKING_DETAIL
+		case strings.Contains(errorMsg, "tracking detail (batch/serial) is required"):
+			h.logsService.Log(r.Context(), config.PERMISSION_WM_CATALOG_UNITS_UPDATE, accountID,
+				logs.WithStatus(logs.LogStatusError),
+				logs.WithUserAgent(r.UserAgent()),
+				logs.WithMetadata("error", errorMsg),
+				logs.WithMetadata("path", r.URL.Path),
+			)
+			core.SendValidationError(w, "Для складских товаров необходимо указать тип учета: batch (партионный) или serial (поштучный).")
+
+		case strings.Contains(errorMsg, "tracked type (fifo/lifo) is required for batch tracking"):
+			h.logsService.Log(r.Context(), config.PERMISSION_WM_CATALOG_UNITS_UPDATE, accountID,
+				logs.WithStatus(logs.LogStatusError),
+				logs.WithUserAgent(r.UserAgent()),
+				logs.WithMetadata("error", errorMsg),
+				logs.WithMetadata("path", r.URL.Path),
+			)
+			core.SendValidationError(w, "Для партионного учета (batch) необходимо указать метод списания: FIFO или LIFO.")
+
+		case strings.Contains(errorMsg, "tracked type must be nil for serial tracking"):
+			h.logsService.Log(r.Context(), config.PERMISSION_WM_CATALOG_UNITS_UPDATE, accountID,
+				logs.WithStatus(logs.LogStatusError),
+				logs.WithUserAgent(r.UserAgent()),
+				logs.WithMetadata("error", errorMsg),
+				logs.WithMetadata("path", r.URL.Path),
+			)
+			core.SendValidationError(w, "Для поштучного учета (serial) метод списания (FIFO/LIFO) не применяется.")
+
+		case strings.Contains(errorMsg, "tracking detail must be nil for untracked items"):
+			h.logsService.Log(r.Context(), config.PERMISSION_WM_CATALOG_UNITS_UPDATE, accountID,
+				logs.WithStatus(logs.LogStatusError),
+				logs.WithUserAgent(r.UserAgent()),
+				logs.WithMetadata("error", errorMsg),
+				logs.WithMetadata("path", r.URL.Path),
+			)
+			core.SendValidationError(w, "Для товаров без учета (untracked) нельзя указывать детализацию учета.")
+
 		case strings.Contains(errorMsg, "category with id") && strings.Contains(errorMsg, "not found"):
 			h.logsService.Log(r.Context(), config.PERMISSION_WM_CATALOG_UNITS_UPDATE, accountID,
 				logs.WithStatus(logs.LogStatusError),
@@ -917,6 +1033,7 @@ func (h *Handlers) UpdateCatalogUnit(w http.ResponseWriter, r *http.Request) {
 				logs.WithMetadata("category_id", req.CategoryID),
 			)
 			core.SendValidationError(w, errorMsg)
+
 		default:
 			h.logsService.Log(r.Context(), config.PERMISSION_WM_CATALOG_UNITS_UPDATE, accountID,
 				logs.WithStatus(logs.LogStatusError),
@@ -929,10 +1046,21 @@ func (h *Handlers) UpdateCatalogUnit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Формируем метаданные для лога с учетом новых полей
+	logMetadata := map[string]interface{}{
+		"unit_id": unitID,
+	}
+	if req.TrackingDetail != nil {
+		logMetadata["tracking_detail"] = *req.TrackingDetail
+	}
+	if req.TrackedType != nil {
+		logMetadata["tracked_type"] = *req.TrackedType
+	}
+
 	h.logsService.Log(r.Context(), config.PERMISSION_WM_CATALOG_UNITS_UPDATE, accountID,
 		logs.WithStatus(logs.LogStatusSuccess),
 		logs.WithUserAgent(r.UserAgent()),
-		logs.WithMetadata("unit_id", unitID),
+		logs.WithMetadataMap(logMetadata),
 	)
 
 	core.SendSuccess(w, unit, "Unit updated successfully.")

@@ -27,7 +27,7 @@ func (r *Repository) CatalogUnitExists(ctx context.Context, id string) (bool, er
 func (r *Repository) GetCatalogUnitByID(ctx context.Context, id string) (*CatalogUnit, error) {
 	query := `
 		SELECT 
-			id, name, comment, type, status, inventory_type, tracked_type, 
+			id, name, comment, type, status, inventory_type, tracking_detail, tracked_type, 
 			unit, sale_price, purchase_price, currency, metadata, created_at, updated_at
 		FROM catalog_units
 		WHERE id = $1
@@ -41,6 +41,7 @@ func (r *Repository) GetCatalogUnitByID(ctx context.Context, id string) (*Catalo
 		&unit.Type,
 		&unit.Status,
 		&unit.InventoryType,
+		&unit.TrackingDetail,
 		&unit.TrackedType,
 		&unit.Unit,
 		&unit.SalePrice,
@@ -107,6 +108,12 @@ func (r *Repository) GetCatalogUnits(ctx context.Context, req GetUnitsRequest) (
 		argIndex++
 	}
 
+	if req.TrackingDetail != nil {
+		conditions = append(conditions, "tracking_detail = $"+strconv.Itoa(argIndex))
+		args = append(args, *req.TrackingDetail)
+		argIndex++
+	}
+
 	if req.Search != nil && *req.Search != "" {
 		searchConditions := []string{
 			"name ILIKE $" + strconv.Itoa(argIndex),
@@ -147,7 +154,7 @@ func (r *Repository) GetCatalogUnits(ctx context.Context, req GetUnitsRequest) (
 	// Получаем юниты с пагинацией
 	query := `
 		SELECT DISTINCT
-			u.id, u.name, u.comment, u.type, u.status, u.inventory_type, u.tracked_type, 
+			u.id, u.name, u.comment, u.type, u.status, u.inventory_type, u.tracking_detail, u.tracked_type, 
 			u.unit, u.sale_price, u.purchase_price, u.currency, u.metadata, u.created_at, u.updated_at
 	` + fromClause + " " + whereClause + `
 		ORDER BY u.name ASC
@@ -171,6 +178,7 @@ func (r *Repository) GetCatalogUnits(ctx context.Context, req GetUnitsRequest) (
 			&unit.Type,
 			&unit.Status,
 			&unit.InventoryType,
+			&unit.TrackingDetail,
 			&unit.TrackedType,
 			&unit.Unit,
 			&unit.SalePrice,
@@ -229,18 +237,41 @@ func (r *Repository) CreateCatalogUnit(ctx context.Context, req CreateUnitReques
 		if req.PurchasePrice != nil {
 			return nil, fmt.Errorf("service cannot have purchase price")
 		}
+		if req.TrackingDetail != nil {
+			return nil, fmt.Errorf("service cannot have tracking detail")
+		}
 	}
 
 	// Проверяем ограничения для tracked
 	if req.InventoryType == InventoryTypeTracked {
-		if req.TrackedType == nil {
-			return nil, fmt.Errorf("tracked type (fifo/lifo) is required for tracked items")
+		if req.TrackingDetail == nil {
+			return nil, fmt.Errorf("tracking detail (batch/serial) is required for tracked items")
 		}
 		if req.PurchasePrice == nil {
 			return nil, fmt.Errorf("purchase price is required for tracked items")
 		}
 		if *req.PurchasePrice < 0 {
 			return nil, fmt.Errorf("purchase price cannot be negative")
+		}
+
+		// Для batch-учета требуется tracked_type (FIFO/LIFO)
+		if *req.TrackingDetail == TrackingDetailBatch {
+			if req.TrackedType == nil {
+				return nil, fmt.Errorf("tracked type (fifo/lifo) is required for batch tracking")
+			}
+		} else {
+			// Для serial-учета tracked_type должен быть nil
+			if req.TrackedType != nil {
+				return nil, fmt.Errorf("tracked type must be nil for serial tracking")
+			}
+		}
+	} else {
+		// Для untracked tracking_detail и tracked_type должны быть nil
+		if req.TrackingDetail != nil {
+			return nil, fmt.Errorf("tracking detail must be nil for untracked items")
+		}
+		if req.TrackedType != nil {
+			return nil, fmt.Errorf("tracked type must be nil for untracked items")
 		}
 	}
 
@@ -262,13 +293,13 @@ func (r *Repository) CreateCatalogUnit(ctx context.Context, req CreateUnitReques
 	// Вставляем юнит
 	query := `
 		INSERT INTO catalog_units (
-			id, name, comment, type, status, inventory_type, tracked_type, 
+			id, name, comment, type, status, inventory_type, tracking_detail, tracked_type, 
 			unit, sale_price, purchase_price, currency, metadata, created_at, updated_at
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
 		)
 		RETURNING 
-			id, name, comment, type, status, inventory_type, tracked_type, 
+			id, name, comment, type, status, inventory_type, tracking_detail, tracked_type, 
 			unit, sale_price, purchase_price, currency, metadata, created_at, updated_at
 	`
 
@@ -280,6 +311,7 @@ func (r *Repository) CreateCatalogUnit(ctx context.Context, req CreateUnitReques
 		req.Type,
 		status,
 		req.InventoryType,
+		req.TrackingDetail,
 		req.TrackedType,
 		req.Unit,
 		req.SalePrice,
@@ -293,6 +325,7 @@ func (r *Repository) CreateCatalogUnit(ctx context.Context, req CreateUnitReques
 		&unit.Type,
 		&unit.Status,
 		&unit.InventoryType,
+		&unit.TrackingDetail,
 		&unit.TrackedType,
 		&unit.Unit,
 		&unit.SalePrice,
@@ -331,7 +364,7 @@ func (r *Repository) CreateCatalogUnit(ctx context.Context, req CreateUnitReques
 // UpdateCatalogUnit обновляет юнит
 func (r *Repository) UpdateCatalogUnit(ctx context.Context, id string, req UpdateUnitRequest) (*CatalogUnit, error) {
 	// Проверяем существование
-	_, err := r.GetCatalogUnitByID(ctx, id)
+	existing, err := r.GetCatalogUnitByID(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("unit not found: %w", err)
 	}
@@ -349,6 +382,75 @@ func (r *Repository) UpdateCatalogUnit(ctx context.Context, id string, req Updat
 
 	if req.SalePrice != nil && *req.SalePrice < 0 {
 		return nil, fmt.Errorf("sale price cannot be negative")
+	}
+
+	// Определяем конечные значения для валидации
+	finalType := existing.Type
+	if req.Type != nil {
+		finalType = *req.Type
+	}
+
+	finalInventoryType := existing.InventoryType
+	if req.InventoryType != nil {
+		finalInventoryType = *req.InventoryType
+	}
+
+	finalTrackingDetail := existing.TrackingDetail
+	if req.TrackingDetail != nil {
+		finalTrackingDetail = req.TrackingDetail
+	}
+
+	finalTrackedType := existing.TrackedType
+	if req.TrackedType != nil {
+		finalTrackedType = req.TrackedType
+	}
+
+	finalPurchasePrice := existing.PurchasePrice
+	if req.PurchasePrice != nil {
+		finalPurchasePrice = req.PurchasePrice
+	}
+
+	// Валидация для услуг
+	if finalType == UnitTypeService {
+		if finalInventoryType == InventoryTypeTracked {
+			return nil, fmt.Errorf("service cannot be tracked")
+		}
+		if finalPurchasePrice != nil {
+			return nil, fmt.Errorf("service cannot have purchase price")
+		}
+		if finalTrackingDetail != nil {
+			return nil, fmt.Errorf("service cannot have tracking detail")
+		}
+	}
+
+	// Валидация для tracked
+	if finalInventoryType == InventoryTypeTracked {
+		if finalTrackingDetail == nil {
+			return nil, fmt.Errorf("tracking detail (batch/serial) is required for tracked items")
+		}
+		if finalPurchasePrice == nil {
+			return nil, fmt.Errorf("purchase price is required for tracked items")
+		}
+
+		// Для batch-учета требуется tracked_type
+		if *finalTrackingDetail == TrackingDetailBatch {
+			if finalTrackedType == nil {
+				return nil, fmt.Errorf("tracked type (fifo/lifo) is required for batch tracking")
+			}
+		} else {
+			// Для serial-учета tracked_type должен быть nil
+			if finalTrackedType != nil {
+				return nil, fmt.Errorf("tracked type must be nil for serial tracking")
+			}
+		}
+	} else {
+		// Для untracked tracking_detail и tracked_type должны быть nil
+		if finalTrackingDetail != nil {
+			return nil, fmt.Errorf("tracking detail must be nil for untracked items")
+		}
+		if finalTrackedType != nil {
+			return nil, fmt.Errorf("tracked type must be nil for untracked items")
+		}
 	}
 
 	// Начинаем транзакцию
@@ -388,6 +490,10 @@ func (r *Repository) UpdateCatalogUnit(ctx context.Context, id string, req Updat
 
 	if req.InventoryType != nil {
 		updater.SetString("inventory_type", string(*req.InventoryType))
+	}
+
+	if req.TrackingDetail != nil {
+		updater.SetString("tracking_detail", string(*req.TrackingDetail))
 	}
 
 	if req.TrackedType != nil {
@@ -485,7 +591,7 @@ func (r *Repository) ActivateCatalogUnit(ctx context.Context, id string) (*Catal
 		SET status = $1, updated_at = CURRENT_TIMESTAMP 
 		WHERE id = $2
 		RETURNING 
-			id, name, comment, type, status, inventory_type, tracked_type, 
+			id, name, comment, type, status, inventory_type, tracking_detail, tracked_type, 
 			unit, sale_price, purchase_price, currency, metadata, created_at, updated_at
 	`
 
@@ -497,6 +603,7 @@ func (r *Repository) ActivateCatalogUnit(ctx context.Context, id string) (*Catal
 		&unit.Type,
 		&unit.Status,
 		&unit.InventoryType,
+		&unit.TrackingDetail,
 		&unit.TrackedType,
 		&unit.Unit,
 		&unit.SalePrice,
@@ -536,7 +643,7 @@ func (r *Repository) DeactivateCatalogUnit(ctx context.Context, id string) (*Cat
 		SET status = $1, updated_at = CURRENT_TIMESTAMP 
 		WHERE id = $2
 		RETURNING 
-			id, name, comment, type, status, inventory_type, tracked_type, 
+			id, name, comment, type, status, inventory_type, tracking_detail, tracked_type, 
 			unit, sale_price, purchase_price, currency, metadata, created_at, updated_at
 	`
 
@@ -548,6 +655,7 @@ func (r *Repository) DeactivateCatalogUnit(ctx context.Context, id string) (*Cat
 		&unit.Type,
 		&unit.Status,
 		&unit.InventoryType,
+		&unit.TrackingDetail,
 		&unit.TrackedType,
 		&unit.Unit,
 		&unit.SalePrice,
