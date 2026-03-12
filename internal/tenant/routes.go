@@ -442,4 +442,42 @@ func (rt *Routes) Register(r chi.Router) {
 			})
 		})
 	})
+
+	// DM module
+	// r.Route("/dm", func(r chi.Router) {
+	// 	r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_CRM))
+
+	// 	// types
+	// 	r.Route("/types", func(r chi.Router) {
+	// 		r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_CRM_SOURCES))
+
+	// 		r.Get("/", rt.dm(func(h *dm.Handlers) http.HandlerFunc {
+	// 			return h.GetClientSources
+	// 		}))
+	// 		r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_CRM_SOURCES_CREATE)).
+	// 			Post("/", rt.dm(func(h *dm.Handlers) http.HandlerFunc {
+	// 				return h.CreateClientSource
+	// 			}))
+	// 		r.Route("/{typeId}", func(r chi.Router) {
+	// 			r.Get("/", rt.dm(func(h *dm.Handlers) http.HandlerFunc {
+	// 				return h.GetClientSource
+	// 			}))
+
+	// 			// [update] no hard delete!
+	// 			r.Group(func(r chi.Router) {
+	// 				r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_CRM_SOURCES_UPDATE))
+
+	// 				r.Patch("/", rt.dm(func(h *dm.Handlers) http.HandlerFunc {
+	// 					return h.UpdateClientSource
+	// 				}))
+	// 				r.Post("/deactivate", rt.dm(func(h *dm.Handlers) http.HandlerFunc {
+	// 					return h.DeactivateClientSource
+	// 				}))
+	// 				r.Post("/activate", rt.dm(func(h *dm.Handlers) http.HandlerFunc {
+	// 					return h.ActivateClientSource
+	// 				}))
+	// 			})
+	// 		})
+	// 	})
+	// })
 }
