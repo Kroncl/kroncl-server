@@ -515,3 +515,81 @@ func (r *Repository) DeactivateClient(ctx context.Context, id string) (*ClientDe
 
 	return r.GetClientByID(ctx, id)
 }
+
+// GetClientsByIDs возвращает список клиентов по их ID с полной информацией об источниках
+func (r *Repository) GetClientsByIDs(ctx context.Context, ids []string) ([]ClientDetail, error) {
+	if len(ids) == 0 {
+		return []ClientDetail{}, nil
+	}
+
+	// Создаем плейсхолдеры для IN запроса
+	placeholders := make([]string, len(ids))
+	args := make([]interface{}, len(ids))
+	for i, id := range ids {
+		placeholders[i] = "$" + strconv.Itoa(i+1)
+		args[i] = id
+	}
+
+	query := fmt.Sprintf(`
+		SELECT 
+			c.id, c.first_name, c.last_name, c.patronymic, c.phone, c.email, c.comment, 
+			c.type, c.status, c.metadata, c.created_at, c.updated_at,
+			cs.id, cs.name, cs.url, cs.type, cs.comment, cs.system, cs.status, cs.metadata, cs.created_at, cs.updated_at
+		FROM clients c
+		INNER JOIN client_source csl ON c.id = csl.client_id
+		INNER JOIN client_sources cs ON csl.source_id = cs.id
+		WHERE c.id IN (%s)
+		ORDER BY c.created_at DESC
+	`, strings.Join(placeholders, ", "))
+
+	rows, err := r.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query clients by ids: %w", err)
+	}
+	defer rows.Close()
+
+	var clients []ClientDetail
+	for rows.Next() {
+		var client Client
+		var source ClientSource
+
+		err := rows.Scan(
+			&client.ID,
+			&client.FirstName,
+			&client.LastName,
+			&client.Patronymic,
+			&client.Phone,
+			&client.Email,
+			&client.Comment,
+			&client.Type,
+			&client.Status,
+			&client.Metadata,
+			&client.CreatedAt,
+			&client.UpdatedAt,
+			&source.ID,
+			&source.Name,
+			&source.URL,
+			&source.Type,
+			&source.Comment,
+			&source.System,
+			&source.Status,
+			&source.Metadata,
+			&source.CreatedAt,
+			&source.UpdatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan client: %w", err)
+		}
+
+		clients = append(clients, ClientDetail{
+			Client: client,
+			Source: source,
+		})
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating clients: %w", err)
+	}
+
+	return clients, nil
+}

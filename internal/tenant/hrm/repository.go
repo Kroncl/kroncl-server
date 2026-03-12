@@ -378,3 +378,80 @@ func (r *Repository) UnlinkAccount(ctx context.Context, employeeId string) (*Emp
 	// Возвращаем обновленные данные сотрудника
 	return r.GetEmployeeByID(ctx, employeeId)
 }
+
+// GetEmployeesByIDs возвращает список сотрудников по их ID с информацией о привязке аккаунтов
+func (r *Repository) GetEmployeesByIDs(ctx context.Context, ids []string) ([]EmployeeListItem, error) {
+	if len(ids) == 0 {
+		return []EmployeeListItem{}, nil
+	}
+
+	// Создаем плейсхолдеры для IN запроса
+	placeholders := make([]string, len(ids))
+	args := make([]interface{}, len(ids))
+	for i, id := range ids {
+		placeholders[i] = "$" + strconv.Itoa(i+1)
+		args[i] = id
+	}
+
+	query := fmt.Sprintf(`
+		SELECT 
+			e.id,
+			e.first_name,
+			e.last_name,
+			e.email,
+			e.phone,
+			e.status,
+			e.created_at,
+			e.updated_at,
+			ea.account_id,
+			ea.created_at as linked_at
+		FROM employees e
+		LEFT JOIN employee_account ea ON e.id = ea.employee_id
+		WHERE e.id IN (%s)
+		ORDER BY e.created_at DESC
+	`, strings.Join(placeholders, ", "))
+
+	rows, err := r.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query employees by ids: %w", err)
+	}
+	defer rows.Close()
+
+	var employees []EmployeeListItem
+	for rows.Next() {
+		var emp EmployeeListItem
+		var accountID *string
+		var linkedAt *time.Time
+
+		err := rows.Scan(
+			&emp.ID,
+			&emp.FirstName,
+			&emp.LastName,
+			&emp.Email,
+			&emp.Phone,
+			&emp.Status,
+			&emp.CreatedAt,
+			&emp.UpdatedAt,
+			&accountID,
+			&linkedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan employee: %w", err)
+		}
+
+		emp.AccountID = accountID
+		emp.LinkedAt = linkedAt
+		emp.IsAccountLinked = accountID != nil
+		employees = append(employees, emp)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating employees: %w", err)
+	}
+
+	return employees, nil
+}
+
+// ---------
+// DEALS
+// ---------

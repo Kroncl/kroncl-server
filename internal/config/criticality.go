@@ -84,7 +84,7 @@ var PermissionCriticality = map[string]CriticalityLevel{
 	PERMISSION_WM_STOCKS_BATCHES_CREATE:     9,
 	PERMISSION_WM_STOCKS_POSITIONS:          2,
 
-	// ========== DM (2-8) ==========
+	// ========== DM (2-9) ==========
 	PERMISSION_DM:                 2,
 	PERMISSION_DM_TYPES:           2,
 	PERMISSION_DM_TYPES_CREATE:    4,
@@ -97,6 +97,7 @@ var PermissionCriticality = map[string]CriticalityLevel{
 	PERMISSION_DM_DEALS:           2,
 	PERMISSION_DM_DEALS_CREATE:    8,
 	PERMISSION_DM_DEALS_UPDATE:    7,
+	PERMISSION_DM_DEALS_DELETE:    9,
 	PERMISSION_DM_ANALYSIS:        1,
 }
 

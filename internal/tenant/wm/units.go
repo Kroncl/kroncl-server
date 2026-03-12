@@ -678,3 +678,72 @@ func (r *Repository) DeactivateCatalogUnit(ctx context.Context, id string) (*Cat
 
 	return &unit, nil
 }
+
+// GetCatalogUnitsByIDs возвращает список единиц каталога по их ID
+func (r *Repository) GetCatalogUnitsByIDs(ctx context.Context, ids []string) ([]CatalogUnit, error) {
+	if len(ids) == 0 {
+		return []CatalogUnit{}, nil
+	}
+
+	// Создаем плейсхолдеры для IN запроса
+	placeholders := make([]string, len(ids))
+	args := make([]interface{}, len(ids))
+	for i, id := range ids {
+		placeholders[i] = "$" + strconv.Itoa(i+1)
+		args[i] = id
+	}
+
+	query := fmt.Sprintf(`
+		SELECT 
+			id, name, comment, type, status, inventory_type, tracking_detail, tracked_type, 
+			unit, sale_price, purchase_price, currency, metadata, created_at, updated_at
+		FROM catalog_units
+		WHERE id IN (%s)
+		ORDER BY name ASC
+	`, strings.Join(placeholders, ", "))
+
+	rows, err := r.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query catalog units by ids: %w", err)
+	}
+	defer rows.Close()
+
+	var units []CatalogUnit
+	for rows.Next() {
+		var unit CatalogUnit
+		err := rows.Scan(
+			&unit.ID,
+			&unit.Name,
+			&unit.Comment,
+			&unit.Type,
+			&unit.Status,
+			&unit.InventoryType,
+			&unit.TrackingDetail,
+			&unit.TrackedType,
+			&unit.Unit,
+			&unit.SalePrice,
+			&unit.PurchasePrice,
+			&unit.Currency,
+			&unit.Metadata,
+			&unit.CreatedAt,
+			&unit.UpdatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan catalog unit: %w", err)
+		}
+
+		// Загружаем категорию для каждого юнита (опционально)
+		categoryID, err := r.getUnitCategoryID(ctx, unit.ID)
+		if err == nil {
+			unit.CategoryID = categoryID
+		}
+
+		units = append(units, unit)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating catalog units: %w", err)
+	}
+
+	return units, nil
+}

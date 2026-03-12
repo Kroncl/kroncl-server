@@ -705,3 +705,53 @@ func (r *Repository) CreateStockBatchWithPositions(ctx context.Context, req Crea
 		Positions: positions,
 	}, nil
 }
+
+// GetStockPositionsByIDs возвращает список складских позиций по их ID (без информации о юнитах)
+func (r *Repository) GetStockPositionsByIDs(ctx context.Context, ids []string) ([]StockPosition, error) {
+	if len(ids) == 0 {
+		return []StockPosition{}, nil
+	}
+
+	// Создаем плейсхолдеры для IN запроса
+	placeholders := make([]string, len(ids))
+	args := make([]interface{}, len(ids))
+	for i, id := range ids {
+		placeholders[i] = "$" + strconv.Itoa(i+1)
+		args[i] = id
+	}
+
+	query := fmt.Sprintf(`
+		SELECT id, type, unit_id, quantity, created_at
+		FROM stock_positions
+		WHERE id IN (%s)
+		ORDER BY created_at DESC
+	`, strings.Join(placeholders, ", "))
+
+	rows, err := r.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query stock positions by ids: %w", err)
+	}
+	defer rows.Close()
+
+	var positions []StockPosition
+	for rows.Next() {
+		var pos StockPosition
+		err := rows.Scan(
+			&pos.ID,
+			&pos.Type,
+			&pos.UnitID,
+			&pos.Quantity,
+			&pos.CreatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan stock position: %w", err)
+		}
+		positions = append(positions, pos)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating stock positions: %w", err)
+	}
+
+	return positions, nil
+}

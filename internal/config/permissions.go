@@ -62,5 +62,6 @@ const (
 	PERMISSION_DM_DEALS                          = "dm.deals"
 	PERMISSION_DM_DEALS_CREATE                   = "dm.deals.create"
 	PERMISSION_DM_DEALS_UPDATE                   = "dm.deals.update"
+	PERMISSION_DM_DEALS_DELETE                   = "dm.deals.delete"
 	PERMISSION_DM_ANALYSIS                       = "dm.analysis"
 )

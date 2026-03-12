@@ -505,5 +505,34 @@ func (rt *Routes) Register(r chi.Router) {
 					}))
 			})
 		})
+
+		// deals
+		r.Route("/deals", func(r chi.Router) {
+			r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_DM_DEALS))
+
+			r.Get("/", rt.dm(func(h *dm.Handlers) http.HandlerFunc {
+				return h.GetDeals
+			}))
+			r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_DM_DEALS_CREATE)).
+				Post("/", rt.dm(func(h *dm.Handlers) http.HandlerFunc {
+					return h.CreateDeal
+				}))
+
+			r.Route("/{dealId}", func(r chi.Router) {
+				r.Get("/", rt.dm(func(h *dm.Handlers) http.HandlerFunc {
+					return h.GetDeal
+				}))
+
+				r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_DM_DEALS_UPDATE)).
+					Patch("/", rt.dm(func(h *dm.Handlers) http.HandlerFunc {
+						return h.UpdateDeal
+					}))
+
+				r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_DM_DEALS_DELETE)).
+					Delete("/", rt.dm(func(h *dm.Handlers) http.HandlerFunc {
+						return h.DeleteDeal
+					}))
+			})
+		})
 	})
 }

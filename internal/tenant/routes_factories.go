@@ -45,6 +45,8 @@ func createLogsHandlers(pool *pgxpool.Pool, logsService *logs.Service, rt *Route
 func createDMHandlers(pool *pgxpool.Pool, logsService *logs.Service, rt *Routes) *dm.Handlers {
 	hrmRepo := hrm.NewRepository(pool, rt.accountsService, rt.companiesService)
 	fmRepo := fm.NewRepository(pool, hrmRepo)
-	dmRepo := dm.NewRepository(pool, fmRepo)
+	crmRepo := crm.NewRepository(pool)
+	wmRepo := wm.NewRepository(pool)
+	dmRepo := dm.NewRepository(pool, fmRepo, hrmRepo, crmRepo, wmRepo)
 	return dm.NewHandlers(dmRepo, logsService)
 }
