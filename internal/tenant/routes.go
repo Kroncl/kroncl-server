@@ -6,6 +6,7 @@ import (
 	"kroncl-server/internal/config"
 	"kroncl-server/internal/permissioner"
 	"kroncl-server/internal/tenant/crm"
+	"kroncl-server/internal/tenant/dm"
 	"kroncl-server/internal/tenant/fm"
 	"kroncl-server/internal/tenant/hrm"
 	"kroncl-server/internal/tenant/logs"
@@ -444,40 +445,65 @@ func (rt *Routes) Register(r chi.Router) {
 	})
 
 	// DM module
-	// r.Route("/dm", func(r chi.Router) {
-	// 	r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_CRM))
+	r.Route("/dm", func(r chi.Router) {
+		r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_DM))
 
-	// 	// types
-	// 	r.Route("/types", func(r chi.Router) {
-	// 		r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_CRM_SOURCES))
+		// types
+		r.Route("/types", func(r chi.Router) {
+			r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_DM_TYPES))
 
-	// 		r.Get("/", rt.dm(func(h *dm.Handlers) http.HandlerFunc {
-	// 			return h.GetClientSources
-	// 		}))
-	// 		r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_CRM_SOURCES_CREATE)).
-	// 			Post("/", rt.dm(func(h *dm.Handlers) http.HandlerFunc {
-	// 				return h.CreateClientSource
-	// 			}))
-	// 		r.Route("/{typeId}", func(r chi.Router) {
-	// 			r.Get("/", rt.dm(func(h *dm.Handlers) http.HandlerFunc {
-	// 				return h.GetClientSource
-	// 			}))
+			r.Get("/", rt.dm(func(h *dm.Handlers) http.HandlerFunc {
+				return h.GetDealTypes
+			}))
+			r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_DM_TYPES_CREATE)).
+				Post("/", rt.dm(func(h *dm.Handlers) http.HandlerFunc {
+					return h.CreateDealType
+				}))
 
-	// 			// [update] no hard delete!
-	// 			r.Group(func(r chi.Router) {
-	// 				r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_CRM_SOURCES_UPDATE))
+			r.Route("/{typeId}", func(r chi.Router) {
+				r.Get("/", rt.dm(func(h *dm.Handlers) http.HandlerFunc {
+					return h.GetDealType
+				}))
 
-	// 				r.Patch("/", rt.dm(func(h *dm.Handlers) http.HandlerFunc {
-	// 					return h.UpdateClientSource
-	// 				}))
-	// 				r.Post("/deactivate", rt.dm(func(h *dm.Handlers) http.HandlerFunc {
-	// 					return h.DeactivateClientSource
-	// 				}))
-	// 				r.Post("/activate", rt.dm(func(h *dm.Handlers) http.HandlerFunc {
-	// 					return h.ActivateClientSource
-	// 				}))
-	// 			})
-	// 		})
-	// 	})
-	// })
+				r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_DM_TYPES_UPDATE)).
+					Patch("/", rt.dm(func(h *dm.Handlers) http.HandlerFunc {
+						return h.UpdateDealType
+					}))
+
+				r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_DM_TYPES_DELETE)).
+					Delete("/", rt.dm(func(h *dm.Handlers) http.HandlerFunc {
+						return h.DeleteDealType
+					}))
+			})
+		})
+
+		// statuses
+		r.Route("/statuses", func(r chi.Router) {
+			r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_DM_STATUSES))
+
+			r.Get("/", rt.dm(func(h *dm.Handlers) http.HandlerFunc {
+				return h.GetDealStatuses
+			}))
+			r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_DM_STATUSES_CREATE)).
+				Post("/", rt.dm(func(h *dm.Handlers) http.HandlerFunc {
+					return h.CreateDealStatus
+				}))
+
+			r.Route("/{statusId}", func(r chi.Router) {
+				r.Get("/", rt.dm(func(h *dm.Handlers) http.HandlerFunc {
+					return h.GetDealStatus
+				}))
+
+				r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_DM_STATUSES_UPDATE)).
+					Patch("/", rt.dm(func(h *dm.Handlers) http.HandlerFunc {
+						return h.UpdateDealStatus
+					}))
+
+				r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_DM_STATUSES_DELETE)).
+					Delete("/", rt.dm(func(h *dm.Handlers) http.HandlerFunc {
+						return h.DeleteDealStatus
+					}))
+			})
+		})
+	})
 }

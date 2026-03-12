@@ -122,6 +122,13 @@ func (u *Updater) SetJSONBNull(field string) *Updater {
 	return u
 }
 
+func NullIfEmptyPtr(s *string) *string {
+	if s == nil || *s == "" {
+		return nil
+	}
+	return s
+}
+
 // Where добавляет условие
 func (u *Updater) Where(condition string, args ...interface{}) *Updater {
 	u.where = condition
