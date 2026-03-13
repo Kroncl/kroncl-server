@@ -3,15 +3,15 @@ services:
     image: postgres:16-alpine
     container_name: kroncl-db
     environment:
-      POSTGRES_DB: kroncl
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -22,8 +22,8 @@ services:
     image: dpage/pgadmin4
     container_name: kroncl-pgadmin
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@admin.com
-      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
       PGADMIN_CONFIG_SERVER_MODE: 'False'
     ports:
       - "5050:80"
@@ -44,26 +44,64 @@ services:
       - "8080:8080"
     environment:
       HOST: 0.0.0.0
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_NAME: kroncl
-      DB_USERNAME: postgres
-      DB_PASSWORD: postgres
-      DB_SSLMODE: disable
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      DB_NAME: ${DB_NAME}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_SSLMODE: ${DB_SSLMODE}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
-      JWT_ACCESS_DURATION: 1h
-      JWT_REFRESH_DURATION: 7d
+      JWT_ACCESS_DURATION: ${JWT_ACCESS_DURATION}
+      JWT_REFRESH_DURATION: ${JWT_REFRESH_DURATION}
     depends_on:
       postgres:
         condition: service_healthy
     networks:
       - kroncl-network
     volumes:
-    - ./migrations:/app/migrations
+      - ./migrations:/app/migrations
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: kroncl-prometheus
+    ports:
+      - "127.0.0.1:9090:9090"  # ← только localhost
+    volumes:
+      - ./config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro  # ← готовый конфиг
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.listen-address=0.0.0.0:9090'
+    networks:
+      - kroncl-network
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: kroncl-grafana
+    ports:
+      - "3030:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_INSTALL_PLUGINS=grafana-piechart-panel
+    volumes:
+      - ./config/grafana/datasources:/etc/grafana/provisioning/datasources
+      - ./config/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      prometheus:
+        condition: service_started
+    networks:
+      - kroncl-network
+    restart: unless-stopped
 
 volumes:
   postgres_data:
   pgadmin_data:
+  prometheus_data:
+  grafana_data:
 
 networks:
   kroncl-network:

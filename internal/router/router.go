@@ -5,11 +5,14 @@ import (
 	"kroncl-server/internal/config"
 	"kroncl-server/internal/core"
 	"kroncl-server/internal/di"
+	"kroncl-server/internal/metrics"
 	"kroncl-server/internal/permissioner"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 func New(cfg *config.Config, container *di.Container) chi.Router {
@@ -30,6 +33,13 @@ func New(cfg *config.Config, container *di.Container) chi.Router {
 		AllowCredentials: cfg.CORS.AllowCredentials,
 		MaxAge:           cfg.CORS.MaxAge,
 	}))
+
+	// prometheus
+	r.Use(metrics.MetricsMiddleware())
+	r.With(
+		middleware.AllowContentEncoding("identity"),
+		metrics.PrometheusIPWhitelist,
+	).Get("/metrics", promhttp.Handler().ServeHTTP)
 
 	// API роуты
 	r.Route("/api", func(r chi.Router) {
