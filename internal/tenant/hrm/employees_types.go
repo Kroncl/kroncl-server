@@ -5,6 +5,10 @@ import (
 	"time"
 )
 
+// ---------
+// EMPLOYEES
+// ---------
+
 type EmployeeStatus string
 
 const (
