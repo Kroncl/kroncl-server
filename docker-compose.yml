@@ -11,7 +11,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME}"]
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -59,7 +59,7 @@ services:
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
       MINIO_USE_SSL: ${MINIO_USE_SSL:-false}
       MINIO_PUBLIC_BUCKET: ${MINIO_PUBLIC_BUCKET:-public}
-      PUBLIC_HOST: ${PUBLIC_HOST:-localhost}
+      MINIO_EXTERNAL_HOST: ${MINIO_EXTERNAL_HOST:-localhost:9000}
     depends_on:
       postgres:
         condition: service_healthy
@@ -131,7 +131,7 @@ services:
   minio-init:
     image: minio/mc:latest
     container_name: kroncl-minio-init
-    restart: "no"
+    restart: "on-failure"
     depends_on:
       minio:
         condition: service_healthy
@@ -139,10 +139,29 @@ services:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
       MINIO_PUBLIC_BUCKET: ${MINIO_PUBLIC_BUCKET:-public}
-    entrypoint: /bin/sh -c "echo 'Waiting for MinIO...' && sleep 5 && until mc alias set myminio http://minio:9000 $${MINIO_ROOT_USER} $${MINIO_ROOT_PASSWORD}; do echo 'Retrying...' && sleep 2; done && echo 'MinIO ready, creating buckets...' && mc mb myminio/$${MINIO_PUBLIC_BUCKET} --ignore-existing && mc policy set public myminio/$${MINIO_PUBLIC_BUCKET} && mc mb myminio/temp --ignore-existing && echo 'Buckets created successfully' && mc ls myminio"
+    entrypoint: |
+      /bin/sh -c "
+        echo '⏳ Waiting for MinIO...' &&
+        sleep 10 &&
+        until mc alias set myminio http://minio:9000 $${MINIO_ROOT_USER} $${MINIO_ROOT_PASSWORD}; do
+          echo '⏳ MinIO not ready, retrying...' && sleep 3;
+        done &&
+        echo '✅ MinIO ready, checking buckets...' &&
+        if ! mc ls myminio/$${MINIO_PUBLIC_BUCKET} 2>/dev/null; then
+          echo '📦 Creating bucket...' &&
+          mc mb myminio/$${MINIO_PUBLIC_BUCKET};
+        fi &&
+        echo '🔓 Setting public policy...' &&
+        mc anonymous set public myminio/$${MINIO_PUBLIC_BUCKET} &&
+        if ! mc ls myminio/temp 2>/dev/null; then
+          mc mb myminio/temp;
+        fi &&
+        echo '✅ All done! Buckets:' &&
+        mc ls myminio
+      "
     networks:
       - kroncl-network
-    
+
   nginx:
     image: nginx:alpine
     container_name: kroncl-nginx
@@ -151,9 +170,12 @@ services:
     volumes:
       - ./config/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
-      - api
-      - minio
-      - grafana
+      api:
+        condition: service_started
+      minio:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
     networks:
       - kroncl-network
     restart: unless-stopped

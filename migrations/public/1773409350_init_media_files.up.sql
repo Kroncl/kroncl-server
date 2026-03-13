@@ -2,7 +2,6 @@
 -- Type: public
 -- Created: 2026-03-13 16:42:30
 
--- Таблица файлов (глобальная, не tenant!)
 CREATE TABLE media_files (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     path text NOT NULL,                    -- путь в MinIO (avatars/uuid.jpg)

@@ -25,11 +25,10 @@ func (h *Handlers) UploadFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Парсим форму
 	err := r.ParseMultipartForm(MaxFileSize)
 	if err != nil {
 		log.Printf("Error parsing form: %v", err)
-		core.SendError(w, http.StatusBadRequest, "File too large or invalid form: "+err.Error())
+		core.SendError(w, http.StatusBadRequest, "File too large or invalid form")
 		return
 	}
 
@@ -54,9 +53,15 @@ func (h *Handlers) UploadFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	url, err := h.service.GetFileURL(r.Context(), fileInfo.ID)
+	if err != nil {
+		core.SendInternalError(w, "File uploaded but failed to generate access URL")
+		return
+	}
+
 	core.SendSuccess(w, UploadResponse{
 		ID:  fileInfo.ID,
-		URL: fileInfo.URL,
+		URL: url,
 	}, "File uploaded successfully")
 }
 
@@ -78,4 +83,26 @@ func (h *Handlers) GetFile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	core.SendSuccess(w, file, "File retrieved successfully")
+}
+
+func (h *Handlers) GetFileURL(w http.ResponseWriter, r *http.Request) {
+	fileID := r.PathValue("fileId")
+	if fileID == "" {
+		core.SendError(w, http.StatusBadRequest, "File ID is required")
+		return
+	}
+
+	url, err := h.service.GetFileURL(r.Context(), fileID)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			core.SendNotFound(w, "File not found")
+			return
+		}
+		core.SendInternalError(w, "Failed to generate URL")
+		return
+	}
+
+	core.SendSuccess(w, map[string]string{
+		"url": url,
+	}, "File URL generated successfully")
 }

@@ -50,10 +50,10 @@ type CORSConfig struct {
 type MinIOConfig struct {
 	RootUser     string
 	RootPassword string
-	Endpoint     string // для подключения (minio:9000)
+	Endpoint     string
 	UseSSL       bool
 	PublicBucket string
-	PublicHost   string // для URL (localhost или домен)
+	ExternalHost string
 }
 
 func Load() (*Config, error) {
@@ -70,7 +70,7 @@ func Load() (*Config, error) {
 		Endpoint:     getEnv("MINIO_ENDPOINT", "minio:9000"),
 		UseSSL:       getEnvAsBool("MINIO_USE_SSL", false),
 		PublicBucket: getEnv("MINIO_PUBLIC_BUCKET", "public"),
-		PublicHost:   getEnv("PUBLIC_HOST", "localhost"),
+		ExternalHost: getEnv("MINIO_EXTERNAL_HOST", "localhost:9000"),
 	}
 
 	// log

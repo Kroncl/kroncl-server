@@ -140,7 +140,7 @@ func (c *Container) initServices(ctx context.Context) error {
 		SecretKey:  c.Config.MinIO.RootPassword,
 		UseSSL:     c.Config.MinIO.UseSSL,
 		Bucket:     c.Config.MinIO.PublicBucket,
-		PublicHost: c.Config.MinIO.PublicHost,
+		PublicHost: c.Config.MinIO.ExternalHost,
 	}, mediaRepo)
 
 	if err != nil {
