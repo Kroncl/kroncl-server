@@ -29,6 +29,12 @@ type Meta struct {
 // BaseResponse middleware для стандартного формата ответа
 func BaseResponse(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Пропускаем метрики без изменений
+		if r.URL.Path == "/metrics" {
+			next.ServeHTTP(w, r)
+			return
+		}
+
 		// Пропускаем health check
 		if r.URL.Path == "/health" {
 			next.ServeHTTP(w, r)
