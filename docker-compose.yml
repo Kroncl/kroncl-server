@@ -55,10 +55,11 @@ services:
       JWT_REFRESH_DURATION: ${JWT_REFRESH_DURATION}
       # minio-api
       MINIO_ENDPOINT: ${MINIO_ENDPOINT:-minio:9000}
-      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
-      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
       MINIO_USE_SSL: ${MINIO_USE_SSL:-false}
       MINIO_PUBLIC_BUCKET: ${MINIO_PUBLIC_BUCKET:-public}
+      PUBLIC_HOST: ${PUBLIC_HOST:-localhost}
     depends_on:
       postgres:
         condition: service_healthy
@@ -141,6 +142,21 @@ services:
     entrypoint: /bin/sh -c "echo 'Waiting for MinIO...' && sleep 5 && until mc alias set myminio http://minio:9000 $${MINIO_ROOT_USER} $${MINIO_ROOT_PASSWORD}; do echo 'Retrying...' && sleep 2; done && echo 'MinIO ready, creating buckets...' && mc mb myminio/$${MINIO_PUBLIC_BUCKET} --ignore-existing && mc policy set public myminio/$${MINIO_PUBLIC_BUCKET} && mc mb myminio/temp --ignore-existing && echo 'Buckets created successfully' && mc ls myminio"
     networks:
       - kroncl-network
+    
+  nginx:
+    image: nginx:alpine
+    container_name: kroncl-nginx
+    ports:
+      - "80:80"  # ← теперь всё идет через 80 порт
+    volumes:
+      - ./config/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - api
+      - minio
+      - grafana
+    networks:
+      - kroncl-network
+    restart: unless-stopped
 
 volumes:
   postgres_data:

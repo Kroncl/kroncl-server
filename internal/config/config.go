@@ -21,6 +21,7 @@ type Config struct {
 	Database utils.DBConfig
 	JWT      JWTConfig
 	CORS     CORSConfig
+	MinIO    MinIOConfig
 }
 
 type ServerConfig struct {
@@ -46,15 +47,33 @@ type CORSConfig struct {
 	MaxAge           int
 }
 
+type MinIOConfig struct {
+	RootUser     string
+	RootPassword string
+	Endpoint     string // для подключения (minio:9000)
+	UseSSL       bool
+	PublicBucket string
+	PublicHost   string // для URL (localhost или домен)
+}
+
 func Load() (*Config, error) {
-	// Загружаем .env файл
 	if err := loadEnvFile(); err != nil {
 		log.Printf("⚠️  Warning: %v", err)
 	}
 
 	dbConfig := LoadDBConfigFromEnv()
 
-	// Логируем конфиг (без пароля)
+	// minio
+	minioConfig := MinIOConfig{
+		RootUser:     getEnv("MINIO_ROOT_USER", "minioadmin"),
+		RootPassword: getEnv("MINIO_ROOT_PASSWORD", "minioadmin"),
+		Endpoint:     getEnv("MINIO_ENDPOINT", "minio:9000"),
+		UseSSL:       getEnvAsBool("MINIO_USE_SSL", false),
+		PublicBucket: getEnv("MINIO_PUBLIC_BUCKET", "public"),
+		PublicHost:   getEnv("PUBLIC_HOST", "localhost"),
+	}
+
+	// log
 	log.Printf("📋 Конфигурация загружена:")
 	log.Printf("   - Server: %s:%s", getEnv("HOST", "0.0.0.0"), getEnv("PORT", "8080"))
 	log.Printf("   - Database: %s@%s:%d/%s",
@@ -62,6 +81,7 @@ func Load() (*Config, error) {
 		dbConfig.Host,
 		dbConfig.Port,
 		dbConfig.Name)
+	log.Printf("   - MinIO: %s (bucket: %s)", minioConfig.Endpoint, minioConfig.PublicBucket)
 
 	return &Config{
 		Server: ServerConfig{
@@ -74,7 +94,7 @@ func Load() (*Config, error) {
 		Database: dbConfig,
 		JWT: JWTConfig{
 			SecretKey:       getEnv("JWT_SECRET", "development-secret-key-change-in-production"),
-			AccessDuration:  60 * 24 * time.Minute, // dev
+			AccessDuration:  60 * 24 * time.Minute,
 			RefreshDuration: 7 * 24 * time.Hour,
 		},
 		CORS: CORSConfig{
@@ -85,11 +105,11 @@ func Load() (*Config, error) {
 			AllowCredentials: true,
 			MaxAge:           300,
 		},
+		MinIO: minioConfig,
 	}, nil
 }
 
 func loadEnvFile() error {
-	// Пробуем несколько возможных мест
 	paths := []string{
 		".env",
 		".env.local",
@@ -128,6 +148,13 @@ func LoadDBConfigFromEnv() utils.DBConfig {
 func getEnv(key, defaultValue string) string {
 	if value := os.Getenv(key); value != "" {
 		return value
+	}
+	return defaultValue
+}
+
+func getEnvAsBool(key string, defaultValue bool) bool {
+	if value := os.Getenv(key); value != "" {
+		return value == "true" || value == "1" || value == "yes"
 	}
 	return defaultValue
 }
