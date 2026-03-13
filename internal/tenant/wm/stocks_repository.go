@@ -12,7 +12,7 @@ import (
 // Константы
 const (
 	// MaxSerialPositionsPerBatch максимальное количество serial-позиций в одном батче
-	MaxSerialPositionsPerBatch = 1000
+	MaxSerialPositionsPerBatch = 400
 )
 
 // --------
