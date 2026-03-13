@@ -10,6 +10,10 @@ import (
 	"github.com/google/uuid"
 )
 
+// ---------
+// CATEGORIES
+// ---------
+
 // GetCategoryByID возвращает категорию по ID
 func (r *Repository) GetCategoryByID(ctx context.Context, id string) (*TransactionCategory, error) {
 	query := `

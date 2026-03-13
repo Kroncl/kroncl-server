@@ -7,18 +7,11 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-type Repository struct {
-	pool                *pgxpool.Pool
-	employeesRepository *hrm.Repository
-}
-
-func NewRepository(pool *pgxpool.Pool, employeesRepository *hrm.Repository) *Repository {
-	return &Repository{pool: pool, employeesRepository: employeesRepository}
-}
+// ---------
+// TRANSACTIONS
+// ---------
 
 // инит транзакции
 func (r *Repository) CreateTransaction(ctx context.Context, req CreateTransactionRequest) (*TransactionDetail, error) {

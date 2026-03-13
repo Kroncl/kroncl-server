@@ -10,6 +10,10 @@ import (
 	"github.com/google/uuid"
 )
 
+// ----------
+// COUNTERPARTIES
+// ----------
+
 // GetCounterpartyByID возвращает контрагента по ID
 func (r *Repository) GetCounterpartyByID(ctx context.Context, id string) (*Counterparty, error) {
 	query := `

@@ -12,6 +12,10 @@ import (
 	"github.com/google/uuid"
 )
 
+// ----------
+// CREDITS
+// ----------
+
 // GetCreditByID возвращает кредит по ID с данными контрагента
 func (r *Repository) GetCreditByID(ctx context.Context, id string) (*CreditDetail, error) {
 	query := `
