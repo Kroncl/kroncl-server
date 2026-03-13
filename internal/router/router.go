@@ -7,11 +7,13 @@ import (
 	"kroncl-server/internal/di"
 	"kroncl-server/internal/metrics"
 	"kroncl-server/internal/permissioner"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+	"github.com/go-chi/httprate"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
@@ -33,6 +35,9 @@ func New(cfg *config.Config, container *di.Container) chi.Router {
 		AllowCredentials: cfg.CORS.AllowCredentials,
 		MaxAge:           cfg.CORS.MaxAge,
 	}))
+
+	// rate limiter
+	r.Use(httprate.LimitByIP(config.RATE_LIMIT_PUBLIC_ROUTES_PER_MINUTE, 1*time.Minute))
 
 	// prometheus
 	r.Use(metrics.MetricsMiddleware())
@@ -56,6 +61,9 @@ func New(cfg *config.Config, container *di.Container) chi.Router {
 			// account [protected]
 			r.Group(func(r chi.Router) {
 				r.Use(container.JWTService.RequireAuth)
+
+				// rate limiter
+				r.Use(httprate.LimitByIP(config.RATE_LIMIT_PRIVATE_ROUTES_PER_MINUTE, 1*time.Minute))
 
 				r.Get("/", container.AccountsHandlers.GetProfile)
 				r.Patch("/", container.AccountsHandlers.Update)
@@ -87,6 +95,9 @@ func New(cfg *config.Config, container *di.Container) chi.Router {
 		// Protected routes (require auth)
 		r.Group(func(r chi.Router) {
 			r.Use(container.JWTService.RequireAuth)
+
+			// rate limiter
+			r.Use(httprate.LimitByIP(config.RATE_LIMIT_PRIVATE_ROUTES_PER_MINUTE, 1*time.Minute))
 
 			// Search for public accounts to invite to the company
 			r.Route("/accounts", func(r chi.Router) {

@@ -11,6 +11,11 @@ import (
 	"github.com/joho/godotenv"
 )
 
+const (
+	RATE_LIMIT_PUBLIC_ROUTES_PER_MINUTE  = 20
+	RATE_LIMIT_PRIVATE_ROUTES_PER_MINUTE = 200
+)
+
 type Config struct {
 	Server   ServerConfig
 	Database utils.DBConfig
