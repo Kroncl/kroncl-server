@@ -8,16 +8,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
-
-type Repository struct {
-	pool *pgxpool.Pool
-}
-
-func NewRepository(pool *pgxpool.Pool) *Repository {
-	return &Repository{pool: pool}
-}
 
 // ClientSourceExists проверяет существование источника по ID
 func (r *Repository) ClientSourceExists(ctx context.Context, id string) (bool, error) {

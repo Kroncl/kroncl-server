@@ -10,6 +10,10 @@ import (
 	"github.com/google/uuid"
 )
 
+// ----------
+// CLIENTS
+// ----------
+
 // ClientExists проверяет существование клиента по ID
 func (r *Repository) ClientExists(ctx context.Context, id string) (bool, error) {
 	query := `SELECT EXISTS(SELECT 1 FROM clients WHERE id = $1)`
