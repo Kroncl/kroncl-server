@@ -10,21 +10,98 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func scanAccountPublic(row pgx.Row) (*AccountPublic, error) {
-	var account AccountPublic
-	err := row.Scan(
+func (s *Service) GetByEmail(ctx context.Context, email string) (*Account, error) {
+	query := `
+		SELECT 
+			id, email, name, auth_type, status, 
+			created_at, updated_at, 
+			COALESCE(avatar_url, '') as avatar_url
+		FROM accounts 
+		WHERE email = $1
+	`
+
+	var account Account
+	err := s.pool.QueryRow(ctx, query, strings.ToLower(email)).Scan(
 		&account.ID,
-		&account.Name,
 		&account.Email,
+		&account.Name,
+		&account.AuthType,
 		&account.Status,
-		&account.AvatarURL,
 		&account.CreatedAt,
+		&account.UpdatedAt,
+		&account.AvatarURL,
 	)
+
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("account not found: %w", err)
 	}
+
 	return &account, nil
 }
+
+// возвращает аккаунт по ID
+func (s *Service) GetByID(ctx context.Context, id string) (*Account, error) {
+	query := `
+		SELECT 
+			id, email, name, auth_type, status, 
+			created_at, updated_at, 
+			COALESCE(avatar_url, '') as avatar_url
+		FROM accounts 
+		WHERE id = $1
+	`
+
+	var account Account
+	err := s.pool.QueryRow(ctx, query, id).Scan(
+		&account.ID,
+		&account.Email,
+		&account.Name,
+		&account.AuthType,
+		&account.Status,
+		&account.CreatedAt,
+		&account.UpdatedAt,
+		&account.AvatarURL,
+	)
+
+	if err != nil {
+		return nil, fmt.Errorf("account not found: %w", err)
+	}
+
+	return &account, nil
+}
+
+// обновление аккаунта
+func (s *Service) UpdateById(ctx context.Context, accountID string, req *UpdateRequest) (*Account, error) {
+	updater := core.NewUpdater("accounts")
+
+	if req.Name != nil && *req.Name != "" {
+		if err := s.validateName(*req.Name); err != nil {
+			return nil, err
+		}
+		updater.SetString("name", *req.Name)
+	}
+	if req.AvatarUrl != nil {
+		updater.SetString("avatar_url", *req.AvatarUrl)
+	}
+
+	updater.Where("id = $1", accountID)
+
+	query, args := updater.Build()
+	if query == "" {
+		return s.GetByID(ctx, accountID)
+	}
+
+	// Выполняем запрос
+	_, err := s.pool.Exec(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update account: %w", err)
+	}
+
+	return s.GetByID(ctx, accountID)
+}
+
+// ---------
+// PUBLIC
+// ---------
 
 // GetPublicAccounts возвращает список AccountPublic с пагинацией и поиском
 // Показывает только аккаунты со статусом 'confirmed'
@@ -186,4 +263,20 @@ func (s *Service) GetPublicBatch(ctx context.Context, accountIDs []string) ([]Ac
 	}
 
 	return result, nil
+}
+
+func scanAccountPublic(row pgx.Row) (*AccountPublic, error) {
+	var account AccountPublic
+	err := row.Scan(
+		&account.ID,
+		&account.Name,
+		&account.Email,
+		&account.Status,
+		&account.AvatarURL,
+		&account.CreatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &account, nil
 }

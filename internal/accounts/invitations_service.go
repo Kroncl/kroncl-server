@@ -61,8 +61,8 @@ func (s *Service) AcceptInvitation(
 		return nil, fmt.Errorf("failed to get invitation: %w", err)
 	}
 
-	// 4. Проверяем, что email приглашения совпадает с email аккаунта
-	if strings.ToLower(invitation.Email) != strings.ToLower(account.Email) {
+	// 4. Проверяем, что email приглашения не совпадает с email аккаунта
+	if !strings.EqualFold(invitation.Email, account.Email) {
 		return nil, fmt.Errorf("invitation does not belong to this account")
 	}
 
@@ -98,8 +98,8 @@ func (s *Service) RejectInvitation(
 		return nil, fmt.Errorf("failed to get invitation: %w", err)
 	}
 
-	// 4. Проверяем, что email приглашения совпадает с email аккаунта
-	if strings.ToLower(invitation.Email) != strings.ToLower(account.Email) {
+	// 4. Проверяем, что email приглашения совпадает с email
+	if !strings.EqualFold(invitation.Email, account.Email) {
 		return nil, fmt.Errorf("invitation does not belong to this account")
 	}
 
