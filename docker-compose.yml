@@ -53,8 +53,16 @@ services:
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
       JWT_ACCESS_DURATION: ${JWT_ACCESS_DURATION}
       JWT_REFRESH_DURATION: ${JWT_REFRESH_DURATION}
+      # minio-api
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-minio:9000}
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      MINIO_USE_SSL: ${MINIO_USE_SSL:-false}
+      MINIO_PUBLIC_BUCKET: ${MINIO_PUBLIC_BUCKET:-public}
     depends_on:
       postgres:
+        condition: service_healthy
+      minio:
         condition: service_healthy
     networks:
       - kroncl-network
@@ -65,9 +73,9 @@ services:
     image: prom/prometheus:latest
     container_name: kroncl-prometheus
     ports:
-      - "127.0.0.1:9090:9090"  # ← только localhost
+      - "127.0.0.1:9090:9090"
     volumes:
-      - ./config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro  # ← готовый конфиг
+      - ./config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
@@ -97,11 +105,49 @@ services:
       - kroncl-network
     restart: unless-stopped
 
+  minio:
+    image: minio/minio:latest
+    container_name: kroncl-minio
+    ports:
+      - "9000:9000"      # API для приложений
+      - "9001:9001"      # Web UI (MinIO Console)
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      MINIO_BROWSER: "on"
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - kroncl-network
+    restart: unless-stopped
+
+  minio-init:
+    image: minio/mc:latest
+    container_name: kroncl-minio-init
+    restart: "no"
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      MINIO_PUBLIC_BUCKET: ${MINIO_PUBLIC_BUCKET:-public}
+    entrypoint: /bin/sh -c "echo 'Waiting for MinIO...' && sleep 5 && until mc alias set myminio http://minio:9000 $${MINIO_ROOT_USER} $${MINIO_ROOT_PASSWORD}; do echo 'Retrying...' && sleep 2; done && echo 'MinIO ready, creating buckets...' && mc mb myminio/$${MINIO_PUBLIC_BUCKET} --ignore-existing && mc policy set public myminio/$${MINIO_PUBLIC_BUCKET} && mc mb myminio/temp --ignore-existing && echo 'Buckets created successfully' && mc ls myminio"
+    networks:
+      - kroncl-network
+
 volumes:
   postgres_data:
   pgadmin_data:
   prometheus_data:
   grafana_data:
+  minio_data:
 
 networks:
   kroncl-network:
