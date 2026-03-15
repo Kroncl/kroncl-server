@@ -14,6 +14,65 @@ import (
 // DEAL TYPES
 // ---------
 
+func (h *Handlers) ReorderDealStatuses(w http.ResponseWriter, r *http.Request) {
+	accountID, ok := core.GetUserIDFromContext(r.Context())
+	if !ok {
+		core.SendError(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	var req struct {
+		StatusIDs []string `json:"status_ids" validate:"required"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.logsService.Log(r.Context(), config.PERMISSION_DM_STATUSES_UPDATE, accountID,
+			logs.WithStatus(logs.LogStatusError),
+			logs.WithUserAgent(r.UserAgent()),
+			logs.WithMetadata("error", "Invalid request body"),
+		)
+		core.SendError(w, http.StatusBadRequest, "Invalid request body.")
+		return
+	}
+
+	if len(req.StatusIDs) == 0 {
+		h.logsService.Log(r.Context(), config.PERMISSION_DM_STATUSES_UPDATE, accountID,
+			logs.WithStatus(logs.LogStatusError),
+			logs.WithUserAgent(r.UserAgent()),
+			logs.WithMetadata("error", "Status IDs list is empty"),
+		)
+		core.SendError(w, http.StatusBadRequest, "Status IDs list cannot be empty.")
+		return
+	}
+
+	err := h.repository.ReorderDealStatuses(r.Context(), req.StatusIDs)
+	if err != nil {
+		h.logsService.Log(r.Context(), config.PERMISSION_DM_STATUSES_UPDATE, accountID,
+			logs.WithStatus(logs.LogStatusError),
+			logs.WithUserAgent(r.UserAgent()),
+			logs.WithMetadata("error", err.Error()),
+		)
+
+		if strings.Contains(err.Error(), "not found") {
+			core.SendNotFound(w, err.Error())
+		} else {
+			core.SendInternalError(w, fmt.Sprintf("Failed to reorder statuses: %s", err.Error()))
+		}
+		return
+	}
+
+	h.logsService.Log(r.Context(), config.PERMISSION_DM_STATUSES_UPDATE, accountID,
+		logs.WithStatus(logs.LogStatusSuccess),
+		logs.WithUserAgent(r.UserAgent()),
+		logs.WithMetadata("status_ids", req.StatusIDs),
+	)
+
+	core.SendSuccess(w, map[string]interface{}{
+		"reordered":  true,
+		"status_ids": req.StatusIDs,
+	}, "Deal statuses reordered successfully.")
+}
+
 func (h *Handlers) GetDealType(w http.ResponseWriter, r *http.Request) {
 	accountID, ok := core.GetUserIDFromContext(r.Context())
 	if !ok {
