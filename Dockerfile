@@ -20,23 +20,16 @@ FROM alpine:latest
 
 WORKDIR /app
 
-# Устанавливаем bash и netcat (для wait-for-it)
-RUN apk add --no-cache bash netcat-openbsd
-
 # Копируем бинарники из билдера
 COPY --from=builder /app/main .
 COPY --from=builder /app/migrate .
 
 # Копируем папку с миграциями и скрипты
-COPY --from=builder /app/migrations ./migrations
-COPY wait-for-it.sh .
+COPY --from=builder /app/migrations ./
 COPY docker-entrypoint.sh .
 
-RUN sed -i 's/\r$//' wait-for-it.sh docker-entrypoint.sh && \
-    chmod +x wait-for-it.sh docker-entrypoint.sh
-    
-# Делаем скрипты исполняемыми
-RUN chmod +x wait-for-it.sh docker-entrypoint.sh
+RUN sed -i 's/\r$//' docker-entrypoint.sh && \
+    chmod +x docker-entrypoint.sh
 
 EXPOSE 8080
 

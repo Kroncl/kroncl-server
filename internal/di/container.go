@@ -2,10 +2,12 @@ package di
 
 import (
 	"context"
+	"fmt"
 	"kroncl-server/internal/accounts"
 	"kroncl-server/internal/auth"
 	"kroncl-server/internal/companies"
 	"kroncl-server/internal/config"
+	"kroncl-server/internal/media"
 	"kroncl-server/internal/migrator"
 	"kroncl-server/internal/permissioner"
 	"kroncl-server/internal/tenant"
@@ -31,6 +33,11 @@ type Container struct {
 	StorageService    *storage.Service
 	Migrator          *migrator.Migrator
 
+	// Media
+	MediaRepo     *media.Repository
+	MediaService  *media.Service
+	MediaHandlers *media.Handlers
+
 	// Хэндлеры
 	AccountsHandlers  *accounts.Handlers
 	CompaniesHandlers *companies.Handlers
@@ -50,7 +57,7 @@ func NewContainer(ctx context.Context, cfg *config.Config) (*Container, error) {
 	if err := c.initMigrator(); err != nil {
 		return nil, err
 	}
-	if err := c.initServices(); err != nil {
+	if err := c.initServices(ctx); err != nil {
 		return nil, err
 	}
 	if err := c.initTenantRoutes(); err != nil {
@@ -104,7 +111,7 @@ func (c *Container) initMigrator() error {
 	return nil
 }
 
-func (c *Container) initServices() error {
+func (c *Container) initServices(ctx context.Context) error {
 	// JWT
 	c.JWTService = auth.NewJWTService(
 		c.Config.JWT.SecretKey,
@@ -116,10 +123,36 @@ func (c *Container) initServices() error {
 	storageRepo := storage.NewRepository(c.DB)
 	c.StorageService = storage.NewService(storageRepo, c.Migrator, c.DB)
 
-	// Services
+	// Companies Service (зависит от Storage)
 	c.CompaniesService = companies.NewService(c.DB, c.StorageService)
+
+	// Accounts Service (зависит от JWT и Companies)
 	c.AccountsService = accounts.NewService(c.DB, c.JWTService, c.CompaniesService)
+
+	// Permission Service
 	c.PermissionService = permissioner.NewService(c.DB)
+
+	// media
+	mediaRepo := media.NewRepository(c.DB)
+	mediaService, err := media.NewService(media.Config{
+		Endpoint:   c.Config.MinIO.Endpoint,
+		AccessKey:  c.Config.MinIO.RootUser,
+		SecretKey:  c.Config.MinIO.RootPassword,
+		UseSSL:     c.Config.MinIO.UseSSL,
+		Bucket:     c.Config.MinIO.PublicBucket,
+		PublicHost: c.Config.MinIO.ExternalHost,
+	}, mediaRepo)
+
+	if err != nil {
+		return fmt.Errorf("failed to init media service: %w", err)
+	}
+
+	mediaHandlers := media.NewHandlers(mediaService)
+
+	// Сохраняем в контейнер
+	c.MediaRepo = mediaRepo
+	c.MediaService = mediaService
+	c.MediaHandlers = mediaHandlers
 
 	// Handlers
 	c.AccountsHandlers = accounts.NewHandlers(c.AccountsService)
@@ -130,7 +163,12 @@ func (c *Container) initServices() error {
 }
 
 func (c *Container) initTenantRoutes() error {
-	c.TenantRoutes = tenant.NewRoutes(c.StorageService, c.PermissionService, c.AccountsService, c.CompaniesService)
+	c.TenantRoutes = tenant.NewRoutes(
+		c.StorageService,
+		c.PermissionService,
+		c.AccountsService,
+		c.CompaniesService,
+	)
 	return nil
 }
 

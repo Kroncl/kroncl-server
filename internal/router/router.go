@@ -99,6 +99,11 @@ func New(cfg *config.Config, container *di.Container) chi.Router {
 			// rate limiter
 			r.Use(httprate.LimitByIP(config.RATE_LIMIT_PRIVATE_ROUTES_PER_MINUTE, 1*time.Minute))
 
+			r.Route("/media", func(r chi.Router) {
+				r.Post("/upload", container.MediaHandlers.UploadFile)
+				r.Get("/{fileId}", container.MediaHandlers.GetFile)
+			})
+
 			// Search for public accounts to invite to the company
 			r.Route("/accounts", func(r chi.Router) {
 				r.Get("/", container.AccountsHandlers.GetPublicAccounts)

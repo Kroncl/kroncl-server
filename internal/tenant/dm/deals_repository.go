@@ -19,6 +19,60 @@ import (
 // DEAL TYPES
 // ---------
 
+// ReorderDealStatuses изменяет порядок статусов сделок
+func (r *Repository) ReorderDealStatuses(ctx context.Context, statusIDs []string) error {
+	if len(statusIDs) == 0 {
+		return nil
+	}
+
+	// 1. Проверяем существование всех статусов одним запросом
+	placeholders := make([]string, len(statusIDs))
+	args := make([]interface{}, len(statusIDs))
+	for i, id := range statusIDs {
+		placeholders[i] = "$" + strconv.Itoa(i+1)
+		args[i] = id
+	}
+
+	query := fmt.Sprintf(`
+		SELECT COUNT(*) = $%d as all_exist
+		FROM deal_statuses
+		WHERE id IN (%s)
+	`, len(statusIDs)+1, strings.Join(placeholders, ", "))
+
+	args = append(args, len(statusIDs))
+
+	var allExist bool
+	err := r.pool.QueryRow(ctx, query, args...).Scan(&allExist)
+	if err != nil {
+		return fmt.Errorf("failed to check deal statuses existence: %w", err)
+	}
+
+	if !allExist {
+		return fmt.Errorf("one or more deal statuses not found")
+	}
+
+	// 2. Массовое обновление через CASE
+	updateQuery := "UPDATE deal_statuses SET sort_order = CASE id"
+	for i, id := range statusIDs {
+		updateQuery += fmt.Sprintf(" WHEN '%s' THEN %d", id, i+1)
+	}
+	updateQuery += " END, updated_at = CURRENT_TIMESTAMP WHERE id IN ("
+	for i, id := range statusIDs {
+		if i > 0 {
+			updateQuery += ","
+		}
+		updateQuery += "'" + id + "'"
+	}
+	updateQuery += ")"
+
+	_, err = r.pool.Exec(ctx, updateQuery)
+	if err != nil {
+		return fmt.Errorf("failed to update deal statuses order: %w", err)
+	}
+
+	return nil
+}
+
 func (r *Repository) GetDealTypeByID(ctx context.Context, id string) (*DealType, error) {
 	query := `
 		SELECT id, name, comment, created_at, updated_at
