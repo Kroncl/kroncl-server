@@ -6,17 +6,21 @@ services:
       POSTGRES_DB: ${DB_NAME}
       POSTGRES_USER: ${DB_USERNAME}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
+      # Добавляем настройки для ускорения восстановления
+      POSTGRES_INITDB_ARGS: "--data-checksums"
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_NAME} || exit 1"]
+      interval: 10s      # Увеличили с 5s до 10s
+      timeout: 10s       # Увеличили с 5s до 10s
+      retries: 30        # Увеличили с 5 до 30
+      start_period: 60s  # Добавили период игнорирования ошибок при старте
     networks:
       - kroncl-network
+    restart: unless-stopped
 
   pgadmin:
     image: dpage/pgadmin4
@@ -63,12 +67,14 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+        restart: true   # Добавить эту строку
       minio:
         condition: service_healthy
     networks:
       - kroncl-network
     volumes:
       - ./migrations:/app/migrations
+    restart: unless-stopped
 
   prometheus:
     image: prom/prometheus:latest
@@ -146,17 +152,17 @@ services:
         until mc alias set myminio http://minio:9000 $${MINIO_ROOT_USER} $${MINIO_ROOT_PASSWORD}; do
           echo '⏳ MinIO not ready, retrying...' && sleep 3;
         done &&
-        echo '✅ MinIO ready, checking buckets...' &&
+        echo 'MinIO ready, checking buckets...' &&
         if ! mc ls myminio/$${MINIO_PUBLIC_BUCKET} 2>/dev/null; then
-          echo '📦 Creating bucket...' &&
+          echo 'Creating bucket...' &&
           mc mb myminio/$${MINIO_PUBLIC_BUCKET};
         fi &&
-        echo '🔓 Setting public policy...' &&
+        echo 'Setting public policy...' &&
         mc anonymous set public myminio/$${MINIO_PUBLIC_BUCKET} &&
         if ! mc ls myminio/temp 2>/dev/null; then
           mc mb myminio/temp;
         fi &&
-        echo '✅ All done! Buckets:' &&
+        echo 'All done! Buckets:' &&
         mc ls myminio
       "
     networks:
