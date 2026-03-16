@@ -33,28 +33,34 @@ type UpdateDealTypeRequest struct {
 // STATUSES
 // ---------
 
+// DealStatus represents a deal status
 type DealStatus struct {
 	ID        string    `json:"id"`
 	Name      string    `json:"name"`
 	Comment   *string   `json:"comment"`
 	SortOrder int       `json:"sort_order"`
 	Color     *string   `json:"color"`
+	IsDefault bool      `json:"is_default"` // <-- новое поле
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
+// CreateDealStatusRequest represents request to create a deal status
 type CreateDealStatusRequest struct {
 	Name      string  `json:"name" validate:"required,min=1,max=255"`
 	Comment   *string `json:"comment,omitempty"`
 	SortOrder int     `json:"sort_order" validate:"min=1"`
 	Color     *string `json:"color,omitempty" validate:"omitempty,hexcolor"`
+	IsDefault *bool   `json:"is_default,omitempty"` // <-- новое поле (указатель чтобы отличить false от null)
 }
 
+// UpdateDealStatusRequest represents request to update a deal status
 type UpdateDealStatusRequest struct {
 	Name      *string `json:"name,omitempty" validate:"omitempty,min=1,max=255"`
 	Comment   *string `json:"comment,omitempty"`
 	SortOrder *int    `json:"sort_order,omitempty" validate:"omitempty,min=1"`
 	Color     *string `json:"color,omitempty" validate:"omitempty,hexcolor"`
+	IsDefault *bool   `json:"is_default,omitempty"` // <-- новое поле
 }
 
 // ---------

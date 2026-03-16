@@ -460,12 +460,6 @@ func (rt *Routes) Register(r chi.Router) {
 					return h.CreateDealType
 				}))
 
-			// reorder collection
-			r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_DM_TYPES_CREATE)).
-				Put("/reorder", rt.dm(func(h *dm.Handlers) http.HandlerFunc {
-					return h.ReorderDealStatuses
-				}))
-
 			r.Route("/{typeId}", func(r chi.Router) {
 				r.Get("/", rt.dm(func(h *dm.Handlers) http.HandlerFunc {
 					return h.GetDealType
@@ -493,6 +487,12 @@ func (rt *Routes) Register(r chi.Router) {
 			r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_DM_STATUSES_CREATE)).
 				Post("/", rt.dm(func(h *dm.Handlers) http.HandlerFunc {
 					return h.CreateDealStatus
+				}))
+
+			// reorder collection
+			r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_DM_TYPES_CREATE)).
+				Put("/reorder", rt.dm(func(h *dm.Handlers) http.HandlerFunc {
+					return h.ReorderDealStatuses
 				}))
 
 			r.Route("/{statusId}", func(r chi.Router) {

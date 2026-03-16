@@ -324,12 +324,13 @@ func (r *Repository) GetDealTypesByIDs(ctx context.Context, ids []string) ([]Dea
 // DEAL STATUSES
 // ---------
 
+// GetDealStatusByID возвращает статус по ID
 func (r *Repository) GetDealStatusByID(ctx context.Context, id string) (*DealStatus, error) {
 	query := `
-		SELECT id, name, comment, sort_order, color, created_at, updated_at
-		FROM deal_statuses
-		WHERE id = $1
-	`
+        SELECT id, name, comment, sort_order, color, is_default, created_at, updated_at
+        FROM deal_statuses
+        WHERE id = $1
+    `
 
 	var status DealStatus
 	err := r.pool.QueryRow(ctx, query, id).Scan(
@@ -338,6 +339,7 @@ func (r *Repository) GetDealStatusByID(ctx context.Context, id string) (*DealSta
 		&status.Comment,
 		&status.SortOrder,
 		&status.Color,
+		&status.IsDefault,
 		&status.CreatedAt,
 		&status.UpdatedAt,
 	)
@@ -349,6 +351,7 @@ func (r *Repository) GetDealStatusByID(ctx context.Context, id string) (*DealSta
 	return &status, nil
 }
 
+// GetDealStatuses возвращает список статусов с пагинацией
 func (r *Repository) GetDealStatuses(ctx context.Context, page, limit int, search string) ([]DealStatus, int, error) {
 	var args []interface{}
 	var conditions []string
@@ -384,11 +387,11 @@ func (r *Repository) GetDealStatuses(ctx context.Context, page, limit int, searc
 
 	// Получаем статусы с пагинацией
 	query := `
-		SELECT id, name, comment, sort_order, color, created_at, updated_at
-		FROM deal_statuses
-	` + whereClause + `
-		ORDER BY sort_order ASC, name ASC
-		LIMIT $` + strconv.Itoa(argIndex) + ` OFFSET $` + strconv.Itoa(argIndex+1)
+        SELECT id, name, comment, sort_order, color, is_default, created_at, updated_at
+        FROM deal_statuses
+    ` + whereClause + `
+        ORDER BY sort_order ASC, name ASC
+        LIMIT $` + strconv.Itoa(argIndex) + ` OFFSET $` + strconv.Itoa(argIndex+1)
 
 	allArgs := append(args, limit, offset)
 
@@ -407,6 +410,7 @@ func (r *Repository) GetDealStatuses(ctx context.Context, page, limit int, searc
 			&status.Comment,
 			&status.SortOrder,
 			&status.Color,
+			&status.IsDefault,
 			&status.CreatedAt,
 			&status.UpdatedAt,
 		)
@@ -419,6 +423,7 @@ func (r *Repository) GetDealStatuses(ctx context.Context, page, limit int, searc
 	return statuses, total, nil
 }
 
+// CreateDealStatus создает новый статус
 func (r *Repository) CreateDealStatus(ctx context.Context, req CreateDealStatusRequest) (*DealStatus, error) {
 	name := strings.TrimSpace(req.Name)
 	if name == "" {
@@ -427,43 +432,170 @@ func (r *Repository) CreateDealStatus(ctx context.Context, req CreateDealStatusR
 
 	id := uuid.New().String()
 
-	query := `
-		INSERT INTO deal_statuses (id, name, comment, sort_order, color, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-		RETURNING id, name, comment, sort_order, color, created_at, updated_at
-	`
+	// Определяем значение is_default
+	isDefault := false
+	if req.IsDefault != nil && *req.IsDefault {
+		// Если пытаются создать дефолтный статус, нужно сбросить дефолтность у текущего
+		// Начинаем транзакцию
+		tx, err := r.pool.Begin(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to begin transaction: %w", err)
+		}
+		defer tx.Rollback(ctx)
 
-	var status DealStatus
-	err := r.pool.QueryRow(ctx, query,
-		id,
-		name,
-		core.NullIfEmptyPtr(req.Comment),
-		req.SortOrder,
-		core.NullIfEmptyPtr(req.Color),
-	).Scan(
-		&status.ID,
-		&status.Name,
-		&status.Comment,
-		&status.SortOrder,
-		&status.Color,
-		&status.CreatedAt,
-		&status.UpdatedAt,
-	)
+		// Сбрасываем is_default у всех статусов
+		_, err = tx.Exec(ctx, `UPDATE deal_statuses SET is_default = false, updated_at = CURRENT_TIMESTAMP`)
+		if err != nil {
+			return nil, fmt.Errorf("failed to reset default statuses: %w", err)
+		}
 
-	if err != nil {
-		return nil, fmt.Errorf("failed to create deal status: %w", err)
+		isDefault = true
+
+		// Создаем статус
+		query := `
+            INSERT INTO deal_statuses (id, name, comment, sort_order, color, is_default, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            RETURNING id, name, comment, sort_order, color, is_default, created_at, updated_at
+        `
+
+		var status DealStatus
+		err = tx.QueryRow(ctx, query,
+			id,
+			name,
+			core.NullIfEmptyPtr(req.Comment),
+			req.SortOrder,
+			core.NullIfEmptyPtr(req.Color),
+			isDefault,
+		).Scan(
+			&status.ID,
+			&status.Name,
+			&status.Comment,
+			&status.SortOrder,
+			&status.Color,
+			&status.IsDefault,
+			&status.CreatedAt,
+			&status.UpdatedAt,
+		)
+
+		if err != nil {
+			return nil, fmt.Errorf("failed to create deal status: %w", err)
+		}
+
+		// Коммитим транзакцию
+		if err := tx.Commit(ctx); err != nil {
+			return nil, fmt.Errorf("failed to commit transaction: %w", err)
+		}
+
+		return &status, nil
+	} else {
+		// Обычное создание (не дефолтный статус)
+		query := `
+            INSERT INTO deal_statuses (id, name, comment, sort_order, color, is_default, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            RETURNING id, name, comment, sort_order, color, is_default, created_at, updated_at
+        `
+
+		var status DealStatus
+		err := r.pool.QueryRow(ctx, query,
+			id,
+			name,
+			core.NullIfEmptyPtr(req.Comment),
+			req.SortOrder,
+			core.NullIfEmptyPtr(req.Color),
+			isDefault,
+		).Scan(
+			&status.ID,
+			&status.Name,
+			&status.Comment,
+			&status.SortOrder,
+			&status.Color,
+			&status.IsDefault,
+			&status.CreatedAt,
+			&status.UpdatedAt,
+		)
+
+		if err != nil {
+			return nil, fmt.Errorf("failed to create deal status: %w", err)
+		}
+
+		return &status, nil
 	}
-
-	return &status, nil
 }
 
+// UpdateDealStatus обновляет статус
 func (r *Repository) UpdateDealStatus(ctx context.Context, id string, req UpdateDealStatusRequest) (*DealStatus, error) {
-	// Проверяем существование
-	_, err := r.GetDealStatusByID(ctx, id)
+	// Проверяем существование статуса
+	existing, err := r.GetDealStatusByID(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("deal status not found: %w", err)
 	}
 
+	// Начинаем транзакцию
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// Определяем, будет ли статус дефолтным после обновления
+	newIsDefault := existing.IsDefault
+	if req.IsDefault != nil {
+		newIsDefault = *req.IsDefault
+	}
+
+	// Если снимаем дефолтность
+	if existing.IsDefault && !newIsDefault {
+		// Проверяем, есть ли другие статусы, которые станут/останутся дефолтными
+		var otherDefaultCount int
+		err = tx.QueryRow(ctx, `SELECT COUNT(*) FROM deal_statuses WHERE id != $1 AND is_default = true`, id).Scan(&otherDefaultCount)
+		if err != nil {
+			return nil, fmt.Errorf("failed to check other default statuses: %w", err)
+		}
+
+		// Если нет других дефолтных статусов, и мы пытаемся снять флаг с единственного - ошибка
+		if otherDefaultCount == 0 {
+			// Проверяем, есть ли вообще другие статусы (чтобы не остаться без статусов)
+			var otherCount int
+			err = tx.QueryRow(ctx, `SELECT COUNT(*) FROM deal_statuses WHERE id != $1`, id).Scan(&otherCount)
+			if err != nil {
+				return nil, fmt.Errorf("failed to check other statuses: %w", err)
+			}
+
+			if otherCount == 0 {
+				return nil, fmt.Errorf("cannot remove default flag from the only status")
+			}
+
+			// Есть другие статусы, но ни один не дефолтный - значит нужно сделать первый попавшийся дефолтным
+			var newDefaultID string
+			err = tx.QueryRow(ctx, `
+				SELECT id FROM deal_statuses 
+				WHERE id != $1 
+				ORDER BY sort_order ASC, created_at ASC 
+				LIMIT 1
+			`, id).Scan(&newDefaultID)
+			if err != nil {
+				return nil, fmt.Errorf("failed to find status to set as new default: %w", err)
+			}
+
+			// Назначаем новый дефолтный статус
+			_, err = tx.Exec(ctx, `UPDATE deal_statuses SET is_default = true, updated_at = CURRENT_TIMESTAMP WHERE id = $1`, newDefaultID)
+			if err != nil {
+				return nil, fmt.Errorf("failed to set new default status: %w", err)
+			}
+		}
+	}
+
+	// Если делаем этот статус дефолтным (и он еще не дефолтный)
+	if !existing.IsDefault && newIsDefault {
+		// Сбрасываем is_default у всех статусов
+		_, err = tx.Exec(ctx, `UPDATE deal_statuses SET is_default = false, updated_at = CURRENT_TIMESTAMP`)
+		if err != nil {
+			return nil, fmt.Errorf("failed to reset default statuses: %w", err)
+		}
+		// Этот статус станет дефолтным в апдейте ниже
+	}
+
+	// Строим апдейт
 	updater := core.NewUpdater("deal_statuses")
 
 	if req.Name != nil {
@@ -495,14 +627,46 @@ func (r *Repository) UpdateDealStatus(ctx context.Context, id string, req Update
 		}
 	}
 
-	query, args := updater.Where("id = $1", id).Build()
-	if query == "" {
-		return r.GetDealStatusByID(ctx, id)
+	if req.IsDefault != nil {
+		updater.SetBool("is_default", *req.IsDefault)
 	}
 
-	_, err = r.pool.Exec(ctx, query, args...)
+	query, args := updater.Where("id = $1", id).Build()
+	if query != "" {
+		_, err = tx.Exec(ctx, query, args...)
+		if err != nil {
+			return nil, fmt.Errorf("failed to update deal status: %w", err)
+		}
+	}
+
+	// Финальная проверка: убеждаемся что есть хотя бы один дефолтный статус
+	var defaultCount int
+	err = tx.QueryRow(ctx, `SELECT COUNT(*) FROM deal_statuses WHERE is_default = true`).Scan(&defaultCount)
 	if err != nil {
-		return nil, fmt.Errorf("failed to update deal status: %w", err)
+		return nil, fmt.Errorf("failed to verify default status existence: %w", err)
+	}
+
+	if defaultCount == 0 {
+		// Если вдруг не осталось дефолтных статусов (баг) - назначаем первый
+		var fallbackID string
+		err = tx.QueryRow(ctx, `
+			SELECT id FROM deal_statuses 
+			ORDER BY sort_order ASC, created_at ASC 
+			LIMIT 1
+		`).Scan(&fallbackID)
+		if err != nil {
+			return nil, fmt.Errorf("critical: no statuses found to set as default")
+		}
+
+		_, err = tx.Exec(ctx, `UPDATE deal_statuses SET is_default = true, updated_at = CURRENT_TIMESTAMP WHERE id = $1`, fallbackID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to set fallback default status: %w", err)
+		}
+	}
+
+	// Коммитим транзакцию
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	return r.GetDealStatusByID(ctx, id)
@@ -511,7 +675,7 @@ func (r *Repository) UpdateDealStatus(ctx context.Context, id string, req Update
 // DeleteDealStatus удаляет статус сделки
 func (r *Repository) DeleteDealStatus(ctx context.Context, id string) error {
 	// Проверяем существование
-	_, err := r.GetDealStatusByID(ctx, id)
+	status, err := r.GetDealStatusByID(ctx, id)
 	if err != nil {
 		return fmt.Errorf("deal status not found: %w", err)
 	}
@@ -528,15 +692,52 @@ func (r *Repository) DeleteDealStatus(ctx context.Context, id string) error {
 		return fmt.Errorf("cannot delete deal status that is used in deals")
 	}
 
+	// Начинаем транзакцию
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// Проверяем, не является ли этот статус единственным дефолтным
+	if status.IsDefault {
+		// Проверяем, есть ли другие статусы
+		var otherCount int
+		err = tx.QueryRow(ctx, `SELECT COUNT(*) FROM deal_statuses WHERE id != $1`, id).Scan(&otherCount)
+		if err != nil {
+			return fmt.Errorf("failed to check other statuses: %w", err)
+		}
+
+		if otherCount == 0 {
+			return fmt.Errorf("cannot delete the only deal status")
+		}
+
+		// Если есть другие статусы, но все они не дефолтные - тоже нельзя удалять
+		var otherDefaultCount int
+		err = tx.QueryRow(ctx, `SELECT COUNT(*) FROM deal_statuses WHERE id != $1 AND is_default = true`, id).Scan(&otherDefaultCount)
+		if err != nil {
+			return fmt.Errorf("failed to check other default statuses: %w", err)
+		}
+
+		if otherDefaultCount == 0 {
+			return fmt.Errorf("cannot delete the only default status. Set another status as default first")
+		}
+	}
+
 	// Удаляем статус
 	query := `DELETE FROM deal_statuses WHERE id = $1`
-	result, err := r.pool.Exec(ctx, query, id)
+	result, err := tx.Exec(ctx, query, id)
 	if err != nil {
 		return fmt.Errorf("failed to delete deal status: %w", err)
 	}
 
 	if result.RowsAffected() == 0 {
 		return fmt.Errorf("deal status not found")
+	}
+
+	// Коммитим транзакцию
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	return nil
@@ -557,11 +758,11 @@ func (r *Repository) GetDealStatusesByIDs(ctx context.Context, ids []string) ([]
 	}
 
 	query := fmt.Sprintf(`
-		SELECT id, name, comment, sort_order, color, created_at, updated_at
-		FROM deal_statuses
-		WHERE id IN (%s)
-		ORDER BY sort_order ASC, name ASC
-	`, strings.Join(placeholders, ", "))
+        SELECT id, name, comment, sort_order, color, is_default, created_at, updated_at
+        FROM deal_statuses
+        WHERE id IN (%s)
+        ORDER BY sort_order ASC, name ASC
+    `, strings.Join(placeholders, ", "))
 
 	rows, err := r.pool.Query(ctx, query, args...)
 	if err != nil {
@@ -578,6 +779,7 @@ func (r *Repository) GetDealStatusesByIDs(ctx context.Context, ids []string) ([]
 			&status.Comment,
 			&status.SortOrder,
 			&status.Color,
+			&status.IsDefault,
 			&status.CreatedAt,
 			&status.UpdatedAt,
 		)
@@ -602,14 +804,34 @@ func (r *Repository) GetDealStatusesByIDs(ctx context.Context, ids []string) ([]
 func (r *Repository) CreateDeal(ctx context.Context, req CreateDealRequest) (*DealWithPositions, error) {
 	id := uuid.New().String()
 
-	query := `
-		INSERT INTO deals (id, comment, type_id, created_at, updated_at)
-		VALUES ($1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-		RETURNING id, comment, type_id, created_at, updated_at
-	`
+	// Получаем дефолтный статус
+	var defaultStatusID *string
+	defaultQuery := `SELECT id FROM deal_statuses WHERE is_default = true LIMIT 1`
+	err := r.pool.QueryRow(ctx, defaultQuery).Scan(&defaultStatusID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get default deal status: %w", err)
+	}
+
+	if defaultStatusID == nil {
+		return nil, fmt.Errorf("no default deal status found")
+	}
+
+	// Начинаем транзакцию
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// 1. Создаем сделку
+	dealQuery := `
+        INSERT INTO deals (id, comment, type_id, created_at, updated_at)
+        VALUES ($1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        RETURNING id, comment, type_id, created_at, updated_at
+    `
 
 	var deal Deal
-	err := r.pool.QueryRow(ctx, query,
+	err = tx.QueryRow(ctx, dealQuery,
 		id,
 		req.Comment,
 		req.TypeID,
@@ -625,9 +847,25 @@ func (r *Repository) CreateDeal(ctx context.Context, req CreateDealRequest) (*De
 		return nil, fmt.Errorf("failed to create deal: %w", err)
 	}
 
+	// 2. Присваиваем дефолтный статус
+	statusQuery := `
+        INSERT INTO deal_status (deal_id, status_id, created_at)
+        VALUES ($1, $2, CURRENT_TIMESTAMP)
+    `
+	_, err = tx.Exec(ctx, statusQuery, deal.ID, *defaultStatusID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to assign default status to deal: %w", err)
+	}
+
+	// Коммитим транзакцию
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	// Получаем полную информацию о сделке
 	detailedDeal, err := r.GetDealWithDetails(ctx, deal.ID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load deal details: %w", err) // ← Добавить обработку ошибки
+		return nil, fmt.Errorf("failed to load deal details: %w", err)
 	}
 
 	return detailedDeal, nil
@@ -1398,4 +1636,34 @@ func (r *Repository) getDealsPaginated(ctx context.Context, req GetDealsParams) 
 	}
 
 	return deals, total, nil
+}
+
+// EnsureDefaultStatusExists проверяет что есть хотя бы один дефолтный статус
+// (можно вызывать после операций, которые могут удалить/изменить статусы)
+func (r *Repository) EnsureDefaultStatusExists(ctx context.Context) error {
+	var count int
+	err := r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM deal_statuses WHERE is_default = true`).Scan(&count)
+	if err != nil {
+		return fmt.Errorf("failed to check default statuses: %w", err)
+	}
+
+	if count == 0 {
+		// Если нет дефолтного статуса, назначаем первый по sort_order
+		var id string
+		err := r.pool.QueryRow(ctx, `
+            SELECT id FROM deal_statuses 
+            ORDER BY sort_order ASC, created_at ASC 
+            LIMIT 1
+        `).Scan(&id)
+		if err != nil {
+			return fmt.Errorf("failed to find status to set as default: %w", err)
+		}
+
+		_, err = r.pool.Exec(ctx, `UPDATE deal_statuses SET is_default = true, updated_at = CURRENT_TIMESTAMP WHERE id = $1`, id)
+		if err != nil {
+			return fmt.Errorf("failed to set default status: %w", err)
+		}
+	}
+
+	return nil
 }
