@@ -47,22 +47,40 @@ func (r *Repository) updateDealBase(ctx context.Context, tx pgx.Tx, id string, r
 	return nil
 }
 
-func (r *Repository) updateDealClient(ctx context.Context, tx pgx.Tx, dealID, clientID string) error {
+func (r *Repository) updateDealClient(ctx context.Context, tx pgx.Tx, dealID string, clientID *string) error {
+	// Логируем что пришло
+	fmt.Printf("updateDealClient: dealID=%s, clientID=%v, isNil=%v\n",
+		dealID, clientID, clientID == nil)
+
+	if clientID != nil {
+		fmt.Printf("clientID value: '%s'\n", *clientID)
+	}
+
 	// Удаляем старую связь
-	_, err := tx.Exec(ctx, `DELETE FROM deal_client WHERE deal_id = $1`, dealID)
+	result, err := tx.Exec(ctx, `DELETE FROM deal_client WHERE deal_id = $1`, dealID)
 	if err != nil {
 		return fmt.Errorf("failed to remove old client link: %w", err)
+	}
+
+	fmt.Printf("Deleted %d rows\n", result.RowsAffected())
+
+	// Если clientID == nil или пустая строка - просто удаляем связь (открепляем)
+	if clientID == nil || *clientID == "" {
+		fmt.Println("Client detached, no new link created")
+		return nil
 	}
 
 	// Создаем новую связь
 	linkID := uuid.New().String()
 	_, err = tx.Exec(ctx, `
-		INSERT INTO deal_client (id, deal_id, client_id, created_at)
-		VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
-	`, linkID, dealID, clientID)
+        INSERT INTO deal_client (id, deal_id, client_id, created_at)
+        VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
+    `, linkID, dealID, *clientID)
 	if err != nil {
 		return fmt.Errorf("failed to link client: %w", err)
 	}
+
+	fmt.Printf("New client link created with ID=%s\n", linkID)
 
 	return nil
 }

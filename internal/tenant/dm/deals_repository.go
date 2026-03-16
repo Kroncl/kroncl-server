@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -895,10 +896,8 @@ func (r *Repository) UpdateDeal(ctx context.Context, id string, req UpdateDealRe
 	}
 
 	// 2. Обновляем клиента если указан
-	if req.ClientID != nil {
-		if err := r.updateDealClient(ctx, tx, id, *req.ClientID); err != nil {
-			return err
-		}
+	if err := r.updateDealClient(ctx, tx, id, req.ClientID); err != nil {
+		return err
 	}
 
 	// 3. Обновляем статус если указан
@@ -1055,7 +1054,14 @@ func (r *Repository) GetDealWithDetails(ctx context.Context, id string) (*DealWi
 	clientQuery := `SELECT client_id FROM deal_client WHERE deal_id = $1`
 	var clientID *string
 	err = r.pool.QueryRow(ctx, clientQuery, id).Scan(&clientID)
-	if err == nil {
+	if err != nil && err != pgx.ErrNoRows {
+		return nil, fmt.Errorf("failed to get client link: %w", err)
+	}
+
+	if err == pgx.ErrNoRows || clientID == nil {
+		deal.Client = nil
+		deal.ClientID = nil
+	} else {
 		deal.ClientID = clientID
 	}
 
