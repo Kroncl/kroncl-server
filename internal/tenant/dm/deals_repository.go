@@ -52,21 +52,35 @@ func (r *Repository) ReorderDealStatuses(ctx context.Context, statusIDs []string
 		return fmt.Errorf("one or more deal statuses not found")
 	}
 
-	// 2. Массовое обновление через CASE
-	updateQuery := "UPDATE deal_statuses SET sort_order = CASE id"
+	// 2. Массовое обновление через CASE с параметризацией
+	caseWhen := make([]string, len(statusIDs))
+	whenArgs := make([]interface{}, len(statusIDs)*2)
+	
 	for i, id := range statusIDs {
-		updateQuery += fmt.Sprintf(" WHEN '%s' THEN %d", id, i+1)
+		caseWhen[i] = fmt.Sprintf("WHEN $%d THEN $%d", i*2+1, i*2+2)
+		whenArgs[i*2] = id
+		whenArgs[i*2+1] = i + 1
 	}
-	updateQuery += " END, updated_at = CURRENT_TIMESTAMP WHERE id IN ("
-	for i, id := range statusIDs {
-		if i > 0 {
-			updateQuery += ","
-		}
-		updateQuery += "'" + id + "'"
-	}
-	updateQuery += ")"
 
-	_, err = r.pool.Exec(ctx, updateQuery)
+	updateQuery := fmt.Sprintf(`
+		UPDATE deal_statuses 
+		SET sort_order = CASE id %s END,
+			updated_at = CURRENT_TIMESTAMP 
+		WHERE id IN (%s)`,
+		strings.Join(caseWhen, " "),
+		placeholders[0], // используем первый плейсхолдер для IN
+	)
+
+	// Добавляем аргументы для IN
+	inArgs := make([]interface{}, len(statusIDs))
+	for i, id := range statusIDs {
+		inArgs[i] = id
+	}
+
+	// Объединяем все аргументы
+	allArgs := append(whenArgs, inArgs...)
+
+	_, err = r.pool.Exec(ctx, updateQuery, allArgs...)
 	if err != nil {
 		return fmt.Errorf("failed to update deal statuses order: %w", err)
 	}
