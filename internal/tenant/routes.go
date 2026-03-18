@@ -490,7 +490,7 @@ func (rt *Routes) Register(r chi.Router) {
 				}))
 
 			// reorder collection
-			r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_DM_TYPES_CREATE)).
+			r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_DM_STATUSES_UPDATE)).
 				Put("/reorder", rt.dm(func(h *dm.Handlers) http.HandlerFunc {
 					return h.ReorderDealStatuses
 				}))

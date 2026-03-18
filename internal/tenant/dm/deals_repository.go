@@ -55,7 +55,7 @@ func (r *Repository) ReorderDealStatuses(ctx context.Context, statusIDs []string
 	// 2. Массовое обновление через CASE с параметризацией
 	caseWhen := make([]string, len(statusIDs))
 	whenArgs := make([]interface{}, len(statusIDs)*2)
-	
+
 	for i, id := range statusIDs {
 		caseWhen[i] = fmt.Sprintf("WHEN $%d THEN $%d", i*2+1, i*2+2)
 		whenArgs[i*2] = id
