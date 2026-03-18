@@ -26,66 +26,38 @@ func (r *Repository) ReorderDealStatuses(ctx context.Context, statusIDs []string
 		return nil
 	}
 
-	// 1. Проверяем существование всех статусов одним запросом
-	placeholders := make([]string, len(statusIDs))
-	args := make([]interface{}, len(statusIDs))
-	for i, id := range statusIDs {
-		placeholders[i] = "$" + strconv.Itoa(i+1)
-		args[i] = id
-	}
-
-	query := fmt.Sprintf(`
-		SELECT COUNT(*) = $%d as all_exist
-		FROM deal_statuses
-		WHERE id IN (%s)
-	`, len(statusIDs)+1, strings.Join(placeholders, ", "))
-
-	args = append(args, len(statusIDs))
-
-	var allExist bool
-	err := r.pool.QueryRow(ctx, query, args...).Scan(&allExist)
+	tx, err := r.pool.Begin(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to check deal statuses existence: %w", err)
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// Проверяем существование всех статусов
+	for _, id := range statusIDs {
+		var exists bool
+		err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM deal_statuses WHERE id = $1)`, id).Scan(&exists)
+		if err != nil {
+			return fmt.Errorf("failed to check status %s: %w", id, err)
+		}
+		if !exists {
+			return fmt.Errorf("status %s not found", id)
+		}
 	}
 
-	if !allExist {
-		return fmt.Errorf("one or more deal statuses not found")
-	}
-
-	// 2. Массовое обновление через CASE с параметризацией
-	caseWhen := make([]string, len(statusIDs))
-	whenArgs := make([]interface{}, len(statusIDs)*2)
-
+	// Обновляем каждый статус по очереди (да, не оптимально, но зато надежно)
 	for i, id := range statusIDs {
-		caseWhen[i] = fmt.Sprintf("WHEN $%d THEN $%d", i*2+1, i*2+2)
-		whenArgs[i*2] = id
-		whenArgs[i*2+1] = i + 1
+		_, err := tx.Exec(ctx, `
+            UPDATE deal_statuses 
+            SET sort_order = $1, 
+                updated_at = CURRENT_TIMESTAMP 
+            WHERE id = $2
+        `, i+1, id)
+		if err != nil {
+			return fmt.Errorf("failed to update status %s order: %w", id, err)
+		}
 	}
 
-	updateQuery := fmt.Sprintf(`
-		UPDATE deal_statuses 
-		SET sort_order = CASE id %s END,
-			updated_at = CURRENT_TIMESTAMP 
-		WHERE id IN (%s)`,
-		strings.Join(caseWhen, " "),
-		placeholders[0], // используем первый плейсхолдер для IN
-	)
-
-	// Добавляем аргументы для IN
-	inArgs := make([]interface{}, len(statusIDs))
-	for i, id := range statusIDs {
-		inArgs[i] = id
-	}
-
-	// Объединяем все аргументы
-	allArgs := append(whenArgs, inArgs...)
-
-	_, err = r.pool.Exec(ctx, updateQuery, allArgs...)
-	if err != nil {
-		return fmt.Errorf("failed to update deal statuses order: %w", err)
-	}
-
-	return nil
+	return tx.Commit(ctx)
 }
 
 func (r *Repository) GetDealTypeByID(ctx context.Context, id string) (*DealType, error) {
