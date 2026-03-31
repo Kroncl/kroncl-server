@@ -13,10 +13,6 @@ import (
 
 // обновление данных пользователя (avatar/name)
 func (h *Handlers) Update(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPatch {
-		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
 
 	// Получаем пользователя из контекста
 	claims, ok := auth.GetUserFromContext(r.Context())
@@ -44,11 +40,6 @@ func (h *Handlers) Update(w http.ResponseWriter, r *http.Request) {
 
 // GetPublicAccounts возвращает список аккаунтов с пагинацией и поиском
 func (h *Handlers) GetPublicAccounts(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
-
 	// Извлекаем параметры поиска
 	search := strings.TrimSpace(r.URL.Query().Get("search"))
 
@@ -80,11 +71,6 @@ func (h *Handlers) GetPublicAccounts(w http.ResponseWriter, r *http.Request) {
 
 // GetProfile получает профиль пользователя
 func (h *Handlers) GetProfile(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
-
 	// Получаем пользователя из контекста
 	claims, ok := auth.GetUserFromContext(r.Context())
 	if !ok {
@@ -106,11 +92,6 @@ func (h *Handlers) GetProfile(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) CheckEmailUnique(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
-
 	// Получаем email из query параметров
 	email := r.URL.Query().Get("email")
 	if email == "" {

@@ -10,11 +10,6 @@ import (
 
 // GetPlans возвращает список тарифных планов с пагинацией
 func (h *Handlers) GetPlans(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
-
 	// Парсим параметры пагинации
 	pagination := core.GetDefaultPaginationParams(r)
 
@@ -43,11 +38,6 @@ func (h *Handlers) GetPlans(w http.ResponseWriter, r *http.Request) {
 
 // GetPlanByCode возвращает тарифный план по коду
 func (h *Handlers) GetPlanByCode(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
-
 	// Получаем код плана из URL
 	code := chi.URLParam(r, "code")
 	if code == "" {

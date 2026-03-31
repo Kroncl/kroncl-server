@@ -8,10 +8,6 @@ import (
 
 // Register обрабатывает запрос на регистрацию
 func (h *Handlers) Register(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
 
 	var req RegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -45,10 +41,6 @@ func (h *Handlers) Register(w http.ResponseWriter, r *http.Request) {
 
 // Login обрабатывает запрос на вход
 func (h *Handlers) Login(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
 
 	var req LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -79,10 +71,6 @@ func (h *Handlers) Login(w http.ResponseWriter, r *http.Request) {
 
 // Refresh обновляет токены по refresh токену
 func (h *Handlers) Refresh(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
 
 	var req struct {
 		RefreshToken string `json:"refresh_token"`

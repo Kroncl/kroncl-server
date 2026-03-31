@@ -9,10 +9,6 @@ import (
 
 // ConfirmEmail подтверждает email
 func (h *Handlers) ConfirmEmail(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
 
 	// Получаем пользователя из контекста
 	claims, ok := auth.GetUserFromContext(r.Context())
@@ -46,10 +42,6 @@ func (h *Handlers) ConfirmEmail(w http.ResponseWriter, r *http.Request) {
 
 // Повторная отправка кода подтверждения
 func (h *Handlers) ResendConfirmationCode(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
 
 	// Получаем пользователя из контекста
 	claims, ok := auth.GetUserFromContext(r.Context())

@@ -1,6 +1,8 @@
 package config
 
 const (
+	PERMISSION_PRICING_MIGRATE                   = "pricing.migrate"
+	PERMISSION_PRICING_TRANSACTIONS              = "pricing.transactions"
 	PERMISSION_COMPANY_UPDATE                    = "company.update"
 	PERMISSION_STORAGE_SOURCES                   = "storage.sources"
 	PERMISSION_LOGS                              = "logs"

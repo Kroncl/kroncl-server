@@ -13,11 +13,6 @@ import (
 
 // GetAccountInvitations возвращает приглашения для текущего пользователя
 func (h *Handlers) GetAccountInvitations(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
-
 	// Получаем пользователя из контекста
 	claims, ok := auth.GetUserFromContext(r.Context())
 	if !ok {
@@ -53,10 +48,6 @@ func (h *Handlers) GetAccountInvitations(w http.ResponseWriter, r *http.Request)
 
 // AcceptAccountInvitation принимает приглашение
 func (h *Handlers) AcceptAccountInvitation(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
 
 	// Получаем пользователя из контекста
 	claims, ok := auth.GetUserFromContext(r.Context())
@@ -101,10 +92,6 @@ func (h *Handlers) AcceptAccountInvitation(w http.ResponseWriter, r *http.Reques
 
 // RejectAccountInvitation отклоняет приглашение
 func (h *Handlers) RejectAccountInvitation(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
 
 	// Получаем пользователя из контекста
 	claims, ok := auth.GetUserFromContext(r.Context())

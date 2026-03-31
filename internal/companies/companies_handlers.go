@@ -121,10 +121,6 @@ func (h *Handlers) GetUserCompanyById(w http.ResponseWriter, r *http.Request) {
 
 // обновление организации
 func (h *Handlers) Update(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPatch {
-		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
 
 	companyID := chi.URLParam(r, "id")
 	if companyID == "" {
@@ -150,11 +146,6 @@ func (h *Handlers) Update(w http.ResponseWriter, r *http.Request) {
 
 // получение организаций пользователя
 func (h *Handlers) GetUserCompanies(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
-
 	// Получаем пользователя из контекста
 	account, ok := auth.GetUserFromContext(r.Context())
 	if !ok {
@@ -215,10 +206,6 @@ func (h *Handlers) GetUserCompanies(w http.ResponseWriter, r *http.Request) {
 
 // создание организации
 func (h *Handlers) Create(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
 
 	var req CreateRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -255,11 +242,6 @@ func (h *Handlers) Create(w http.ResponseWriter, r *http.Request) {
 
 // проверка уникальности slug компании
 func (h *Handlers) CheckSlugUnique(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
-
 	slug := r.URL.Query().Get("slug")
 	if slug == "" {
 		core.SendValidationError(w, "slug parameter is required")

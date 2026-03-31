@@ -130,6 +130,15 @@ func New(cfg *config.Config, container *di.Container) chi.Router {
 					// Tenant pool middleware
 					r.Use(container.StorageService.TenantPoolMiddleware)
 
+					// Company pricing
+					r.Route("/pricing", func(r chi.Router) {
+						r.Get("/", container.CompaniesHandlers.GetCompanyPricingPlan) // текущий план+остаток
+						r.With(permissioner.RequirePermission(container.PermissionService, config.PERMISSION_PRICING_MIGRATE)).
+							Post("/migrate", container.CompaniesHandlers.MigratePricingPlan) // смена плана
+						r.With(permissioner.RequirePermission(container.PermissionService, config.PERMISSION_PRICING_TRANSACTIONS)).
+							Get("/transactions", container.CompaniesHandlers.GetCompanyPricingTransactions) // получение операций
+					})
+
 					r.Get("/", container.CompaniesHandlers.GetUserCompanyById)
 					r.With(permissioner.RequirePermission(container.PermissionService, config.PERMISSION_COMPANY_UPDATE)).Patch("/", container.CompaniesHandlers.Update)
 

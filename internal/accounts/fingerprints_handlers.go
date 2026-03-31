@@ -17,10 +17,6 @@ import (
 
 // CreateFingerprint создает новый фингерпринт
 func (h *Handlers) CreateFingerprint(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
 
 	claims, ok := auth.GetUserFromContext(r.Context())
 	if !ok {
@@ -45,11 +41,6 @@ func (h *Handlers) CreateFingerprint(w http.ResponseWriter, r *http.Request) {
 
 // GetFingerprints возвращает список фингерпринтов текущего пользователя
 func (h *Handlers) GetFingerprints(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
-
 	claims, ok := auth.GetUserFromContext(r.Context())
 	if !ok {
 		core.SendUnauthorized(w, "Authentication required")
@@ -93,10 +84,6 @@ func parseInt(s string, defaultValue int) int {
 
 // LoginWithFingerprint вход по фингерпринту
 func (h *Handlers) LoginWithFingerprint(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
 
 	var req FingerprintLoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -126,10 +113,6 @@ func (h *Handlers) LoginWithFingerprint(w http.ResponseWriter, r *http.Request) 
 
 // RevokeFingerprint отзывает фингерпринт
 func (h *Handlers) RevokeFingerprint(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
 
 	claims, ok := auth.GetUserFromContext(r.Context())
 	if !ok {

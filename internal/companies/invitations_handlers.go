@@ -18,11 +18,6 @@ import (
 
 // возвращает список приглашений в компанию с пагинацией и фильтрацией
 func (h *Handlers) GetCompanyInvitations(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
-
 	// Получаем ID компании из URL
 	companyID := chi.URLParam(r, "id")
 	if companyID == "" {
@@ -76,10 +71,6 @@ func (h *Handlers) GetCompanyInvitations(w http.ResponseWriter, r *http.Request)
 
 // создает новое приглашение в компанию
 func (h *Handlers) CreateCompanyInvitation(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
 
 	// Получаем ID компании из URL
 	companyID := chi.URLParam(r, "id")
@@ -141,10 +132,6 @@ func (h *Handlers) CreateCompanyInvitation(w http.ResponseWriter, r *http.Reques
 // RevokeInvitation отзывает (удаляет) приглашение
 // + проверка принадлежности
 func (h *Handlers) RevokeInvitation(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodDelete {
-		core.SendError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
 
 	// Получаем ID компании из URL
 	companyID := chi.URLParam(r, "id")
