@@ -51,6 +51,7 @@ func New(cfg *config.Config, container *di.Container) chi.Router {
 		r.Get("/health", core.HealthCheck)
 
 		// Public routes
+		// account actions
 		r.Route("/account", func(r chi.Router) {
 			r.Post("/reg", container.AccountsHandlers.Register)
 			r.Get("/check-email-unique", container.AccountsHandlers.CheckEmailUnique)
@@ -90,6 +91,12 @@ func New(cfg *config.Config, container *di.Container) chi.Router {
 					})
 				})
 			})
+		})
+
+		// pricing-plans actions
+		r.Route("/plans", func(r chi.Router) {
+			r.Get("/", container.PricingHandlers.GetPlans)
+			r.Get("/{code}", container.PricingHandlers.GetPlanByCode)
 		})
 
 		// Protected routes (require auth)

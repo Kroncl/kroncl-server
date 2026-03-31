@@ -10,6 +10,7 @@ import (
 	"kroncl-server/internal/media"
 	"kroncl-server/internal/migrator"
 	"kroncl-server/internal/permissioner"
+	"kroncl-server/internal/pricing"
 	"kroncl-server/internal/tenant"
 	"kroncl-server/internal/tenant/storage"
 	"kroncl-server/utils"
@@ -29,6 +30,7 @@ type Container struct {
 	JWTService        *auth.JWTService
 	AccountsService   *accounts.Service
 	CompaniesService  *companies.Service
+	PricingService    *pricing.Service
 	PermissionService *permissioner.Service
 	StorageService    *storage.Service
 	Migrator          *migrator.Migrator
@@ -42,6 +44,7 @@ type Container struct {
 	AccountsHandlers  *accounts.Handlers
 	CompaniesHandlers *companies.Handlers
 	StorageHandlers   *storage.Handlers
+	PricingHandlers   *pricing.Handlers
 
 	// Tenant модули
 	TenantRoutes *tenant.Routes
@@ -132,6 +135,9 @@ func (c *Container) initServices(ctx context.Context) error {
 	// Permission Service
 	c.PermissionService = permissioner.NewService(c.DB)
 
+	// Pricing Service
+	c.PricingService = pricing.NewService(c.DB)
+
 	// media
 	mediaRepo := media.NewRepository(c.DB)
 	mediaService, err := media.NewService(media.Config{
@@ -158,6 +164,7 @@ func (c *Container) initServices(ctx context.Context) error {
 	c.AccountsHandlers = accounts.NewHandlers(c.AccountsService)
 	c.CompaniesHandlers = companies.NewHandlers(c.CompaniesService)
 	c.StorageHandlers = storage.NewHandlers(c.StorageService)
+	c.PricingHandlers = pricing.NewHandlers(c.PricingService)
 
 	return nil
 }
