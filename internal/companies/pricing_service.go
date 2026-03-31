@@ -3,6 +3,7 @@ package companies
 import (
 	"context"
 	"fmt"
+	"kroncl-server/internal/config"
 	"kroncl-server/internal/pricing"
 	"strings"
 	"time"
@@ -25,6 +26,20 @@ func (s *Service) GetCompanyPlan(ctx context.Context, companyID string) (*Compan
 		return nil, fmt.Errorf("failed to get current plan: %w", err)
 	}
 
+	var daysTotal int
+	if tx.IsTrial {
+		daysTotal = config.PRICING_TRIAL_PERIOD_DAYS
+	} else {
+		daysTotal = int(tx.ExpiresAt.Sub(tx.CreatedAt).Hours() / 24)
+		if daysTotal <= 0 {
+			// fallback: если не получилось, берем разницу с текущим
+			daysTotal = int(time.Until(tx.ExpiresAt).Hours() / 24)
+			if daysTotal < 0 {
+				daysTotal = 0
+			}
+		}
+	}
+
 	// Вычисляем оставшиеся дни
 	daysLeft := int(time.Until(tx.ExpiresAt).Hours() / 24)
 	if daysLeft < 0 {
@@ -35,6 +50,7 @@ func (s *Service) GetCompanyPlan(ctx context.Context, companyID string) (*Compan
 		IsTrial:     tx.IsTrial,
 		ExpiresAt:   tx.ExpiresAt,
 		DaysLeft:    daysLeft,
+		DaysTotal:   daysTotal,
 		CurrentPlan: *currentPlan,
 	}
 

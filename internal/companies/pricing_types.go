@@ -10,6 +10,7 @@ type CompanyPlanResponse struct {
 	IsTrial     bool                 `json:"is_trial"`
 	ExpiresAt   time.Time            `json:"expires_at"`
 	DaysLeft    int                  `json:"days_left"`
+	DaysTotal   int                  `json:"days_total"`
 	CurrentPlan pricing.PricingPlan  `json:"current_plan"`
 	NextPlan    *pricing.PricingPlan `json:"next_plan,omitempty"`
 }
