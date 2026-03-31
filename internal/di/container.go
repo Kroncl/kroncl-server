@@ -126,17 +126,17 @@ func (c *Container) initServices(ctx context.Context) error {
 	storageRepo := storage.NewRepository(c.DB)
 	c.StorageService = storage.NewService(storageRepo, c.Migrator, c.DB)
 
+	// Pricing Service
+	c.PricingService = pricing.NewService(c.DB)
+
 	// Companies Service (зависит от Storage)
-	c.CompaniesService = companies.NewService(c.DB, c.StorageService)
+	c.CompaniesService = companies.NewService(c.DB, c.StorageService, c.PricingService)
 
 	// Accounts Service (зависит от JWT и Companies)
 	c.AccountsService = accounts.NewService(c.DB, c.JWTService, c.CompaniesService)
 
 	// Permission Service
 	c.PermissionService = permissioner.NewService(c.DB)
-
-	// Pricing Service
-	c.PricingService = pricing.NewService(c.DB)
 
 	// media
 	mediaRepo := media.NewRepository(c.DB)

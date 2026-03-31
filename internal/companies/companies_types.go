@@ -24,6 +24,7 @@ type CreateRequest struct {
 	Description string `json:"description"`
 	AvatarUrl   string `json:"avatar_url"`
 	IsPublic    bool   `json:"is_public"`
+	PlanCode    string `json:"plan_code"`
 }
 
 // UserCompany модель для связи пользователя с компанией и ролью

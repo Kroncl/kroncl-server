@@ -242,6 +242,7 @@ func (h *Handlers) Create(w http.ResponseWriter, r *http.Request) {
 		req.Description,
 		req.AvatarUrl,
 		req.IsPublic,
+		req.PlanCode,
 	)
 	if err != nil {
 		core.SendValidationError(w, err.Error())
