@@ -10,6 +10,7 @@ const (
 	TransactionStatusSuccess   TransactionStatus = "success"
 	TransactionStatusPending   TransactionStatus = "pending"
 	TransactionStatusUnsuccess TransactionStatus = "unsuccess"
+	TransactionStatusRevoked   TransactionStatus = "revoked"
 )
 
 type PricingTransaction struct {

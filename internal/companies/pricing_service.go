@@ -9,6 +9,36 @@ import (
 	"time"
 )
 
+// RevokeTransaction отменяет транзакцию (меняет статус на revoked)
+func (s *Service) RevokeTransaction(ctx context.Context, companyID, transactionID string) error {
+	// 1. Получаем транзакцию, чтобы проверить статус и принадлежность к компании
+	var status pricing.TransactionStatus
+	var txCompanyID string
+	query := `SELECT status, company_id FROM pricing_transactions WHERE id = $1`
+	err := s.pool.QueryRow(ctx, query, transactionID).Scan(&status, &txCompanyID)
+	if err != nil {
+		return fmt.Errorf("failed to get transaction: %w", err)
+	}
+
+	// 2. Проверяем, что транзакция принадлежит этой компании
+	if txCompanyID != companyID {
+		return fmt.Errorf("transaction does not belong to this company")
+	}
+
+	// 3. Проверяем, что транзакция в статусе pending
+	if status != pricing.TransactionStatusPending {
+		return fmt.Errorf("transaction status is %s, cannot revoke", status)
+	}
+
+	// 4. Обновляем статус на revoked
+	_, err = s.pricingService.UpdateTransactionStatus(ctx, transactionID, pricing.TransactionStatusRevoked)
+	if err != nil {
+		return fmt.Errorf("failed to revoke transaction: %w", err)
+	}
+
+	return nil
+}
+
 // GetCompanyPlan возвращает текущий план компании
 func (s *Service) GetCompanyPlan(ctx context.Context, companyID string) (*CompanyPlanResponse, error) {
 	// Получаем последнюю успешную транзакцию

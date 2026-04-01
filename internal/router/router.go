@@ -137,6 +137,8 @@ func New(cfg *config.Config, container *di.Container) chi.Router {
 							Post("/migrate", container.CompaniesHandlers.MigratePricingPlan) // смена плана
 						r.With(permissioner.RequirePermission(container.PermissionService, config.PERMISSION_PRICING_TRANSACTIONS)).
 							Get("/transactions", container.CompaniesHandlers.GetCompanyPricingTransactions) // получение операций
+						r.With(permissioner.RequirePermission(container.PermissionService, config.PERMISSION_PRICING_MIGRATE)).
+							Post("/transactions/{transactionId}/revoke", container.CompaniesHandlers.RevokePricingTransaction) // отмена транзакции
 					})
 
 					r.Get("/", container.CompaniesHandlers.GetUserCompanyById)

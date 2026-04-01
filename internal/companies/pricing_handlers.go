@@ -10,6 +10,46 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
+// RevokePricingTransaction отменяет транзакцию
+func (h *Handlers) RevokePricingTransaction(w http.ResponseWriter, r *http.Request) {
+	// Получаем ID компании из URL
+	companyID := chi.URLParam(r, "id")
+	if companyID == "" {
+		core.SendValidationError(w, "Company ID required")
+		return
+	}
+
+	// Получаем ID транзакции из URL
+	transactionID := chi.URLParam(r, "transactionId")
+	if transactionID == "" {
+		core.SendValidationError(w, "Transaction ID required")
+		return
+	}
+
+	// Получаем пользователя из контекста
+	account, ok := auth.GetUserFromContext(r.Context())
+	if !ok {
+		core.SendUnauthorized(w, "Authentication required")
+		return
+	}
+
+	// Проверяем, что пользователь состоит в компании
+	member, err := h.service.GetUserCompanyById(r.Context(), account.UserID, companyID)
+	if err != nil || member == nil {
+		core.SendNotFound(w, "Company not found or access denied")
+		return
+	}
+
+	// Отменяем транзакцию
+	err = h.service.RevokeTransaction(r.Context(), companyID, transactionID)
+	if err != nil {
+		core.SendValidationError(w, fmt.Sprintf("Failed to revoke transaction: %v", err))
+		return
+	}
+
+	core.SendSuccess(w, nil, "Transaction revoked successfully")
+}
+
 // GetCompanyPlan возвращает текущий план компании
 func (h *Handlers) GetCompanyPricingPlan(w http.ResponseWriter, r *http.Request) {
 	// Получаем ID компании из URL
