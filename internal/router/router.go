@@ -102,6 +102,14 @@ func New(cfg *config.Config, container *di.Container) chi.Router {
 			r.Get("/{code}", container.PricingHandlers.GetPlanByCode)
 		})
 
+		// company permissions + plan lvl mapping (config for all)
+		r.Route("/permissions", func(r chi.Router) {
+			// rate limiter
+			r.Use(httprate.LimitByIP(config.RATE_LIMIT_PUBLIC_ROUTES_PER_MINUTE, 1*time.Minute))
+
+			r.Get("/", container.CompaniesHandlers.GetPermissions)
+		})
+
 		// Protected routes (require auth)
 		r.Group(func(r chi.Router) {
 			r.Use(container.JWTService.RequireAuth)

@@ -12,8 +12,10 @@ const (
 )
 
 var PermissionCriticality = map[string]CriticalityLevel{
-	// ========== COMPANY (7-8) ==========
-	PERMISSION_COMPANY_UPDATE: 8, // изменение данных компании
+	// ========== COMPANY (3-10) ==========
+	PERMISSION_COMPANY_UPDATE:       8, // изменение данных компании
+	PERMISSION_PRICING_MIGRATE:      10,
+	PERMISSION_PRICING_TRANSACTIONS: 3,
 
 	// ========== STORAGE (1-2) ==========
 	PERMISSION_STORAGE_SOURCES: 1, // просмотр ресурсов хранилища
