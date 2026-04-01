@@ -36,9 +36,6 @@ func New(cfg *config.Config, container *di.Container) chi.Router {
 		MaxAge:           cfg.CORS.MaxAge,
 	}))
 
-	// rate limiter
-	r.Use(httprate.LimitByIP(config.RATE_LIMIT_PUBLIC_ROUTES_PER_MINUTE, 1*time.Minute))
-
 	// prometheus
 	r.Use(metrics.MetricsMiddleware())
 	r.With(
@@ -53,6 +50,9 @@ func New(cfg *config.Config, container *di.Container) chi.Router {
 		// Public routes
 		// account actions
 		r.Route("/account", func(r chi.Router) {
+			// rate limiter
+			r.Use(httprate.LimitByIP(config.RATE_LIMIT_PUBLIC_ROUTES_PER_MINUTE, 1*time.Minute))
+
 			r.Post("/reg", container.AccountsHandlers.Register)
 			r.Get("/check-email-unique", container.AccountsHandlers.CheckEmailUnique)
 			r.Post("/auth", container.AccountsHandlers.Login)
@@ -95,6 +95,9 @@ func New(cfg *config.Config, container *di.Container) chi.Router {
 
 		// pricing-plans actions
 		r.Route("/plans", func(r chi.Router) {
+			// rate limiter
+			r.Use(httprate.LimitByIP(config.RATE_LIMIT_PUBLIC_ROUTES_PER_MINUTE, 1*time.Minute))
+
 			r.Get("/", container.PricingHandlers.GetPlans)
 			r.Get("/{code}", container.PricingHandlers.GetPlanByCode)
 		})
