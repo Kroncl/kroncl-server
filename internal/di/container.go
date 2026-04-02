@@ -171,6 +171,7 @@ func (c *Container) initServices(ctx context.Context) error {
 
 func (c *Container) initTenantRoutes() error {
 	c.TenantRoutes = tenant.NewRoutes(
+		c.DB,
 		c.StorageService,
 		c.PermissionService,
 		c.AccountsService,

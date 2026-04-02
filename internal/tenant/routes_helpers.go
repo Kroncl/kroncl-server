@@ -14,10 +14,29 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// ебашим мидлвар на создание хэндлеров модулей
+func withPublicPoolMiddleware[H any](
+	rt *Routes,
+	factory func(*pgxpool.Pool, *logs.Service, *Routes) H,
+	handlerFunc func(H) http.HandlerFunc,
+) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		tenantPool, ok := rt.storageService.GetTenantPoolFromRequest(r)
+		if !ok {
+			core.SendError(w, http.StatusInternalServerError, "Error getting a storage connection.")
+			return
+		}
+
+		logsService := logs.NewService(tenantPool)
+
+		handler := factory(rt.publicPool, logsService, rt)
+		handlerFunc(handler)(w, r)
+	}
+}
+
+// ебашим мидлвар на создание хэндлеров модулей - глобальный пул не нужен
 // мидлвар модуля -> этот метод -> фабрика модуля -> готовые хэндлеры
 // ---------------->[достаём пул]->[передаём модулям]----------------
-func withModuleMiddleware[H any](
+func withTenantPoolMiddleware[H any](
 	rt *Routes,
 	factory func(*pgxpool.Pool, *logs.Service, *Routes) H,
 	handlerFunc func(H) http.HandlerFunc,
@@ -37,29 +56,29 @@ func withModuleMiddleware[H any](
 }
 
 func (rt *Routes) hrm(h func(*hrm.Handlers) http.HandlerFunc) http.HandlerFunc {
-	return withModuleMiddleware(rt, createHRMHandlers, h)
+	return withPublicPoolMiddleware(rt, createHRMHandlers, h)
 }
 
 func (rt *Routes) fm(h func(*fm.Handlers) http.HandlerFunc) http.HandlerFunc {
-	return withModuleMiddleware(rt, createFMHandlers, h)
+	return withPublicPoolMiddleware(rt, createFMHandlers, h)
 }
 
 func (rt *Routes) crm(h func(*crm.Handlers) http.HandlerFunc) http.HandlerFunc {
-	return withModuleMiddleware(rt, createCRMHandlers, h)
+	return withPublicPoolMiddleware(rt, createCRMHandlers, h)
 }
 
 func (rt *Routes) wm(h func(*wm.Handlers) http.HandlerFunc) http.HandlerFunc {
-	return withModuleMiddleware(rt, createWMHandlers, h)
+	return withPublicPoolMiddleware(rt, createWMHandlers, h)
 }
 
 func (rt *Routes) logs(h func(*logs.Handlers) http.HandlerFunc) http.HandlerFunc {
-	return withModuleMiddleware(rt, createLogsHandlers, h)
+	return withPublicPoolMiddleware(rt, createLogsHandlers, h)
 }
 
 func (rt *Routes) dm(h func(*dm.Handlers) http.HandlerFunc) http.HandlerFunc {
-	return withModuleMiddleware(rt, createDMHandlers, h)
+	return withPublicPoolMiddleware(rt, createDMHandlers, h)
 }
 
 func (rt *Routes) support(h func(*support.Handlers) http.HandlerFunc) http.HandlerFunc {
-	return withModuleMiddleware(rt, createSupportHandlers, h)
+	return withPublicPoolMiddleware(rt, createSupportHandlers, h)
 }
