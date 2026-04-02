@@ -1,6 +1,9 @@
 package config
 
 const (
+	PERMISSION_SUPPORT_TICKETS                   = "support.tickets"
+	PERMISSION_SUPPORT_TICKETS_CREATE            = "support.tickets.create"
+	PERMISSION_SUPPORT_TICKETS_UPDATE            = "support.tickets.update"
 	PERMISSION_PRICING_MIGRATE                   = "pricing.migrate"
 	PERMISSION_PRICING_TRANSACTIONS              = "pricing.transactions"
 	PERMISSION_COMPANY_UPDATE                    = "company.update"
