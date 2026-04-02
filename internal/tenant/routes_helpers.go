@@ -7,6 +7,7 @@ import (
 	"kroncl-server/internal/tenant/fm"
 	"kroncl-server/internal/tenant/hrm"
 	"kroncl-server/internal/tenant/logs"
+	"kroncl-server/internal/tenant/support"
 	"kroncl-server/internal/tenant/wm"
 	"net/http"
 
@@ -57,4 +58,8 @@ func (rt *Routes) logs(h func(*logs.Handlers) http.HandlerFunc) http.HandlerFunc
 
 func (rt *Routes) dm(h func(*dm.Handlers) http.HandlerFunc) http.HandlerFunc {
 	return withModuleMiddleware(rt, createDMHandlers, h)
+}
+
+func (rt *Routes) support(h func(*support.Handlers) http.HandlerFunc) http.HandlerFunc {
+	return withModuleMiddleware(rt, createSupportHandlers, h)
 }

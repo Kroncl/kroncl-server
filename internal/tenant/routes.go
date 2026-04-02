@@ -59,6 +59,28 @@ func (rt *Routes) Register(r chi.Router) {
 		}))
 	})
 
+	// support tech actions
+	// r.Route("/support/tickets", func(r chi.Router) {
+	// 	r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_SUPPORT_TICKETS))
+
+	// 	r.Get("/", rt.support(func(h *support.Handlers) http.HandlerFunc {
+	// 		return h.GetTickets
+	// 	}))
+	// 	r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_SUPPORT_TICKETS_CREATE)).
+	// 		Post("/", rt.support(func(h *support.Handlers) http.HandlerFunc {
+	// 			return h.CreateTicket
+	// 		}))
+	// 	r.Route("/{ticketId}", func(r chi.Router) {
+	// 		r.Get("/", rt.support(func(h *support.Handlers) http.HandlerFunc {
+	// 			return h.GetTicket
+	// 		}))
+	// 		r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_SUPPORT_TICKETS_UPDATE)).
+	// 			Patch("/", rt.support(func(h *support.Handlers) http.HandlerFunc {
+	// 				return h.UpdateTicket
+	// 			}))
+	// 	})
+	// })
+
 	// HRM module
 	r.Route("/hrm", func(r chi.Router) {
 		r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_HRM))
