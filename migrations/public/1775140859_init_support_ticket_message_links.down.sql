@@ -2,7 +2,7 @@
 -- Type: public
 -- Created: 2026-04-02 17:40:59
 
-CREATE TABLE support_ticket_message_links (
+CREATE TABLE IF NOT EXISTS support_ticket_message_links (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     message_id UUID NOT NULL REFERENCES support_ticket_messages(id) ON DELETE CASCADE,
     link TEXT NOT NULL,
@@ -10,6 +10,8 @@ CREATE TABLE support_ticket_message_links (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+DROP TRIGGER IF EXISTS update_support_ticket_message_links_updated_at ON support_ticket_message_links;
 
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
