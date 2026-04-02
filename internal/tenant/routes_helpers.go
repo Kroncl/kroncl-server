@@ -82,3 +82,17 @@ func (rt *Routes) dm(h func(*dm.Handlers) http.HandlerFunc) http.HandlerFunc {
 func (rt *Routes) support(h func(*support.Handlers) http.HandlerFunc) http.HandlerFunc {
 	return withPublicPoolMiddleware(rt, createSupportHandlers, h)
 }
+
+func (rt *Routes) supportWebsocket(h func(*support.Handlers) http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		tenantPool, ok := rt.storageService.GetTenantPoolFromRequest(r)
+		if !ok {
+			core.SendError(w, http.StatusInternalServerError, "Error getting a storage connection.")
+			return
+		}
+
+		logsService := logs.NewService(tenantPool)
+		handler := createSupportHandlers(rt.publicPool, logsService, rt)
+		h(handler)(w, r)
+	}
+}

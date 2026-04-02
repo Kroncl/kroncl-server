@@ -94,6 +94,11 @@ func (rt *Routes) Register(r chi.Router) {
 				r.Patch("/{messageId}", rt.support(func(h *support.Handlers) http.HandlerFunc {
 					return h.UpdateMessageReadStatus
 				}))
+
+				// [пока впадлу ковыряться с соединениями]
+				r.Get("/ws", rt.supportWebsocket(func(h *support.Handlers) http.HandlerFunc {
+					return h.MessagesWebSocket
+				}))
 			})
 		})
 	})

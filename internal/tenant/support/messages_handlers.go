@@ -188,6 +188,9 @@ func (h *Handlers) UpdateMessageReadStatus(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	// socket
+	go BroadcastMessageRead(ticketID, messageID, req.Read)
+
 	h.logsService.Log(r.Context(), config.PERMISSION_SUPPORT_TICKETS_UPDATE, accountID,
 		logs.WithStatus(logs.LogStatusSuccess),
 		logs.WithUserAgent(r.UserAgent()),
@@ -291,6 +294,9 @@ func (h *Handlers) CreateMessage(w http.ResponseWriter, r *http.Request) {
 		core.SendInternalError(w, fmt.Sprintf("Failed to create message: %s", err.Error()))
 		return
 	}
+
+	// socket
+	go BroadcastNewMessage(ticketID, message)
 
 	h.logsService.Log(r.Context(), config.PERMISSION_SUPPORT_TICKETS, accountID,
 		logs.WithStatus(logs.LogStatusSuccess),
