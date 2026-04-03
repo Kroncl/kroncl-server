@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"kroncl-server/utils"
 	"log"
+	"net/http"
 	"os"
 	"strconv"
 	"time"
 
+	"github.com/gorilla/websocket"
 	"github.com/joho/godotenv"
 )
 
@@ -15,6 +17,14 @@ const (
 	RATE_LIMIT_PUBLIC_ROUTES_PER_MINUTE  = 20
 	RATE_LIMIT_PRIVATE_ROUTES_PER_MINUTE = 2000
 )
+
+var WebSocketUpgrader = websocket.Upgrader{
+	CheckOrigin: func(r *http.Request) bool {
+		return true
+	},
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
+}
 
 type Config struct {
 	Server   ServerConfig

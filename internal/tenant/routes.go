@@ -11,13 +11,16 @@ import (
 	"kroncl-server/internal/tenant/hrm"
 	"kroncl-server/internal/tenant/logs"
 	"kroncl-server/internal/tenant/storage"
+	"kroncl-server/internal/tenant/support"
 	"kroncl-server/internal/tenant/wm"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type Routes struct {
+	publicPool        *pgxpool.Pool
 	storageService    *storage.Service
 	permissionService *permissioner.Service
 	accountsService   *accounts.Service
@@ -25,12 +28,14 @@ type Routes struct {
 }
 
 func NewRoutes(
+	publicPool *pgxpool.Pool,
 	storageService *storage.Service,
 	permissionService *permissioner.Service,
 	accountsService *accounts.Service,
 	companiesService *companies.Service,
 ) *Routes {
 	return &Routes{
+		publicPool:        publicPool,
 		storageService:    storageService,
 		permissionService: permissionService,
 		accountsService:   accountsService,
@@ -57,6 +62,45 @@ func (rt *Routes) Register(r chi.Router) {
 		r.Get("/{logId}", rt.logs(func(h *logs.Handlers) http.HandlerFunc {
 			return h.GetLog
 		}))
+	})
+
+	// support tech actions
+	r.Route("/support/tickets", func(r chi.Router) {
+		r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_SUPPORT_TICKETS))
+
+		r.Get("/", rt.support(func(h *support.Handlers) http.HandlerFunc {
+			return h.GetTickets
+		}))
+		r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_SUPPORT_TICKETS_CREATE)).
+			Post("/", rt.support(func(h *support.Handlers) http.HandlerFunc {
+				return h.CreateTicket
+			}))
+		r.Route("/{ticketId}", func(r chi.Router) {
+			r.Get("/", rt.support(func(h *support.Handlers) http.HandlerFunc {
+				return h.GetTicketByID
+			}))
+			r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_SUPPORT_TICKETS_UPDATE)).
+				Patch("/", rt.support(func(h *support.Handlers) http.HandlerFunc {
+					return h.UpdateTicketStatus
+				}))
+
+			r.Route("/messages", func(r chi.Router) {
+				r.Post("/", rt.support(func(h *support.Handlers) http.HandlerFunc {
+					return h.CreateMessage
+				}))
+				r.Get("/", rt.support(func(h *support.Handlers) http.HandlerFunc {
+					return h.GetMessages
+				}))
+				r.Patch("/{messageId}", rt.support(func(h *support.Handlers) http.HandlerFunc {
+					return h.UpdateMessageReadStatus
+				}))
+
+				// [пока впадлу ковыряться с соединениями]
+				r.Get("/ws", rt.supportWebsocket(func(h *support.Handlers) http.HandlerFunc {
+					return h.MessagesWebSocket
+				}))
+			})
+		})
 	})
 
 	// HRM module
