@@ -1,0 +1,6 @@
+package config
+
+const (
+	SUPPORT_MAX_PENDING_TICKETS = 10
+	SUPPORT_MAX_MESSAGES_IN_ROW = 3
+)

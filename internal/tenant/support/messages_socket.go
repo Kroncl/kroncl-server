@@ -180,14 +180,18 @@ func (h *Handlers) MessagesWebSocket(w http.ResponseWriter, r *http.Request) {
 			var readPayload MessageReadPayload
 			if err := json.Unmarshal(payloadBytes, &readPayload); err == nil {
 				go func() {
-					if err := h.service.UpdateMessageReadStatus(r.Context(), readPayload.MessageID, readPayload.Read); err != nil {
+					updatedMessage, err := h.service.UpdateMessageReadStatus(r.Context(), readPayload.MessageID, readPayload.Read)
+					if err != nil {
 						h.logsService.Log(r.Context(), config.PERMISSION_SUPPORT_TICKETS, accountID,
 							logs.WithStatus(logs.LogStatusError),
 							logs.WithUserAgent(r.UserAgent()),
 							logs.WithMetadata("error", err.Error()),
 							logs.WithMetadata("message_id", readPayload.MessageID),
 						)
+						return
 					}
+					// Отправляем обновлённое сообщение всем в комнате
+					BroadcastMessageRead(ticketID, updatedMessage.ID, updatedMessage.Read)
 				}()
 			}
 		}

@@ -175,7 +175,8 @@ func (h *Handlers) UpdateMessageReadStatus(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	if err := h.service.UpdateMessageReadStatus(r.Context(), messageID, req.Read); err != nil {
+	updatedMessage, err := h.service.UpdateMessageReadStatus(r.Context(), messageID, req.Read)
+	if err != nil {
 		h.logsService.Log(r.Context(), config.PERMISSION_SUPPORT_TICKETS_UPDATE, accountID,
 			logs.WithStatus(logs.LogStatusError),
 			logs.WithUserAgent(r.UserAgent()),
@@ -199,7 +200,7 @@ func (h *Handlers) UpdateMessageReadStatus(w http.ResponseWriter, r *http.Reques
 		logs.WithMetadata("read", req.Read),
 	)
 
-	core.SendSuccess(w, nil, "Message read status updated successfully")
+	core.SendSuccess(w, updatedMessage, "Message read status updated successfully")
 }
 
 // CreateMessage создаёт новое сообщение в тикете
