@@ -56,27 +56,27 @@ func withTenantPoolMiddleware[H any](
 }
 
 func (rt *Routes) hrm(h func(*hrm.Handlers) http.HandlerFunc) http.HandlerFunc {
-	return withPublicPoolMiddleware(rt, createHRMHandlers, h)
+	return withTenantPoolMiddleware(rt, createHRMHandlers, h)
 }
 
 func (rt *Routes) fm(h func(*fm.Handlers) http.HandlerFunc) http.HandlerFunc {
-	return withPublicPoolMiddleware(rt, createFMHandlers, h)
+	return withTenantPoolMiddleware(rt, createFMHandlers, h)
 }
 
 func (rt *Routes) crm(h func(*crm.Handlers) http.HandlerFunc) http.HandlerFunc {
-	return withPublicPoolMiddleware(rt, createCRMHandlers, h)
+	return withTenantPoolMiddleware(rt, createCRMHandlers, h)
 }
 
 func (rt *Routes) wm(h func(*wm.Handlers) http.HandlerFunc) http.HandlerFunc {
-	return withPublicPoolMiddleware(rt, createWMHandlers, h)
+	return withTenantPoolMiddleware(rt, createWMHandlers, h)
 }
 
 func (rt *Routes) logs(h func(*logs.Handlers) http.HandlerFunc) http.HandlerFunc {
-	return withPublicPoolMiddleware(rt, createLogsHandlers, h)
+	return withTenantPoolMiddleware(rt, createLogsHandlers, h)
 }
 
 func (rt *Routes) dm(h func(*dm.Handlers) http.HandlerFunc) http.HandlerFunc {
-	return withPublicPoolMiddleware(rt, createDMHandlers, h)
+	return withTenantPoolMiddleware(rt, createDMHandlers, h)
 }
 
 func (rt *Routes) support(h func(*support.Handlers) http.HandlerFunc) http.HandlerFunc {
