@@ -3,6 +3,7 @@ package support
 import (
 	"context"
 	"fmt"
+	"kroncl-server/internal/config"
 	"time"
 
 	"github.com/google/uuid"
@@ -15,6 +16,17 @@ func (s *Service) CreateTicket(ctx context.Context, companyID, accountID string,
 	_, err := s.companiesService.GetCompanyByID(ctx, companyID)
 	if err != nil {
 		return nil, fmt.Errorf("company not found: %w", err)
+	}
+
+	// Проверяем количество активных тикетов
+	var pendingCount int
+	countQuery := `SELECT COUNT(*) FROM support_tickets WHERE company_id = $1 AND status = $2`
+	err = s.pool.QueryRow(ctx, countQuery, companyID, TicketStatusPending).Scan(&pendingCount)
+	if err != nil {
+		return nil, fmt.Errorf("failed to count pending tickets: %w", err)
+	}
+	if pendingCount >= config.SUPPORT_MAX_PENDING_TICKETS {
+		return nil, fmt.Errorf("too many pending tickets. Maximum %d", config.SUPPORT_MAX_PENDING_TICKETS)
 	}
 
 	// Начинаем транзакцию
@@ -59,8 +71,8 @@ func (s *Service) CreateTicket(ctx context.Context, companyID, accountID string,
 	// Создаём первое сообщение
 	messageID := uuid.New().String()
 	messageQuery := `
-		INSERT INTO support_ticket_messages (id, account_id, ticket_id, text, read, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		INSERT INTO support_ticket_messages (id, account_id, ticket_id, text, read, is_tech, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 	`
 
 	_, err = tx.Exec(ctx, messageQuery,
@@ -68,7 +80,8 @@ func (s *Service) CreateTicket(ctx context.Context, companyID, accountID string,
 		accountID,
 		ticketID,
 		req.Text,
-		true, // первое сообщение автоматом читаем
+		true,
+		false,
 		now,
 		now,
 	)
@@ -212,15 +225,10 @@ func (s *Service) GetTicketByID(ctx context.Context, companyID, ticketID string)
 	}
 	ticket.Initiator = *initiator
 
-	// Загружаем все сообщения с их аккаунтами и ссылками
-	messages, err := s.GetMessagesWithAccounts(ctx, ticket.ID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get messages: %w", err)
-	}
-
-	// Последнее сообщение для LastMessage
-	if len(messages) > 0 {
-		ticket.LastMessage = &messages[len(messages)-1]
+	// Загружаем последнее сообщение одним запросом вместо всех сообщений
+	lastMessage, err := s.getLastMessage(ctx, ticket.ID)
+	if err == nil {
+		ticket.LastMessage = lastMessage
 	}
 
 	return &ticket, nil

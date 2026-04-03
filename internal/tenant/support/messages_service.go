@@ -3,6 +3,7 @@ package support
 import (
 	"context"
 	"fmt"
+	"kroncl-server/internal/config"
 	"strings"
 	"time"
 
@@ -11,22 +12,53 @@ import (
 
 // CreateMessage создаёт новое сообщение в тикете
 func (s *Service) CreateMessage(ctx context.Context, ticketID, accountID, text string) (*Message, error) {
+	checkQuery := `
+		SELECT is_tech
+		FROM support_ticket_messages
+		WHERE ticket_id = $1
+		ORDER BY created_at DESC
+		LIMIT $2
+	`
+	rows, err := s.pool.Query(ctx, checkQuery, ticketID, config.SUPPORT_MAX_MESSAGES_IN_ROW)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check last messages: %w", err)
+	}
+	defer rows.Close()
+
+	var nonTechCount int
+	for rows.Next() {
+		var isTech bool
+		if err := rows.Scan(&isTech); err != nil {
+			return nil, fmt.Errorf("failed to scan message: %w", err)
+		}
+		if !isTech {
+			nonTechCount++
+		} else {
+			break
+		}
+	}
+
+	if nonTechCount >= config.SUPPORT_MAX_MESSAGES_IN_ROW {
+		return nil, fmt.Errorf("you have %d consecutive messages without support response. Please wait for support to reply", config.SUPPORT_MAX_MESSAGES_IN_ROW)
+	}
+
 	messageID := uuid.New().String()
 	now := time.Now()
 
 	query := `
-		INSERT INTO support_ticket_messages (id, account_id, ticket_id, text, read, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
-		RETURNING id, account_id, ticket_id, text, read, created_at, updated_at
+		INSERT INTO support_ticket_messages (id, account_id, ticket_id, text, read, is_tech, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		RETURNING id, account_id, ticket_id, text, read, is_tech, created_at, updated_at
 	`
 
 	var msg Message
-	err := s.pool.QueryRow(ctx, query,
+	err = s.pool.QueryRow(ctx, query,
 		messageID,
 		accountID,
 		ticketID,
 		text,
-		true, // читаем автоматически сообщение клиента
+		true,
+		false,
 		now,
 		now,
 	).Scan(
@@ -35,6 +67,7 @@ func (s *Service) CreateMessage(ctx context.Context, ticketID, accountID, text s
 		&msg.TicketID,
 		&msg.Text,
 		&msg.Read,
+		&msg.IsTech,
 		&msg.CreatedAt,
 		&msg.UpdatedAt,
 	)
@@ -56,7 +89,7 @@ func (s *Service) CreateMessage(ctx context.Context, ticketID, accountID, text s
 func (s *Service) GetMessagesWithAccounts(ctx context.Context, ticketID string) ([]Message, error) {
 	// Получаем сообщения
 	query := `
-		SELECT id, account_id, ticket_id, text, read, created_at, updated_at
+		SELECT id, account_id, ticket_id, text, read, is_tech, created_at, updated_at
 		FROM support_ticket_messages
 		WHERE ticket_id = $1
 		ORDER BY created_at ASC
@@ -79,6 +112,7 @@ func (s *Service) GetMessagesWithAccounts(ctx context.Context, ticketID string) 
 			&msg.TicketID,
 			&msg.Text,
 			&msg.Read,
+			&msg.IsTech,
 			&msg.CreatedAt,
 			&msg.UpdatedAt,
 		)
@@ -125,7 +159,7 @@ func (s *Service) GetMessagesWithAccounts(ctx context.Context, ticketID string) 
 // getLastMessage возвращает последнее сообщение тикета
 func (s *Service) getLastMessage(ctx context.Context, ticketID string) (*Message, error) {
 	query := `
-		SELECT id, account_id, ticket_id, text, read, created_at, updated_at
+		SELECT id, account_id, ticket_id, text, read, is_tech, created_at, updated_at
 		FROM support_ticket_messages
 		WHERE ticket_id = $1
 		ORDER BY created_at DESC
@@ -139,6 +173,7 @@ func (s *Service) getLastMessage(ctx context.Context, ticketID string) (*Message
 		&msg.TicketID,
 		&msg.Text,
 		&msg.Read,
+		&msg.IsTech,
 		&msg.CreatedAt,
 		&msg.UpdatedAt,
 	)
@@ -229,7 +264,7 @@ func (s *Service) GetMessages(ctx context.Context, ticketID string, page, limit 
 
 	// Получаем сообщения с пагинацией (от новых к старым)
 	query := `
-		SELECT id, account_id, ticket_id, text, read, created_at, updated_at
+		SELECT id, account_id, ticket_id, text, read, is_tech, created_at, updated_at
 		FROM support_ticket_messages
 		WHERE ticket_id = $1
 		ORDER BY created_at DESC
@@ -253,6 +288,7 @@ func (s *Service) GetMessages(ctx context.Context, ticketID string, page, limit 
 			&msg.TicketID,
 			&msg.Text,
 			&msg.Read,
+			&msg.IsTech,
 			&msg.CreatedAt,
 			&msg.UpdatedAt,
 		)
@@ -296,24 +332,38 @@ func (s *Service) GetMessages(ctx context.Context, ticketID string, page, limit 
 	return messages, total, nil
 }
 
-// UpdateMessageReadStatus обновляет статус прочтения сообщения
-func (s *Service) UpdateMessageReadStatus(ctx context.Context, messageID string, read bool) error {
+// UpdateMessageReadStatus обновляет статус прочтения сообщения и возвращает обновлённое сообщение
+func (s *Service) UpdateMessageReadStatus(ctx context.Context, messageID string, read bool) (*Message, error) {
 	updateQuery := `
 		UPDATE support_ticket_messages
 		SET read = $1, updated_at = CURRENT_TIMESTAMP
 		WHERE id = $2
+		RETURNING id, account_id, ticket_id, text, read, is_tech, created_at, updated_at
 	`
 
-	result, err := s.pool.Exec(ctx, updateQuery, read, messageID)
+	var msg Message
+	err := s.pool.QueryRow(ctx, updateQuery, read, messageID).Scan(
+		&msg.ID,
+		&msg.AccountID,
+		&msg.TicketID,
+		&msg.Text,
+		&msg.Read,
+		&msg.IsTech,
+		&msg.CreatedAt,
+		&msg.UpdatedAt,
+	)
 	if err != nil {
-		return fmt.Errorf("failed to update message read status: %w", err)
+		return nil, fmt.Errorf("failed to update message read status: %w", err)
 	}
 
-	if result.RowsAffected() == 0 {
-		return fmt.Errorf("message not found")
+	// Загружаем аккаунт
+	account, err := s.accountsService.GetPublicByID(ctx, msg.AccountID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get account: %w", err)
 	}
+	msg.Account = *account
 
-	return nil
+	return &msg, nil
 }
 
 // CheckMessageAccess проверяет, принадлежит ли сообщение тикету

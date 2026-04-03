@@ -41,6 +41,7 @@ type Message struct {
 	TicketID  string                 `json:"ticket_id"`
 	Text      string                 `json:"text"`
 	Read      bool                   `json:"read"`
+	IsTech    bool                   `json:"is_tech"`
 	CreatedAt time.Time              `json:"created_at"`
 	UpdatedAt time.Time              `json:"updated_at"`
 	Account   accounts.AccountPublic `json:"account"`
