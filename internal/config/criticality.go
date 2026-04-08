@@ -19,6 +19,10 @@ var PermissionCriticality = map[string]CriticalityLevel{
 	PERMISSION_SUPPORT_TICKETS:        3,
 	PERMISSION_SUPPORT_TICKETS_CREATE: 7,
 	PERMISSION_SUPPORT_TICKETS_UPDATE: 8,
+	PERMISSION_LOGS:                   3,
+	PERMISSION_LOGS_CLEAR:             10,
+	PERMISSION_LOGS_OPTIMIZE:          10,
+	PERMISSION_LOGS_ACTIVITY:          7,
 
 	// ========== STORAGE (1-2) ==========
 	PERMISSION_STORAGE_SOURCES: 1, // просмотр ресурсов хранилища

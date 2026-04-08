@@ -62,6 +62,26 @@ func (rt *Routes) Register(r chi.Router) {
 		r.Get("/{logId}", rt.logs(func(h *logs.Handlers) http.HandlerFunc {
 			return h.GetLog
 		}))
+
+		// clean
+		// - hard clean all logs
+		r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_LOGS_CLEAR)).
+			Post("/clean", rt.logs(func(h *logs.Handlers) http.HandlerFunc {
+				return h.ClearLogs
+			}))
+
+		// optimize
+		// - clean old
+		r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_LOGS_OPTIMIZE)).
+			Post("/optimize", rt.logs(func(h *logs.Handlers) http.HandlerFunc {
+				return h.OptimizeLogs
+			}))
+
+		// activity
+		r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_LOGS_ACTIVITY)).
+			Post("/activity", rt.logs(func(h *logs.Handlers) http.HandlerFunc {
+				return h.GetLogsActivity
+			}))
 	})
 
 	// support tech actions

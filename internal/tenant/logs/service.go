@@ -269,3 +269,91 @@ func (s *Service) GetLogs(ctx context.Context, req GetLogsRequest) ([]Log, int64
 
 	return logs, total, nil
 }
+
+// --------
+// TECH
+// --------
+
+// GetLogsActivity возвращает активность по дням (как грядка GitHub)
+func (s *Service) GetLogsActivity(ctx context.Context, startDate, endDate *time.Time) ([]LogActivity, error) {
+	// Базовый запрос
+	query := `
+		SELECT 
+			DATE(created_at) as date,
+			COUNT(*) as count
+		FROM logs
+		WHERE 1=1
+	`
+
+	args := []interface{}{}
+	argIndex := 1
+
+	if startDate != nil {
+		query += fmt.Sprintf(" AND created_at >= $%d", argIndex)
+		args = append(args, *startDate)
+		argIndex++
+	}
+
+	if endDate != nil {
+		query += fmt.Sprintf(" AND created_at <= $%d", argIndex)
+		args = append(args, *endDate)
+		argIndex++
+	}
+
+	query += `
+		GROUP BY DATE(created_at)
+		ORDER BY date ASC
+	`
+
+	rows, err := s.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get logs activity: %w", err)
+	}
+	defer rows.Close()
+
+	var activities []LogActivity
+	for rows.Next() {
+		var activity LogActivity
+		err := rows.Scan(
+			&activity.Date,
+			&activity.Count,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan activity: %w", err)
+		}
+		activities = append(activities, activity)
+	}
+
+	return activities, nil
+}
+
+// clearLogs удаляет все логи компании
+func (s *Service) сlearLogs(ctx context.Context) error {
+	query := `TRUNCATE TABLE logs`
+
+	_, err := s.pool.Exec(ctx, query)
+	if err != nil {
+		return fmt.Errorf("failed to clear logs: %w", err)
+	}
+
+	return nil
+}
+
+// service.go - метод оптимизации логов
+// optimizeLogs удаляет логи, которые хранятся дольше LOGS_OPTIMAL_STORAGE_PERIOD_DAYS
+func (s *Service) optimizeLogs(ctx context.Context) error {
+	query := `
+		DELETE FROM logs
+		WHERE created_at < NOW() - INTERVAL '1 day' * $1
+	`
+
+	result, err := s.pool.Exec(ctx, query, config.LOGS_OPTIMAL_STORAGE_PERIOD_DAYS)
+	if err != nil {
+		return fmt.Errorf("failed to optimize logs: %w", err)
+	}
+
+	deletedCount := result.RowsAffected()
+	fmt.Printf("optimized logs: deleted %d records older than %d days\n", deletedCount, config.LOGS_OPTIMAL_STORAGE_PERIOD_DAYS)
+
+	return nil
+}

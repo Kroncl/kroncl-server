@@ -61,3 +61,8 @@ type LogsResponse struct {
 	Limit int           `json:"limit"`
 	Pages int           `json:"pages"`
 }
+
+type LogActivity struct {
+	Date  time.Time `json:"date"`
+	Count int64     `json:"count"`
+}

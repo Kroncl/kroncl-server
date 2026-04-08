@@ -182,3 +182,133 @@ func (h *Handlers) GetLogs(w http.ResponseWriter, r *http.Request) {
 
 	core.SendSuccess(w, response, "Logs retrieved successfully.")
 }
+
+// ClearLogs очищает все логи компании
+func (h *Handlers) ClearLogs(w http.ResponseWriter, r *http.Request) {
+	accountID, ok := core.GetUserIDFromContext(r.Context())
+	if !ok {
+		core.SendError(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	// Логируем начало операции очистки
+	h.service.Log(r.Context(), config.PERMISSION_LOGS_CLEAR, accountID,
+		WithStatus(LogStatusPending),
+		WithUserAgent(r.UserAgent()),
+		WithMetadata("action", "clear_logs"),
+		WithMetadata("path", r.URL.Path),
+	)
+
+	err := h.service.сlearLogs(r.Context())
+	if err != nil {
+		// Логируем ошибку
+		h.service.Log(r.Context(), config.PERMISSION_LOGS_CLEAR, accountID,
+			WithStatus(LogStatusError),
+			WithUserAgent(r.UserAgent()),
+			WithMetadata("error", err.Error()),
+			WithMetadata("action", "clear_logs"),
+			WithMetadata("path", r.URL.Path),
+		)
+		core.SendInternalError(w, fmt.Sprintf("Failed to clear logs: %s", err.Error()))
+		return
+	}
+
+	// Логируем успешную очистку
+	h.service.Log(r.Context(), config.PERMISSION_LOGS_CLEAR, accountID,
+		WithStatus(LogStatusSuccess),
+		WithUserAgent(r.UserAgent()),
+		WithMetadata("action", "clear_logs"),
+		WithMetadata("path", r.URL.Path),
+	)
+
+	core.SendSuccess(w, nil, "Logs cleared successfully.")
+}
+
+// handlers.go - хэндлер для оптимизации
+// OptimizeLogs удаляет логи, которые хранятся дольше оптимального периода
+func (h *Handlers) OptimizeLogs(w http.ResponseWriter, r *http.Request) {
+	accountID, ok := core.GetUserIDFromContext(r.Context())
+	if !ok {
+		core.SendError(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	// Логируем начало операции оптимизации
+	h.service.Log(r.Context(), config.PERMISSION_LOGS_OPTIMIZE, accountID,
+		WithStatus(LogStatusPending),
+		WithUserAgent(r.UserAgent()),
+		WithMetadata("action", "optimize_logs"),
+		WithMetadata("path", r.URL.Path),
+	)
+
+	err := h.service.optimizeLogs(r.Context())
+	if err != nil {
+		// Логируем ошибку
+		h.service.Log(r.Context(), config.PERMISSION_LOGS_OPTIMIZE, accountID,
+			WithStatus(LogStatusError),
+			WithUserAgent(r.UserAgent()),
+			WithMetadata("error", err.Error()),
+			WithMetadata("action", "optimize_logs"),
+			WithMetadata("path", r.URL.Path),
+		)
+		core.SendInternalError(w, fmt.Sprintf("Failed to optimize logs: %s", err.Error()))
+		return
+	}
+
+	// Логируем успешную оптимизацию
+	h.service.Log(r.Context(), config.PERMISSION_LOGS_OPTIMIZE, accountID,
+		WithStatus(LogStatusSuccess),
+		WithUserAgent(r.UserAgent()),
+		WithMetadata("action", "optimize_logs"),
+		WithMetadata("path", r.URL.Path),
+	)
+
+	core.SendSuccess(w, nil, "Logs optimized successfully.")
+}
+
+// handlers.go
+// GetLogsActivity возвращает активность по дням
+func (h *Handlers) GetLogsActivity(w http.ResponseWriter, r *http.Request) {
+	accountID, ok := core.GetUserIDFromContext(r.Context())
+	if !ok {
+		core.SendError(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	// Парсим параметры дат
+	var startDate, endDate *time.Time
+
+	if startDateStr := r.URL.Query().Get("start_date"); startDateStr != "" {
+		t, err := time.Parse(time.RFC3339, startDateStr)
+		if err == nil {
+			startDate = &t
+		}
+	}
+
+	if endDateStr := r.URL.Query().Get("end_date"); endDateStr != "" {
+		t, err := time.Parse(time.RFC3339, endDateStr)
+		if err == nil {
+			endDate = &t
+		}
+	}
+
+	activities, err := h.service.GetLogsActivity(r.Context(), startDate, endDate)
+	if err != nil {
+		h.service.Log(r.Context(), config.PERMISSION_LOGS_ACTIVITY, accountID,
+			WithStatus(LogStatusError),
+			WithUserAgent(r.UserAgent()),
+			WithMetadata("error", err.Error()),
+			WithMetadata("path", r.URL.Path),
+		)
+		core.SendInternalError(w, fmt.Sprintf("Failed to get logs activity: %s", err.Error()))
+		return
+	}
+
+	h.service.Log(r.Context(), config.PERMISSION_LOGS_ACTIVITY, accountID,
+		WithStatus(LogStatusSuccess),
+		WithUserAgent(r.UserAgent()),
+		WithMetadata("path", r.URL.Path),
+	)
+
+	core.SendSuccess(w, activities, "Logs activity retrieved successfully.")
+}
