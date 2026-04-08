@@ -34,11 +34,16 @@ var PermissionCriticality = map[string]CriticalityLevel{
 	PERMISSION_ACCOUNTS_INVITATIONS_CREATE: 8,  // создание приглашения
 	PERMISSION_ACCOUNTS_INVITATIONS_REVOKE: 8,  // отзыв приглашения
 
-	// ========== HRM (2-8) ==========
+	// ========== HRM (2-9) ==========
 	PERMISSION_HRM:                  2, // базовый доступ к HRM
 	PERMISSION_HRM_EMPLOYEES:        3, // просмотр сотрудников
 	PERMISSION_HRM_EMPLOYEES_CREATE: 8, // создание сотрудника
 	PERMISSION_HRM_EMPLOYEES_UPDATE: 7, // обновление сотрудника
+	PERMISSION_HRM_POSITIONS:        3,
+	PERMISSION_HRM_POSITIONS_CREATE: 8,
+	PERMISSION_HRM_POSITIONS_UPDATE: 7,
+	PERMISSION_HRM_POSITIONS_DELETE: 9,
+	PERMISSION_HRM_ANALYSIS:         7,
 
 	// ========== FM (2-9) ==========
 	PERMISSION_FM: 2, // базовый доступ к FM

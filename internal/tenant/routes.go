@@ -165,6 +165,44 @@ func (rt *Routes) Register(r chi.Router) {
 				})
 			})
 		})
+
+		// positions
+		r.Route("/positions", func(r chi.Router) {
+			r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_HRM_POSITIONS))
+
+			r.Get("/", rt.hrm(func(h *hrm.Handlers) http.HandlerFunc {
+				return h.GetPositions
+			}))
+			r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_HRM_POSITIONS_CREATE)).
+				Post("/", rt.hrm(func(h *hrm.Handlers) http.HandlerFunc {
+					return h.CreatePosition
+				}))
+			r.Route("/{positionId}", func(r chi.Router) {
+				r.Get("/", rt.hrm(func(h *hrm.Handlers) http.HandlerFunc {
+					return h.GetPositionByID
+				}))
+				r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_HRM_POSITIONS_UPDATE)).
+					Patch("/", rt.hrm(func(h *hrm.Handlers) http.HandlerFunc {
+						return h.UpdatePosition
+					}))
+				r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_HRM_POSITIONS_DELETE)).
+					Delete("/", rt.hrm(func(h *hrm.Handlers) http.HandlerFunc {
+						return h.DeletePosition
+					}))
+			})
+		})
+
+		// analysis
+		r.Route("/analysis", func(r chi.Router) {
+			r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_HRM_ANALYSIS))
+
+			r.Get("/summary", rt.hrm(func(h *hrm.Handlers) http.HandlerFunc {
+				return h.GetSummary
+			}))
+			r.Get("/grouped", rt.hrm(func(h *hrm.Handlers) http.HandlerFunc {
+				return h.AnalyseGrouped
+			}))
+		})
 	})
 
 	// FM module
