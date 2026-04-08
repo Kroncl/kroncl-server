@@ -8,6 +8,8 @@ import (
 	"kroncl-server/internal/tenant/logs"
 	"net/http"
 	"strings"
+
+	"github.com/go-chi/chi/v5"
 )
 
 // ---------
@@ -597,4 +599,200 @@ func (h *Handlers) UnlinkAccountEmployee(w http.ResponseWriter, r *http.Request)
 	)
 
 	core.SendSuccess(w, employee, "Account unlinked successfully.")
+}
+
+// LinkPosition привязывает должность к сотруднику
+func (h *Handlers) LinkPosition(w http.ResponseWriter, r *http.Request) {
+	accountID, ok := core.GetUserIDFromContext(r.Context())
+	if !ok {
+		core.SendError(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	employeeID := chi.URLParam(r, "employeeId")
+	if employeeID == "" {
+		h.logsService.Log(r.Context(), config.PERMISSION_HRM_EMPLOYEES_UPDATE, accountID,
+			logs.WithStatus(logs.LogStatusError),
+			logs.WithUserAgent(r.UserAgent()),
+			logs.WithMetadata("error", "Employee ID is required"),
+			logs.WithMetadata("path", r.URL.Path),
+		)
+		core.SendError(w, http.StatusBadRequest, "Employee ID is required.")
+		return
+	}
+
+	var req struct {
+		PositionID string `json:"position_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.logsService.Log(r.Context(), config.PERMISSION_HRM_EMPLOYEES_UPDATE, accountID,
+			logs.WithStatus(logs.LogStatusError),
+			logs.WithUserAgent(r.UserAgent()),
+			logs.WithMetadata("error", "Invalid request body"),
+			logs.WithMetadata("path", r.URL.Path),
+		)
+		core.SendError(w, http.StatusBadRequest, "Invalid request body.")
+		return
+	}
+
+	if req.PositionID == "" {
+		h.logsService.Log(r.Context(), config.PERMISSION_HRM_EMPLOYEES_UPDATE, accountID,
+			logs.WithStatus(logs.LogStatusError),
+			logs.WithUserAgent(r.UserAgent()),
+			logs.WithMetadata("error", "Position ID is required"),
+			logs.WithMetadata("path", r.URL.Path),
+		)
+		core.SendError(w, http.StatusBadRequest, "Position ID is required.")
+		return
+	}
+
+	err := h.repository.LinkPosition(r.Context(), employeeID, req.PositionID)
+	if err != nil {
+		errorMsg := err.Error()
+		switch {
+		case strings.Contains(errorMsg, "employee not found"):
+			h.logsService.Log(r.Context(), config.PERMISSION_HRM_EMPLOYEES_UPDATE, accountID,
+				logs.WithStatus(logs.LogStatusError),
+				logs.WithUserAgent(r.UserAgent()),
+				logs.WithMetadata("error", "Employee not found"),
+				logs.WithMetadata("path", r.URL.Path),
+				logs.WithMetadata("employee_id", employeeID),
+			)
+			core.SendNotFound(w, "Employee not found.")
+		case strings.Contains(errorMsg, "position not found"):
+			h.logsService.Log(r.Context(), config.PERMISSION_HRM_EMPLOYEES_UPDATE, accountID,
+				logs.WithStatus(logs.LogStatusError),
+				logs.WithUserAgent(r.UserAgent()),
+				logs.WithMetadata("error", "Position not found"),
+				logs.WithMetadata("path", r.URL.Path),
+				logs.WithMetadata("position_id", req.PositionID),
+			)
+			core.SendNotFound(w, "Position not found.")
+		case strings.Contains(errorMsg, "already linked"):
+			h.logsService.Log(r.Context(), config.PERMISSION_HRM_EMPLOYEES_UPDATE, accountID,
+				logs.WithStatus(logs.LogStatusError),
+				logs.WithUserAgent(r.UserAgent()),
+				logs.WithMetadata("error", errorMsg),
+				logs.WithMetadata("path", r.URL.Path),
+			)
+			core.SendValidationError(w, errorMsg)
+		default:
+			h.logsService.Log(r.Context(), config.PERMISSION_HRM_EMPLOYEES_UPDATE, accountID,
+				logs.WithStatus(logs.LogStatusError),
+				logs.WithUserAgent(r.UserAgent()),
+				logs.WithMetadata("error", errorMsg),
+				logs.WithMetadata("path", r.URL.Path),
+			)
+			core.SendInternalError(w, fmt.Sprintf("Failed to link position: %s", errorMsg))
+		}
+		return
+	}
+
+	h.logsService.Log(r.Context(), config.PERMISSION_HRM_EMPLOYEES_UPDATE, accountID,
+		logs.WithStatus(logs.LogStatusSuccess),
+		logs.WithUserAgent(r.UserAgent()),
+		logs.WithMetadata("employee_id", employeeID),
+		logs.WithMetadata("position_id", req.PositionID),
+		logs.WithMetadata("action", "link_position"),
+	)
+
+	core.SendSuccess(w, nil, "Position linked successfully.")
+}
+
+// UnlinkPosition отвязывает должность от сотрудника
+func (h *Handlers) UnlinkPosition(w http.ResponseWriter, r *http.Request) {
+	accountID, ok := core.GetUserIDFromContext(r.Context())
+	if !ok {
+		core.SendError(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	employeeID := chi.URLParam(r, "employeeId")
+	if employeeID == "" {
+		h.logsService.Log(r.Context(), config.PERMISSION_HRM_EMPLOYEES_UPDATE, accountID,
+			logs.WithStatus(logs.LogStatusError),
+			logs.WithUserAgent(r.UserAgent()),
+			logs.WithMetadata("error", "Employee ID is required"),
+			logs.WithMetadata("path", r.URL.Path),
+		)
+		core.SendError(w, http.StatusBadRequest, "Employee ID is required.")
+		return
+	}
+
+	var req struct {
+		PositionID string `json:"position_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.logsService.Log(r.Context(), config.PERMISSION_HRM_EMPLOYEES_UPDATE, accountID,
+			logs.WithStatus(logs.LogStatusError),
+			logs.WithUserAgent(r.UserAgent()),
+			logs.WithMetadata("error", "Invalid request body"),
+			logs.WithMetadata("path", r.URL.Path),
+		)
+		core.SendError(w, http.StatusBadRequest, "Invalid request body.")
+		return
+	}
+
+	if req.PositionID == "" {
+		h.logsService.Log(r.Context(), config.PERMISSION_HRM_EMPLOYEES_UPDATE, accountID,
+			logs.WithStatus(logs.LogStatusError),
+			logs.WithUserAgent(r.UserAgent()),
+			logs.WithMetadata("error", "Position ID is required"),
+			logs.WithMetadata("path", r.URL.Path),
+		)
+		core.SendError(w, http.StatusBadRequest, "Position ID is required.")
+		return
+	}
+
+	err := h.repository.UnlinkPosition(r.Context(), employeeID, req.PositionID)
+	if err != nil {
+		errorMsg := err.Error()
+		switch {
+		case strings.Contains(errorMsg, "employee not found"):
+			h.logsService.Log(r.Context(), config.PERMISSION_HRM_EMPLOYEES_UPDATE, accountID,
+				logs.WithStatus(logs.LogStatusError),
+				logs.WithUserAgent(r.UserAgent()),
+				logs.WithMetadata("error", "Employee not found"),
+				logs.WithMetadata("path", r.URL.Path),
+				logs.WithMetadata("employee_id", employeeID),
+			)
+			core.SendNotFound(w, "Employee not found.")
+		case strings.Contains(errorMsg, "position not found"):
+			h.logsService.Log(r.Context(), config.PERMISSION_HRM_EMPLOYEES_UPDATE, accountID,
+				logs.WithStatus(logs.LogStatusError),
+				logs.WithUserAgent(r.UserAgent()),
+				logs.WithMetadata("error", "Position not found"),
+				logs.WithMetadata("path", r.URL.Path),
+				logs.WithMetadata("position_id", req.PositionID),
+			)
+			core.SendNotFound(w, "Position not found.")
+		case strings.Contains(errorMsg, "link not found"):
+			h.logsService.Log(r.Context(), config.PERMISSION_HRM_EMPLOYEES_UPDATE, accountID,
+				logs.WithStatus(logs.LogStatusError),
+				logs.WithUserAgent(r.UserAgent()),
+				logs.WithMetadata("error", errorMsg),
+				logs.WithMetadata("path", r.URL.Path),
+			)
+			core.SendNotFound(w, "Position link not found.")
+		default:
+			h.logsService.Log(r.Context(), config.PERMISSION_HRM_EMPLOYEES_UPDATE, accountID,
+				logs.WithStatus(logs.LogStatusError),
+				logs.WithUserAgent(r.UserAgent()),
+				logs.WithMetadata("error", errorMsg),
+				logs.WithMetadata("path", r.URL.Path),
+			)
+			core.SendInternalError(w, fmt.Sprintf("Failed to unlink position: %s", errorMsg))
+		}
+		return
+	}
+
+	h.logsService.Log(r.Context(), config.PERMISSION_HRM_EMPLOYEES_UPDATE, accountID,
+		logs.WithStatus(logs.LogStatusSuccess),
+		logs.WithUserAgent(r.UserAgent()),
+		logs.WithMetadata("employee_id", employeeID),
+		logs.WithMetadata("position_id", req.PositionID),
+		logs.WithMetadata("action", "unlink_position"),
+	)
+
+	core.SendSuccess(w, nil, "Position unlinked successfully.")
 }

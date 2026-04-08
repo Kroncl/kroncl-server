@@ -36,7 +36,8 @@ type EmployeeListItem struct {
 
 type EmployeeDetail struct {
 	EmployeeListItem
-	Account *accounts.AccountPublic `json:"account,omitempty"`
+	Account   *accounts.AccountPublic `json:"account"`
+	Positions []Position              `json:"positions"`
 }
 
 type CreateEmployeeRequest struct {

@@ -272,3 +272,17 @@ func (r *Repository) DeletePosition(ctx context.Context, id string) error {
 
 	return nil
 }
+
+// CheckPositionExists проверяет существование должности по ID
+func (r *Repository) CheckPositionExists(ctx context.Context, positionID string) error {
+	var exists bool
+	query := `SELECT EXISTS(SELECT 1 FROM employees_positions WHERE id = $1)`
+	err := r.pool.QueryRow(ctx, query, positionID).Scan(&exists)
+	if err != nil {
+		return fmt.Errorf("failed to check position existence: %w", err)
+	}
+	if !exists {
+		return fmt.Errorf("position not found")
+	}
+	return nil
+}

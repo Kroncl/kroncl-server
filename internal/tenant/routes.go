@@ -162,6 +162,12 @@ func (rt *Routes) Register(r chi.Router) {
 					r.Post("/unlink-account", rt.hrm(func(h *hrm.Handlers) http.HandlerFunc {
 						return h.UnlinkAccountEmployee
 					}))
+					r.Post("/link-position", rt.hrm(func(h *hrm.Handlers) http.HandlerFunc {
+						return h.LinkPosition
+					}))
+					r.Post("/unlink-position", rt.hrm(func(h *hrm.Handlers) http.HandlerFunc {
+						return h.UnlinkPosition
+					}))
 				})
 			})
 		})

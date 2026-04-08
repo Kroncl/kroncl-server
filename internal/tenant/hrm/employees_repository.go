@@ -2,6 +2,7 @@ package hrm
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"kroncl-server/internal/core"
 	"strconv"
@@ -15,8 +16,9 @@ import (
 // EMPLOYEES
 // ---------
 
-// GetEmployeeByID возвращает детальную информацию
+// GetEmployeeByID возвращает детальную информацию с должностями
 func (r *Repository) GetEmployeeByID(ctx context.Context, id string) (*EmployeeDetail, error) {
+	// Базовый запрос сотрудника с аккаунтом
 	query := `
 		SELECT 
 			e.id,
@@ -58,6 +60,68 @@ func (r *Repository) GetEmployeeByID(ctx context.Context, id string) (*EmployeeD
 	employee.AccountID = accountID
 	employee.LinkedAt = linkedAt
 	employee.IsAccountLinked = accountID != nil
+
+	// Загружаем аккаунт если привязан
+	if accountID != nil {
+		account, err := r.accountsService.GetPublicByID(ctx, *accountID)
+		if err == nil {
+			employee.Account = account
+		}
+	}
+
+	// Загружаем должности сотрудника
+	positionsQuery := `
+		SELECT 
+			p.id,
+			p.name,
+			p.description,
+			p.permissions,
+			p.created_at,
+			p.updated_at
+		FROM employee_position ep
+		INNER JOIN employees_positions p ON ep.position_id = p.id
+		WHERE ep.employee_id = $1
+		ORDER BY ep.created_at ASC
+	`
+
+	rows, err := r.pool.Query(ctx, positionsQuery, id)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get employee positions: %w", err)
+	}
+	defer rows.Close()
+
+	var positions []Position
+	for rows.Next() {
+		var pos Position
+		var description *string
+		var permissionsJSON []byte
+
+		err := rows.Scan(
+			&pos.ID,
+			&pos.Name,
+			&description,
+			&permissionsJSON,
+			&pos.CreatedAt,
+			&pos.UpdatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan position: %w", err)
+		}
+
+		pos.Description = description
+
+		if len(permissionsJSON) > 0 {
+			if err := json.Unmarshal(permissionsJSON, &pos.Permissions); err != nil {
+				return nil, fmt.Errorf("failed to parse permissions: %w", err)
+			}
+		} else {
+			pos.Permissions = []string{}
+		}
+
+		positions = append(positions, pos)
+	}
+
+	employee.Positions = positions
 
 	return &employee, nil
 }
@@ -457,6 +521,70 @@ func (r *Repository) RemoveEmployeeAccount(ctx context.Context, companyID, accou
 	`
 
 	_, err = r.pool.Exec(ctx, query, accountID)
+
+	return nil
+}
+
+// LinkPosition связывает должность с сотрудником
+func (r *Repository) LinkPosition(ctx context.Context, employeeID, positionID string) error {
+	// Проверяем существование сотрудника
+	_, err := r.GetEmployeeByID(ctx, employeeID)
+	if err != nil {
+		return fmt.Errorf("employee not found: %w", err)
+	}
+
+	// Проверяем существование должности
+	if err := r.CheckPositionExists(ctx, positionID); err != nil {
+		return err
+	}
+
+	// Проверяем, не привязана ли уже эта должность к сотруднику
+	var exists bool
+	checkQuery := `SELECT EXISTS(SELECT 1 FROM employee_position WHERE employee_id = $1 AND position_id = $2)`
+	err = r.pool.QueryRow(ctx, checkQuery, employeeID, positionID).Scan(&exists)
+	if err != nil {
+		return fmt.Errorf("failed to check existing link: %w", err)
+	}
+	if exists {
+		return fmt.Errorf("position already linked to this employee")
+	}
+
+	// Вставляем связь
+	query := `
+		INSERT INTO employee_position (id, employee_id, position_id, created_at, updated_at)
+		VALUES ($1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+	`
+	_, err = r.pool.Exec(ctx, query, uuid.New().String(), employeeID, positionID)
+	if err != nil {
+		return fmt.Errorf("failed to link position: %w", err)
+	}
+
+	return nil
+}
+
+// UnlinkPosition отвязывает должность от сотрудника
+func (r *Repository) UnlinkPosition(ctx context.Context, employeeID, positionID string) error {
+	// Проверяем существование сотрудника
+	_, err := r.GetEmployeeByID(ctx, employeeID)
+	if err != nil {
+		return fmt.Errorf("employee not found: %w", err)
+	}
+
+	// Проверяем существование должности
+	if err := r.CheckPositionExists(ctx, positionID); err != nil {
+		return err
+	}
+
+	// Удаляем связь
+	query := `DELETE FROM employee_position WHERE employee_id = $1 AND position_id = $2`
+	result, err := r.pool.Exec(ctx, query, employeeID, positionID)
+	if err != nil {
+		return fmt.Errorf("failed to unlink position: %w", err)
+	}
+
+	if result.RowsAffected() == 0 {
+		return fmt.Errorf("position link not found")
+	}
 
 	return nil
 }
