@@ -63,10 +63,10 @@ func (rt *Routes) Register(r chi.Router) {
 			return h.GetLog
 		}))
 
-		// clean
+		// clear
 		// - hard clean all logs
 		r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_LOGS_CLEAR)).
-			Post("/clean", rt.logs(func(h *logs.Handlers) http.HandlerFunc {
+			Post("/clear", rt.logs(func(h *logs.Handlers) http.HandlerFunc {
 				return h.ClearLogs
 			}))
 
@@ -79,7 +79,7 @@ func (rt *Routes) Register(r chi.Router) {
 
 		// activity
 		r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_LOGS_ACTIVITY)).
-			Post("/activity", rt.logs(func(h *logs.Handlers) http.HandlerFunc {
+			Get("/activity", rt.logs(func(h *logs.Handlers) http.HandlerFunc {
 				return h.GetLogsActivity
 			}))
 	})
