@@ -14,6 +14,8 @@ const (
 	PERMISSION_LOGS_ACTIVITY                     = "logs.activity"
 	PERMISSION_ACCOUNTS                          = "accounts"
 	PERMISSION_ACCOUNTS_DELETE                   = "accounts.delete"
+	PERMISSION_ACCOUNTS_SETTINGS                 = "accounts.settings"
+	PERMISSION_ACCOUNTS_SETTINGS_UPDATE          = "accounts.settings.update"
 	PERMISSION_ACCOUNTS_INVITATIONS              = "accounts.invitations"
 	PERMISSION_ACCOUNTS_INVITATIONS_CREATE       = "accounts.invitations.create"
 	PERMISSION_ACCOUNTS_INVITATIONS_REVOKE       = "accounts.invitations.revoke"

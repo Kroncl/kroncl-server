@@ -44,12 +44,27 @@ func NewRoutes(
 }
 
 func (rt *Routes) Register(r chi.Router) {
-	// accounts -> employees actions
+	// accounts -> employees actions + account settings
+	// корявенько получилось в плане /modules/accounts и просто /accounts эп,
+	// но пока похуй
 	r.Route("/accounts", func(r chi.Router) {
 		r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_ACCOUNTS_DELETE)).
 			Delete("/{accountId}", rt.hrm(func(h *hrm.Handlers) http.HandlerFunc {
 				return h.RemoveEmployeeAccount
 			}))
+
+		// настройки аккаунта в компании
+		r.Route("/{accountId}/settings", func(r chi.Router) {
+			r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_ACCOUNTS_SETTINGS))
+
+			r.Get("/", rt.hrm(func(h *hrm.Handlers) http.HandlerFunc {
+				return h.GetAccountSettings
+			}))
+			r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_ACCOUNTS_SETTINGS_UPDATE)).
+				Patch("/", rt.hrm(func(h *hrm.Handlers) http.HandlerFunc {
+					return h.UpdateAccountSettings
+				}))
+		})
 	})
 
 	// logs tech actions
