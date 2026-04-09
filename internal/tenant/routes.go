@@ -20,47 +20,44 @@ import (
 )
 
 type Routes struct {
-	publicPool        *pgxpool.Pool
-	storageService    *storage.Service
-	permissionService *permissioner.Service
-	accountsService   *accounts.Service
-	companiesService  *companies.Service
+	publicPool       *pgxpool.Pool
+	storageService   *storage.Service
+	accountsService  *accounts.Service
+	companiesService *companies.Service
 }
 
 func NewRoutes(
 	publicPool *pgxpool.Pool,
 	storageService *storage.Service,
-	permissionService *permissioner.Service,
 	accountsService *accounts.Service,
 	companiesService *companies.Service,
 ) *Routes {
 	return &Routes{
-		publicPool:        publicPool,
-		storageService:    storageService,
-		permissionService: permissionService,
-		accountsService:   accountsService,
-		companiesService:  companiesService,
+		publicPool:       publicPool,
+		storageService:   storageService,
+		accountsService:  accountsService,
+		companiesService: companiesService,
 	}
 }
 
-func (rt *Routes) Register(r chi.Router) {
+func (rt *Routes) Register(r chi.Router, permDeps *permissioner.PermissionDeps) {
 	// accounts -> employees actions + account settings
 	// корявенько получилось в плане /modules/accounts и просто /accounts эп,
 	// но пока похуй
 	r.Route("/accounts", func(r chi.Router) {
-		r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_ACCOUNTS_DELETE)).
+		r.With(permissioner.RequirePermission(permDeps, config.PERMISSION_ACCOUNTS_DELETE)).
 			Delete("/{accountId}", rt.hrm(func(h *hrm.Handlers) http.HandlerFunc {
 				return h.RemoveEmployeeAccount
 			}))
 
 		// настройки аккаунта в компании
 		r.Route("/{accountId}/settings", func(r chi.Router) {
-			r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_ACCOUNTS_SETTINGS))
+			r.With(permissioner.RequirePermission(permDeps, config.PERMISSION_ACCOUNTS_SETTINGS))
 
 			r.Get("/", rt.hrm(func(h *hrm.Handlers) http.HandlerFunc {
 				return h.GetAccountSettings
 			}))
-			r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_ACCOUNTS_SETTINGS_UPDATE)).
+			r.With(permissioner.RequirePermission(permDeps, config.PERMISSION_ACCOUNTS_SETTINGS_UPDATE)).
 				Patch("/", rt.hrm(func(h *hrm.Handlers) http.HandlerFunc {
 					return h.UpdateAccountSettings
 				}))
@@ -69,7 +66,7 @@ func (rt *Routes) Register(r chi.Router) {
 
 	// logs tech actions
 	r.Route("/logs", func(r chi.Router) {
-		r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_LOGS))
+		r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_LOGS))
 
 		r.Get("/", rt.logs(func(h *logs.Handlers) http.HandlerFunc {
 			return h.GetLogs
@@ -80,20 +77,20 @@ func (rt *Routes) Register(r chi.Router) {
 
 		// clear
 		// - hard clean all logs
-		r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_LOGS_CLEAR)).
+		r.With(permissioner.RequirePermission(permDeps, config.PERMISSION_LOGS_CLEAR)).
 			Post("/clear", rt.logs(func(h *logs.Handlers) http.HandlerFunc {
 				return h.ClearLogs
 			}))
 
 		// optimize
 		// - clean old
-		r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_LOGS_OPTIMIZE)).
+		r.With(permissioner.RequirePermission(permDeps, config.PERMISSION_LOGS_OPTIMIZE)).
 			Post("/optimize", rt.logs(func(h *logs.Handlers) http.HandlerFunc {
 				return h.OptimizeLogs
 			}))
 
 		// activity
-		r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_LOGS_ACTIVITY)).
+		r.With(permissioner.RequirePermission(permDeps, config.PERMISSION_LOGS_ACTIVITY)).
 			Get("/activity", rt.logs(func(h *logs.Handlers) http.HandlerFunc {
 				return h.GetLogsActivity
 			}))
@@ -101,12 +98,12 @@ func (rt *Routes) Register(r chi.Router) {
 
 	// support tech actions
 	r.Route("/support/tickets", func(r chi.Router) {
-		r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_SUPPORT_TICKETS))
+		r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_SUPPORT_TICKETS))
 
 		r.Get("/", rt.support(func(h *support.Handlers) http.HandlerFunc {
 			return h.GetTickets
 		}))
-		r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_SUPPORT_TICKETS_CREATE)).
+		r.With(permissioner.RequirePermission(permDeps, config.PERMISSION_SUPPORT_TICKETS_CREATE)).
 			Post("/", rt.support(func(h *support.Handlers) http.HandlerFunc {
 				return h.CreateTicket
 			}))
@@ -114,7 +111,7 @@ func (rt *Routes) Register(r chi.Router) {
 			r.Get("/", rt.support(func(h *support.Handlers) http.HandlerFunc {
 				return h.GetTicketByID
 			}))
-			r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_SUPPORT_TICKETS_UPDATE)).
+			r.With(permissioner.RequirePermission(permDeps, config.PERMISSION_SUPPORT_TICKETS_UPDATE)).
 				Patch("/", rt.support(func(h *support.Handlers) http.HandlerFunc {
 					return h.UpdateTicketStatus
 				}))
@@ -140,16 +137,16 @@ func (rt *Routes) Register(r chi.Router) {
 
 	// HRM module
 	r.Route("/hrm", func(r chi.Router) {
-		r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_HRM))
+		r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_HRM))
 
 		// employees
 		r.Route("/employees", func(r chi.Router) {
-			r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_HRM_EMPLOYEES))
+			r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_HRM_EMPLOYEES))
 
 			r.Get("/", rt.hrm(func(h *hrm.Handlers) http.HandlerFunc {
 				return h.GetEmployees
 			}))
-			r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_HRM_EMPLOYEES_CREATE)).
+			r.With(permissioner.RequirePermission(permDeps, config.PERMISSION_HRM_EMPLOYEES_CREATE)).
 				Post("/", rt.hrm(func(h *hrm.Handlers) http.HandlerFunc {
 					return h.CreateEmployee
 				}))
@@ -160,7 +157,7 @@ func (rt *Routes) Register(r chi.Router) {
 
 				// обновление
 				r.Group(func(r chi.Router) {
-					r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_HRM_EMPLOYEES_UPDATE))
+					r.With(permissioner.RequirePermission(permDeps, config.PERMISSION_HRM_EMPLOYEES_UPDATE))
 
 					r.Post("/deactivate", rt.hrm(func(h *hrm.Handlers) http.HandlerFunc {
 						return h.DeactivateEmployee
@@ -189,12 +186,12 @@ func (rt *Routes) Register(r chi.Router) {
 
 		// positions
 		r.Route("/positions", func(r chi.Router) {
-			r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_HRM_POSITIONS))
+			r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_HRM_POSITIONS))
 
 			r.Get("/", rt.hrm(func(h *hrm.Handlers) http.HandlerFunc {
 				return h.GetPositions
 			}))
-			r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_HRM_POSITIONS_CREATE)).
+			r.With(permissioner.RequirePermission(permDeps, config.PERMISSION_HRM_POSITIONS_CREATE)).
 				Post("/", rt.hrm(func(h *hrm.Handlers) http.HandlerFunc {
 					return h.CreatePosition
 				}))
@@ -202,11 +199,11 @@ func (rt *Routes) Register(r chi.Router) {
 				r.Get("/", rt.hrm(func(h *hrm.Handlers) http.HandlerFunc {
 					return h.GetPositionByID
 				}))
-				r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_HRM_POSITIONS_UPDATE)).
+				r.With(permissioner.RequirePermission(permDeps, config.PERMISSION_HRM_POSITIONS_UPDATE)).
 					Patch("/", rt.hrm(func(h *hrm.Handlers) http.HandlerFunc {
 						return h.UpdatePosition
 					}))
-				r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_HRM_POSITIONS_DELETE)).
+				r.With(permissioner.RequirePermission(permDeps, config.PERMISSION_HRM_POSITIONS_DELETE)).
 					Delete("/", rt.hrm(func(h *hrm.Handlers) http.HandlerFunc {
 						return h.DeletePosition
 					}))
@@ -215,7 +212,7 @@ func (rt *Routes) Register(r chi.Router) {
 
 		// analysis
 		r.Route("/analysis", func(r chi.Router) {
-			r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_HRM_ANALYSIS))
+			r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_HRM_ANALYSIS))
 
 			r.Get("/summary", rt.hrm(func(h *hrm.Handlers) http.HandlerFunc {
 				return h.GetSummary
@@ -228,17 +225,17 @@ func (rt *Routes) Register(r chi.Router) {
 
 	// FM module
 	r.Route("/fm", func(r chi.Router) {
-		r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_FM))
+		r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_FM))
 
 		// transactions
 		r.Route("/transactions", func(r chi.Router) {
-			r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_FM_TRANSACTIONS))
+			r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_FM_TRANSACTIONS))
 
 			r.Get("/", rt.fm(func(h *fm.Handlers) http.HandlerFunc {
 				return h.GetTransactions
 			}))
 
-			r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_FM_TRANSACTIONS_CREATE)).
+			r.With(permissioner.RequirePermission(permDeps, config.PERMISSION_FM_TRANSACTIONS_CREATE)).
 				Post("/", rt.fm(func(h *fm.Handlers) http.HandlerFunc {
 					return h.CreateTransaction
 				}))
@@ -251,7 +248,7 @@ func (rt *Routes) Register(r chi.Router) {
 				}))
 
 				// create reverse transaction
-				r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_FM_TRANSACTIONS_REVERSE)).
+				r.With(permissioner.RequirePermission(permDeps, config.PERMISSION_FM_TRANSACTIONS_REVERSE)).
 					Post("/reverse", rt.fm(func(h *fm.Handlers) http.HandlerFunc {
 						return h.CreateReverseTransaction
 					}))
@@ -259,12 +256,12 @@ func (rt *Routes) Register(r chi.Router) {
 
 			// transactions categories
 			r.Route("/categories", func(r chi.Router) {
-				r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_FM_TRANSACTIONS_CATEGORIES))
+				r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_FM_TRANSACTIONS_CATEGORIES))
 
 				r.Get("/", rt.fm(func(h *fm.Handlers) http.HandlerFunc {
 					return h.GetCategories
 				}))
-				r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_FM_TRANSACTIONS_CATEGORIES_CREATE)).
+				r.With(permissioner.RequirePermission(permDeps, config.PERMISSION_FM_TRANSACTIONS_CATEGORIES_CREATE)).
 					Post("/", rt.fm(func(h *fm.Handlers) http.HandlerFunc {
 						return h.CreateCategory
 					}))
@@ -272,11 +269,11 @@ func (rt *Routes) Register(r chi.Router) {
 					r.Get("/", rt.fm(func(h *fm.Handlers) http.HandlerFunc {
 						return h.GetCategory
 					}))
-					r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_FM_TRANSACTIONS_CATEGORIES_UPDATE)).
+					r.With(permissioner.RequirePermission(permDeps, config.PERMISSION_FM_TRANSACTIONS_CATEGORIES_UPDATE)).
 						Patch("/", rt.fm(func(h *fm.Handlers) http.HandlerFunc {
 							return h.UpdateCategory
 						}))
-					r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_FM_TRANSACTIONS_CATEGORIES_DELETE)).
+					r.With(permissioner.RequirePermission(permDeps, config.PERMISSION_FM_TRANSACTIONS_CATEGORIES_DELETE)).
 						Delete("/", rt.fm(func(h *fm.Handlers) http.HandlerFunc {
 							return h.DeleteCategory
 						}))
@@ -286,7 +283,7 @@ func (rt *Routes) Register(r chi.Router) {
 
 		// analysis
 		r.Route("/analysis", func(r chi.Router) {
-			r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_FM_ANALYSIS))
+			r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_FM_ANALYSIS))
 
 			r.Get("/summary", rt.fm(func(h *fm.Handlers) http.HandlerFunc {
 				return h.GetAnalysisSummary
@@ -298,12 +295,12 @@ func (rt *Routes) Register(r chi.Router) {
 
 		// counterparties
 		r.Route("/counterparties", func(r chi.Router) {
-			r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_FM_COUNTERPARTIES))
+			r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_FM_COUNTERPARTIES))
 
 			r.Get("/", rt.fm(func(h *fm.Handlers) http.HandlerFunc {
 				return h.GetCounterparties
 			}))
-			r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_FM_COUNTERPARTIES_CREATE)).
+			r.With(permissioner.RequirePermission(permDeps, config.PERMISSION_FM_COUNTERPARTIES_CREATE)).
 				Post("/", rt.fm(func(h *fm.Handlers) http.HandlerFunc {
 					return h.CreateCounterparty
 				}))
@@ -314,7 +311,7 @@ func (rt *Routes) Register(r chi.Router) {
 
 				// [update counterparty] no hard delete!
 				r.Group(func(r chi.Router) {
-					r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_FM_COUNTERPARTIES_UPDATE))
+					r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_FM_COUNTERPARTIES_UPDATE))
 
 					r.Patch("/", rt.fm(func(h *fm.Handlers) http.HandlerFunc {
 						return h.UpdateCounterparty
@@ -331,12 +328,12 @@ func (rt *Routes) Register(r chi.Router) {
 
 		// credits
 		r.Route("/credits", func(r chi.Router) {
-			r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_FM_CREDITS))
+			r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_FM_CREDITS))
 
 			r.Get("/", rt.fm(func(h *fm.Handlers) http.HandlerFunc {
 				return h.GetCredits
 			}))
-			r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_FM_CREDITS_CREATE)).
+			r.With(permissioner.RequirePermission(permDeps, config.PERMISSION_FM_CREDITS_CREATE)).
 				Post("/", rt.fm(func(h *fm.Handlers) http.HandlerFunc {
 					return h.CreateCredit
 				}))
@@ -344,18 +341,18 @@ func (rt *Routes) Register(r chi.Router) {
 				r.Get("/", rt.fm(func(h *fm.Handlers) http.HandlerFunc {
 					return h.GetCredit
 				}))
-				r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_FM_CREDITS_TRANSACTIONS)).
+				r.With(permissioner.RequirePermission(permDeps, config.PERMISSION_FM_CREDITS_TRANSACTIONS)).
 					Get("/transactions", rt.fm(func(h *fm.Handlers) http.HandlerFunc {
 						return h.GetCreditTransactions
 					}))
-				r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_FM_CREDITS_PAY)).
+				r.With(permissioner.RequirePermission(permDeps, config.PERMISSION_FM_CREDITS_PAY)).
 					Post("/pay", rt.fm(func(h *fm.Handlers) http.HandlerFunc {
 						return h.PayCredit
 					}))
 
 				// [update credit] no hard delete!
 				r.Group(func(r chi.Router) {
-					r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_FM_COUNTERPARTIES_UPDATE))
+					r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_FM_COUNTERPARTIES_UPDATE))
 
 					r.Patch("/", rt.fm(func(h *fm.Handlers) http.HandlerFunc {
 						return h.UpdateCredit
@@ -373,16 +370,16 @@ func (rt *Routes) Register(r chi.Router) {
 
 	// CRM module
 	r.Route("/crm", func(r chi.Router) {
-		r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_CRM))
+		r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_CRM))
 
 		// sources
 		r.Route("/sources", func(r chi.Router) {
-			r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_CRM_SOURCES))
+			r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_CRM_SOURCES))
 
 			r.Get("/", rt.crm(func(h *crm.Handlers) http.HandlerFunc {
 				return h.GetClientSources
 			}))
-			r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_CRM_SOURCES_CREATE)).
+			r.With(permissioner.RequirePermission(permDeps, config.PERMISSION_CRM_SOURCES_CREATE)).
 				Post("/", rt.crm(func(h *crm.Handlers) http.HandlerFunc {
 					return h.CreateClientSource
 				}))
@@ -393,7 +390,7 @@ func (rt *Routes) Register(r chi.Router) {
 
 				// [update source] no hard delete!
 				r.Group(func(r chi.Router) {
-					r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_CRM_SOURCES_UPDATE))
+					r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_CRM_SOURCES_UPDATE))
 
 					r.Patch("/", rt.crm(func(h *crm.Handlers) http.HandlerFunc {
 						return h.UpdateClientSource
@@ -410,12 +407,12 @@ func (rt *Routes) Register(r chi.Router) {
 
 		// clients
 		r.Route("/clients", func(r chi.Router) {
-			r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_CRM_CLIENTS))
+			r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_CRM_CLIENTS))
 
 			r.Get("/", rt.crm(func(h *crm.Handlers) http.HandlerFunc {
 				return h.GetClients
 			}))
-			r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_CRM_CLIENTS_CREATE)).
+			r.With(permissioner.RequirePermission(permDeps, config.PERMISSION_CRM_CLIENTS_CREATE)).
 				Post("/", rt.crm(func(h *crm.Handlers) http.HandlerFunc {
 					return h.CreateClient
 				}))
@@ -426,7 +423,7 @@ func (rt *Routes) Register(r chi.Router) {
 
 				// [update client] no hard delete!
 				r.Group(func(r chi.Router) {
-					r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_CRM_CLIENTS_UPDATE))
+					r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_CRM_CLIENTS_UPDATE))
 
 					r.Patch("/", rt.crm(func(h *crm.Handlers) http.HandlerFunc {
 						return h.UpdateClient
@@ -443,7 +440,7 @@ func (rt *Routes) Register(r chi.Router) {
 
 		// analysis
 		r.Route("/analysis", func(r chi.Router) {
-			r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_CRM_ANALYSIS))
+			r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_CRM_ANALYSIS))
 
 			r.Get("/summary", rt.crm(func(h *crm.Handlers) http.HandlerFunc {
 				return h.GetClientsSummary
@@ -456,20 +453,20 @@ func (rt *Routes) Register(r chi.Router) {
 
 	// WM module
 	r.Route("/wm", func(r chi.Router) {
-		r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_WM))
+		r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_WM))
 
 		// catalog
 		r.Route("/catalog", func(r chi.Router) {
-			r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_WM_CATALOG))
+			r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_WM_CATALOG))
 
 			// categories
 			r.Route("/categories", func(r chi.Router) {
-				r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_WM_CATALOG_CATEGORIES))
+				r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_WM_CATALOG_CATEGORIES))
 
 				r.Get("/", rt.wm(func(h *wm.Handlers) http.HandlerFunc {
 					return h.GetCatalogCategories
 				}))
-				r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_WM_CATALOG_CATEGORIES_CREATE)).
+				r.With(permissioner.RequirePermission(permDeps, config.PERMISSION_WM_CATALOG_CATEGORIES_CREATE)).
 					Post("/", rt.wm(func(h *wm.Handlers) http.HandlerFunc {
 						return h.CreateCatalogCategory
 					}))
@@ -480,7 +477,7 @@ func (rt *Routes) Register(r chi.Router) {
 
 					// [update category] no hard delete!
 					r.Group(func(r chi.Router) {
-						r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_WM_CATALOG_CATEGORIES_UPDATE))
+						r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_WM_CATALOG_CATEGORIES_UPDATE))
 
 						r.Patch("/", rt.wm(func(h *wm.Handlers) http.HandlerFunc {
 							return h.UpdateCatalogCategory
@@ -497,12 +494,12 @@ func (rt *Routes) Register(r chi.Router) {
 
 			// units
 			r.Route("/units", func(r chi.Router) {
-				r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_WM_CATALOG_UNITS))
+				r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_WM_CATALOG_UNITS))
 
 				r.Get("/", rt.wm(func(h *wm.Handlers) http.HandlerFunc {
 					return h.GetCatalogUnits
 				}))
-				r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_WM_CATALOG_UNITS_CREATE)).
+				r.With(permissioner.RequirePermission(permDeps, config.PERMISSION_WM_CATALOG_UNITS_CREATE)).
 					Post("/", rt.wm(func(h *wm.Handlers) http.HandlerFunc {
 						return h.CreateCatalogUnit
 					}))
@@ -513,7 +510,7 @@ func (rt *Routes) Register(r chi.Router) {
 
 					// [update unit] no hard delete!
 					r.Group(func(r chi.Router) {
-						r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_WM_CATALOG_UNITS_UPDATE))
+						r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_WM_CATALOG_UNITS_UPDATE))
 
 						r.Patch("/", rt.wm(func(h *wm.Handlers) http.HandlerFunc {
 							return h.UpdateCatalogUnit
@@ -531,16 +528,16 @@ func (rt *Routes) Register(r chi.Router) {
 
 		// stocks
 		r.Route("/stocks", func(r chi.Router) {
-			r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_WM_STOCKS))
+			r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_WM_STOCKS))
 
 			// batches
 			r.Route("/batches", func(r chi.Router) {
-				r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_WM_STOCKS_BATCHES))
+				r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_WM_STOCKS_BATCHES))
 
 				r.Get("/", rt.wm(func(h *wm.Handlers) http.HandlerFunc {
 					return h.GetStockBatches
 				}))
-				r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_WM_STOCKS_BATCHES_CREATE)).
+				r.With(permissioner.RequirePermission(permDeps, config.PERMISSION_WM_STOCKS_BATCHES_CREATE)).
 					Post("/", rt.wm(func(h *wm.Handlers) http.HandlerFunc {
 						return h.CreateStockBatch
 					}))
@@ -553,7 +550,7 @@ func (rt *Routes) Register(r chi.Router) {
 
 			// positions
 			r.Route("/positions", func(r chi.Router) {
-				r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_WM_STOCKS_POSITIONS))
+				r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_WM_STOCKS_POSITIONS))
 
 				r.Get("/", rt.wm(func(h *wm.Handlers) http.HandlerFunc {
 					return h.GetStockPositions
@@ -569,16 +566,16 @@ func (rt *Routes) Register(r chi.Router) {
 
 	// DM module
 	r.Route("/dm", func(r chi.Router) {
-		r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_DM))
+		r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_DM))
 
 		// types
 		r.Route("/types", func(r chi.Router) {
-			r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_DM_TYPES))
+			r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_DM_TYPES))
 
 			r.Get("/", rt.dm(func(h *dm.Handlers) http.HandlerFunc {
 				return h.GetDealTypes
 			}))
-			r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_DM_TYPES_CREATE)).
+			r.With(permissioner.RequirePermission(permDeps, config.PERMISSION_DM_TYPES_CREATE)).
 				Post("/", rt.dm(func(h *dm.Handlers) http.HandlerFunc {
 					return h.CreateDealType
 				}))
@@ -588,12 +585,12 @@ func (rt *Routes) Register(r chi.Router) {
 					return h.GetDealType
 				}))
 
-				r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_DM_TYPES_UPDATE)).
+				r.With(permissioner.RequirePermission(permDeps, config.PERMISSION_DM_TYPES_UPDATE)).
 					Patch("/", rt.dm(func(h *dm.Handlers) http.HandlerFunc {
 						return h.UpdateDealType
 					}))
 
-				r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_DM_TYPES_DELETE)).
+				r.With(permissioner.RequirePermission(permDeps, config.PERMISSION_DM_TYPES_DELETE)).
 					Delete("/", rt.dm(func(h *dm.Handlers) http.HandlerFunc {
 						return h.DeleteDealType
 					}))
@@ -602,18 +599,18 @@ func (rt *Routes) Register(r chi.Router) {
 
 		// statuses
 		r.Route("/statuses", func(r chi.Router) {
-			r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_DM_STATUSES))
+			r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_DM_STATUSES))
 
 			r.Get("/", rt.dm(func(h *dm.Handlers) http.HandlerFunc {
 				return h.GetDealStatuses
 			}))
-			r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_DM_STATUSES_CREATE)).
+			r.With(permissioner.RequirePermission(permDeps, config.PERMISSION_DM_STATUSES_CREATE)).
 				Post("/", rt.dm(func(h *dm.Handlers) http.HandlerFunc {
 					return h.CreateDealStatus
 				}))
 
 			// reorder collection
-			r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_DM_STATUSES_UPDATE)).
+			r.With(permissioner.RequirePermission(permDeps, config.PERMISSION_DM_STATUSES_UPDATE)).
 				Put("/reorder", rt.dm(func(h *dm.Handlers) http.HandlerFunc {
 					return h.ReorderDealStatuses
 				}))
@@ -623,12 +620,12 @@ func (rt *Routes) Register(r chi.Router) {
 					return h.GetDealStatus
 				}))
 
-				r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_DM_STATUSES_UPDATE)).
+				r.With(permissioner.RequirePermission(permDeps, config.PERMISSION_DM_STATUSES_UPDATE)).
 					Patch("/", rt.dm(func(h *dm.Handlers) http.HandlerFunc {
 						return h.UpdateDealStatus
 					}))
 
-				r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_DM_STATUSES_DELETE)).
+				r.With(permissioner.RequirePermission(permDeps, config.PERMISSION_DM_STATUSES_DELETE)).
 					Delete("/", rt.dm(func(h *dm.Handlers) http.HandlerFunc {
 						return h.DeleteDealStatus
 					}))
@@ -637,12 +634,12 @@ func (rt *Routes) Register(r chi.Router) {
 
 		// deals
 		r.Route("/deals", func(r chi.Router) {
-			r.Use(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_DM_DEALS))
+			r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_DM_DEALS))
 
 			r.Get("/", rt.dm(func(h *dm.Handlers) http.HandlerFunc {
 				return h.GetDeals
 			}))
-			r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_DM_DEALS_CREATE)).
+			r.With(permissioner.RequirePermission(permDeps, config.PERMISSION_DM_DEALS_CREATE)).
 				Post("/", rt.dm(func(h *dm.Handlers) http.HandlerFunc {
 					return h.CreateDeal
 				}))
@@ -652,12 +649,12 @@ func (rt *Routes) Register(r chi.Router) {
 					return h.GetDeal
 				}))
 
-				r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_DM_DEALS_UPDATE)).
+				r.With(permissioner.RequirePermission(permDeps, config.PERMISSION_DM_DEALS_UPDATE)).
 					Patch("/", rt.dm(func(h *dm.Handlers) http.HandlerFunc {
 						return h.UpdateDeal
 					}))
 
-				r.With(permissioner.RequirePermission(rt.permissionService, config.PERMISSION_DM_DEALS_DELETE)).
+				r.With(permissioner.RequirePermission(permDeps, config.PERMISSION_DM_DEALS_DELETE)).
 					Delete("/", rt.dm(func(h *dm.Handlers) http.HandlerFunc {
 						return h.DeleteDeal
 					}))

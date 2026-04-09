@@ -16,7 +16,6 @@ func (s *Service) GetCompanyInvitations(
 	companyID string,
 	params GetInvitationsRequest,
 ) (*GetInvitationsResponse, error) {
-	// Базовый запрос
 	baseQuery := `
         SELECT 
             id, email, company_id, status,
@@ -25,20 +24,16 @@ func (s *Service) GetCompanyInvitations(
         WHERE company_id = $1
     `
 
-	// Запрос для подсчета общего количества
 	countQuery := `
         SELECT COUNT(*) 
         FROM company_invitations
         WHERE company_id = $1
     `
 
-	// Подготавливаем аргументы
 	args := []interface{}{companyID}
-	argCounter := 2 // $1 уже занят company_id
+	argCounter := 2
 
-	// Добавляем фильтр по статусу
 	if params.Status != "" {
-		// Валидируем статус
 		validStatuses := map[string]bool{
 			InvitationStatusWaiting:  true,
 			InvitationStatusAccepted: true,
@@ -55,7 +50,6 @@ func (s *Service) GetCompanyInvitations(
 		argCounter++
 	}
 
-	// Добавляем поиск по email если есть
 	if params.Search != "" {
 		searchPattern := "%" + strings.ToLower(params.Search) + "%"
 		whereCondition := ` AND LOWER(email) LIKE $` + strconv.Itoa(argCounter)
@@ -65,26 +59,22 @@ func (s *Service) GetCompanyInvitations(
 		argCounter++
 	}
 
-	// Получаем общее количество для пагинации
 	var total int
 	err := s.pool.QueryRow(ctx, countQuery, args...).Scan(&total)
 	if err != nil {
 		return nil, fmt.Errorf("failed to count invitations: %w", err)
 	}
 
-	// Добавляем сортировку и лимиты для основного запроса
 	baseQuery += " ORDER BY created_at DESC"
 	baseQuery += " LIMIT $" + strconv.Itoa(argCounter) + " OFFSET $" + strconv.Itoa(argCounter+1)
 	args = append(args, params.Limit, params.Offset)
 
-	// Выполняем основной запрос
 	rows, err := s.pool.Query(ctx, baseQuery, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query invitations: %w", err)
 	}
 	defer rows.Close()
 
-	// Собираем результаты
 	var invitations []CompanyInvitation
 	for rows.Next() {
 		var invitation CompanyInvitation
@@ -106,7 +96,6 @@ func (s *Service) GetCompanyInvitations(
 		return nil, fmt.Errorf("rows iteration error: %w", err)
 	}
 
-	// Создаем пагинацию
 	pagination := core.NewPagination(total, params.Page, params.Limit)
 
 	return &GetInvitationsResponse{
@@ -165,14 +154,12 @@ func (s *Service) CreateInvitationAtomic(
 	invitedBy string,
 	req *CreateInvitationRequest,
 ) (*InvitationResponse, error) {
-	// Валидация email
 	if !isValidEmail(req.Email) {
 		return nil, fmt.Errorf("invalid email format")
 	}
 
 	normalizedEmail := strings.ToLower(req.Email)
 
-	// Начинаем транзакцию
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to start transaction: %w", err)
@@ -183,7 +170,6 @@ func (s *Service) CreateInvitationAtomic(
 		}
 	}()
 
-	// 1. Проверяем существование компании
 	var companyExists bool
 	err = tx.QueryRow(
 		ctx,
@@ -197,7 +183,6 @@ func (s *Service) CreateInvitationAtomic(
 		return nil, fmt.Errorf("company not found")
 	}
 
-	// 2. Проверяем, является ли пользователь с email уже членом компании
 	var isAlreadyMember bool
 	err = tx.QueryRow(
 		ctx,
@@ -219,7 +204,6 @@ func (s *Service) CreateInvitationAtomic(
 		return nil, fmt.Errorf("user with email %s is already a member of this company", req.Email)
 	}
 
-	// 3. Проверяем существующие приглашения
 	var hasPendingInvitation bool
 	var existingInvitationID string
 	err = tx.QueryRow(
@@ -288,11 +272,9 @@ func (s *Service) CreateInvitationAtomic(
 	)
 	if err != nil {
 		if strings.Contains(err.Error(), "unique constraint") {
-			// Конкурентное создание - откатываемся и проверяем снова
 			tx.Rollback(ctx)
 			tx = nil
 
-			// Проверяем еще раз вне транзакции
 			hasPending, existingInvitation, checkErr := s.HasPendingInvitation(ctx, normalizedEmail, companyID)
 			if checkErr == nil && hasPending {
 				return &InvitationResponse{
@@ -305,7 +287,6 @@ func (s *Service) CreateInvitationAtomic(
 		return nil, fmt.Errorf("failed to create invitation: %w", err)
 	}
 
-	// 5. Коммитим транзакцию
 	if err := tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
@@ -323,7 +304,6 @@ func (s *Service) UpdateInvitationStatus(
 	invitationID string,
 	status string,
 ) (*CompanyInvitation, error) {
-	// Валидация статуса
 	validStatuses := map[string]bool{
 		InvitationStatusWaiting:  true,
 		InvitationStatusAccepted: true,
@@ -333,12 +313,10 @@ func (s *Service) UpdateInvitationStatus(
 		return nil, fmt.Errorf("invalid status. Allowed values: waiting, accepted, rejected")
 	}
 
-	// Для принятия приглашения нужны дополнительные проверки
 	if status == InvitationStatusAccepted {
 		return s.acceptInvitation(ctx, invitationID)
 	}
 
-	// Обновление статуса на waiting или rejected
 	query := `
         UPDATE company_invitations 
         SET status = $1, updated_at = NOW()
@@ -373,7 +351,6 @@ func (s *Service) UpdateInvitationStatus(
 
 // acceptInvitation обрабатывает принятие приглашения
 func (s *Service) acceptInvitation(ctx context.Context, invitationID string) (*CompanyInvitation, error) {
-	// Используем транзакцию для атомарности
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to start transaction: %w", err)
@@ -384,7 +361,6 @@ func (s *Service) acceptInvitation(ctx context.Context, invitationID string) (*C
 		}
 	}()
 
-	// 1. Получаем информацию о приглашении
 	var invitation CompanyInvitation
 	var accountID string
 
@@ -415,17 +391,14 @@ func (s *Service) acceptInvitation(ctx context.Context, invitationID string) (*C
 		return nil, fmt.Errorf("failed to get invitation: %w", err)
 	}
 
-	// 2. Проверяем, что приглашение в статусе waiting
 	if invitation.Status != InvitationStatusWaiting {
 		return nil, fmt.Errorf("invitation is not in waiting status")
 	}
 
-	// 3. Проверяем, существует ли аккаунт
 	if accountID == "" {
 		return nil, fmt.Errorf("account with email %s not found or not confirmed", invitation.Email)
 	}
 
-	// 4. Проверяем, не является ли пользователь уже членом компании
 	var isAlreadyMember bool
 	err = tx.QueryRow(
 		ctx,
@@ -447,7 +420,6 @@ func (s *Service) acceptInvitation(ctx context.Context, invitationID string) (*C
 		return nil, fmt.Errorf("user is already a member of this company")
 	}
 
-	// 5. Обновляем статус приглашения
 	_, err = tx.Exec(
 		ctx,
 		`UPDATE company_invitations 
@@ -460,45 +432,28 @@ func (s *Service) acceptInvitation(ctx context.Context, invitationID string) (*C
 		return nil, fmt.Errorf("failed to update invitation status: %w", err)
 	}
 
-	// 6. Добавляем пользователя в компанию (с ролью member по умолчанию)
-	// Получаем ID роли member
-	var roleID int
-	err = tx.QueryRow(
-		ctx,
-		`SELECT id FROM roles WHERE code = $1`,
-		RoleMember,
-	).Scan(&roleID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to find member role: %w", err)
-	}
-
-	// Добавляем пользователя в компанию
 	_, err = tx.Exec(
 		ctx,
 		`INSERT INTO company_accounts (
-            company_id, account_id, role_id, permissions,
+            company_id, account_id, role_code, permissions,
             created_at, updated_at
         ) VALUES ($1, $2, $3, $4, NOW(), NOW())
         ON CONFLICT (company_id, account_id) DO NOTHING`,
 		invitation.CompanyID,
 		accountID,
-		roleID,
+		RoleGuest,
 		`{}`,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to add user to company: %w", err)
 	}
 
-	// 7. Коммитим транзакцию
 	if err := tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 	tx = nil
 
-	// 8. Возвращаем обновленное приглашение
 	invitation.Status = InvitationStatusAccepted
-	// Обновляем updated_at (он обновился в БД, но не в нашей структуре)
-	// Можно сделать дополнительный запрос или просто вернуть как есть
 	return &invitation, nil
 }
 
@@ -507,7 +462,6 @@ func (s *Service) WithdrawInvitation(
 	ctx context.Context,
 	invitationID string,
 ) error {
-	// Простое удаление без дополнительных проверок
 	query := `DELETE FROM company_invitations WHERE id = $1`
 
 	result, err := s.pool.Exec(ctx, query, invitationID)
@@ -515,7 +469,6 @@ func (s *Service) WithdrawInvitation(
 		return fmt.Errorf("failed to delete invitation: %w", err)
 	}
 
-	// Проверяем, была ли удалена запись
 	rowsAffected := result.RowsAffected()
 	if rowsAffected == 0 {
 		return fmt.Errorf("invitation not found")
@@ -556,7 +509,7 @@ func (s *Service) WithdrawInvitationByEmail(
 	return nil
 }
 
-// GetInvitationByID получает приглашение по ID (вспомогательный метод)
+// GetInvitationByID получает приглашение по ID
 func (s *Service) GetInvitationByID(
 	ctx context.Context,
 	invitationID string,
@@ -589,7 +542,7 @@ func (s *Service) GetInvitationByID(
 	return &invitation, nil
 }
 
-// ValidateInvitationStatus валидирует статус приглашения (вспомогательная функция)
+// ValidateInvitationStatus валидирует статус приглашения
 func ValidateInvitationStatus(status string) error {
 	validStatuses := map[string]bool{
 		InvitationStatusWaiting:  true,
@@ -628,10 +581,8 @@ func (s *Service) GetInvitationsByEmail(
 	email string,
 	params GetInvitationsByEmailRequest,
 ) (*GetInvitationsByEmailResponse, error) {
-	// Нормализуем email
 	normalizedEmail := strings.ToLower(email)
 
-	// Базовый запрос
 	baseQuery := `
         SELECT 
             ci.id, ci.email, ci.company_id, ci.status,
@@ -643,20 +594,16 @@ func (s *Service) GetInvitationsByEmail(
         WHERE ci.email = $1
     `
 
-	// Запрос для подсчета общего количества
 	countQuery := `
         SELECT COUNT(*) 
         FROM company_invitations
         WHERE email = $1
     `
 
-	// Подготавливаем аргументы
 	args := []interface{}{normalizedEmail}
-	argCounter := 2 // $1 уже занят email
+	argCounter := 2
 
-	// Добавляем фильтр по статусу если указан
 	if params.Status != "" {
-		// Валидируем статус
 		validStatuses := map[string]bool{
 			InvitationStatusWaiting:  true,
 			InvitationStatusAccepted: true,
@@ -673,26 +620,22 @@ func (s *Service) GetInvitationsByEmail(
 		argCounter++
 	}
 
-	// Получаем общее количество для пагинации
 	var total int
 	err := s.pool.QueryRow(ctx, countQuery, args...).Scan(&total)
 	if err != nil {
 		return nil, fmt.Errorf("failed to count invitations: %w", err)
 	}
 
-	// Добавляем сортировку и лимиты для основного запроса
 	baseQuery += " ORDER BY ci.created_at DESC"
 	baseQuery += " LIMIT $" + strconv.Itoa(argCounter) + " OFFSET $" + strconv.Itoa(argCounter+1)
 	args = append(args, params.Limit, params.Offset)
 
-	// Выполняем основной запрос
 	rows, err := s.pool.Query(ctx, baseQuery, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query invitations: %w", err)
 	}
 	defer rows.Close()
 
-	// Собираем результаты
 	var invitations []InvitationWithCompany
 	for rows.Next() {
 		var invitation InvitationWithCompany
@@ -716,7 +659,6 @@ func (s *Service) GetInvitationsByEmail(
 		return nil, fmt.Errorf("rows iteration error: %w", err)
 	}
 
-	// Создаем пагинацию
 	pagination := core.NewPagination(total, params.Page, params.Limit)
 
 	return &GetInvitationsByEmailResponse{

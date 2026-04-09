@@ -136,7 +136,7 @@ func (c *Container) initServices(ctx context.Context) error {
 	c.AccountsService = accounts.NewService(c.DB, c.JWTService, c.CompaniesService)
 
 	// Permission Service
-	c.PermissionService = permissioner.NewService(c.DB)
+	c.PermissionService = permissioner.NewService(c.CompaniesService)
 
 	// media
 	mediaRepo := media.NewRepository(c.DB)
@@ -173,7 +173,6 @@ func (c *Container) initTenantRoutes() error {
 	c.TenantRoutes = tenant.NewRoutes(
 		c.DB,
 		c.StorageService,
-		c.PermissionService,
 		c.AccountsService,
 		c.CompaniesService,
 	)

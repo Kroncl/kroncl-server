@@ -93,21 +93,10 @@ func (s *Service) Create(
 		return nil, fmt.Errorf("failed to create company: %w", err)
 	}
 
-	// 6. Получаем ID роли
-	var ownerRoleID int
-	err = tx.QueryRow(
-		ctx,
-		`SELECT id FROM roles WHERE code = $1`,
-		RoleOwner,
-	).Scan(&ownerRoleID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to find owner role: %w", err)
-	}
-
-	// 7. Добавляем создателя как владельца в company_accounts
+	// 6. Добавляем создателя как владельца в company_accounts
 	memberQuery := `
 		INSERT INTO company_accounts (
-			company_id, account_id, role_id, permissions,
+			company_id, account_id, role_code, permissions,
 			created_at, updated_at
 		) VALUES ($1, $2, $3, $4, $5, $6)
 		ON CONFLICT (company_id, account_id) DO NOTHING
@@ -117,7 +106,7 @@ func (s *Service) Create(
 		ctx, memberQuery,
 		companyID,
 		ownerId,
-		ownerRoleID,
+		RoleOwner,
 		`{}`,
 		currentTime,
 		currentTime,
@@ -126,14 +115,14 @@ func (s *Service) Create(
 		return nil, fmt.Errorf("failed to add owner to company: %w", err)
 	}
 
-	// 8. Коммитим транзакцию по созданию компании
+	// 7. Коммитим транзакцию по созданию компании
 	if err := tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	tx = nil
 
-	// 9. Создаем trial-транзакцию
+	// 8. Создаем trial-транзакцию
 	expiresAt := currentTime.Add(time.Duration(config.PRICING_TRIAL_PERIOD_DAYS) * 24 * time.Hour)
 
 	stoicPlanCode := config.PRICING_PLAN_LVL_1
@@ -150,19 +139,18 @@ func (s *Service) Create(
 		expiresAt,
 	)
 	if err != nil {
-		// Если транзакция не создалась — удаляем компанию
 		s.deleteCompany(ctx, company.ID)
 		return nil, fmt.Errorf("failed to create trial transaction: %w", err)
 	}
 
-	// 10. Обновляем статус транзакции на success
+	// 9. Обновляем статус транзакции на success
 	_, err = s.pricingService.UpdateTransactionStatus(ctx, trialTx.ID, pricing.TransactionStatusSuccess)
 	if err != nil {
 		s.deleteCompany(ctx, company.ID)
 		return nil, fmt.Errorf("failed to update trial transaction status: %w", err)
 	}
 
-	// 11. Запускаем процесс создания хранилища
+	// 10. Запускаем процесс создания хранилища
 	storage, err := s.storage.InitStorage(ctx, company.ID)
 	if err != nil || storage == nil {
 		s.deleteCompany(ctx, company.ID)

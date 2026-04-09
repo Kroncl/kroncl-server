@@ -3,141 +3,51 @@ package permissioner
 import (
 	"context"
 	"fmt"
-	"strings"
-
-	"github.com/jackc/pgx/v5/pgxpool"
+	"kroncl-server/internal/companies"
+	"kroncl-server/internal/config"
 )
 
 type Service struct {
-	pool *pgxpool.Pool
+	companiesService *companies.Service
 }
 
-func NewService(pool *pgxpool.Pool) *Service {
+func NewService(companiesService *companies.Service) *Service {
 	return &Service{
-		pool: pool,
+		companiesService: companiesService,
 	}
 }
 
-func (s *Service) Has(
+// CheckPermission проверяет доступ на основе тарифа компании и разрешения
+func (s *Service) CheckPermission(
 	ctx context.Context,
-	userID, companyID, permission string,
+	companyID string,
+	permission string,
 ) (bool, error) {
-	userPerms, err := s.getUserPermissions(ctx, userID, companyID)
+	// 1. Получаем текущий план компании
+	companyPlan, err := s.companiesService.GetCompanyPlan(ctx, companyID)
 	if err != nil {
-		return false, fmt.Errorf("failed to get user permissions: %w", err)
+		return false, fmt.Errorf("failed to get company plan: %w", err)
 	}
 
-	return s.checkPermission(userPerms, permission), nil
-}
+	// 2. Получаем требуемый lvl для разрешения
+	requiredLvl := config.GetPermissionLvl(permission)
+	currentLvl := companyPlan.CurrentPlan.Lvl
 
-func (s *Service) HasAll(
-	ctx context.Context,
-	userID, companyID string,
-	permissions ...string,
-) (bool, error) {
-	if len(permissions) == 0 {
-		return true, nil
+	// 3. Проверяем по lvl
+	// Чем меньше lvl, тем больше прав. Разрешено, если requiredLvl >= currentLvl
+	if requiredLvl > currentLvl {
+		return false, nil
 	}
 
-	userPerms, err := s.getUserPermissions(ctx, userID, companyID)
-	if err != nil {
-		return false, err
-	}
+	// 4. Проверяем истекший тариф
+	isExpired := companyPlan.DaysLeft == 0
 
-	for _, perm := range permissions {
-		if !s.checkPermission(userPerms, perm) {
+	if isExpired {
+		// Разрешаем только если разрешение в белом списке expired allowed
+		if !config.IsExpiredAllowed(permission) {
 			return false, nil
 		}
 	}
+
 	return true, nil
-}
-
-func (s *Service) HasAny(
-	ctx context.Context,
-	userID, companyID string,
-	permissions ...string,
-) (bool, error) {
-	if len(permissions) == 0 {
-		return true, nil
-	}
-
-	userPerms, err := s.getUserPermissions(ctx, userID, companyID)
-	if err != nil {
-		return false, err
-	}
-
-	for _, perm := range permissions {
-		if s.checkPermission(userPerms, perm) {
-			return true, nil
-		}
-	}
-	return false, nil
-}
-
-func (s *Service) getUserPermissions(
-	ctx context.Context,
-	userID, companyID string,
-) (map[string]bool, error) {
-	query := `
-		SELECT 
-			COALESCE(r.permissions, '[]'::jsonb) as role_perms,
-			COALESCE(ca.permissions, '{}'::jsonb) as custom_perms
-		FROM company_accounts ca
-		LEFT JOIN roles r ON ca.role_id = r.id
-		WHERE ca.company_id = $1 AND ca.account_id = $2
-	`
-
-	var (
-		rolePerms   []string
-		customPerms map[string]bool
-	)
-
-	err := s.pool.QueryRow(ctx, query, companyID, userID).Scan(&rolePerms, &customPerms)
-	if err != nil {
-		return nil, fmt.Errorf("user not found in company: %w", err)
-	}
-
-	return mergePermissions(rolePerms, customPerms), nil
-}
-
-func mergePermissions(rolePerms []string, customPerms map[string]bool) map[string]bool {
-	result := make(map[string]bool)
-
-	// Права из роли
-	for _, perm := range rolePerms {
-		result[perm] = true
-	}
-
-	// Кастомные оверрайды (только добавляют)
-	for perm, allowed := range customPerms {
-		if allowed {
-			result[perm] = true
-		}
-		// false игнорируем - не удаляем права роли
-	}
-
-	return result
-}
-
-func (s *Service) checkPermission(userPerms map[string]bool, permission string) bool {
-	// Полный доступ
-	if userPerms["*"] {
-		return true
-	}
-
-	// Точное совпадение
-	if allowed, ok := userPerms[permission]; ok {
-		return allowed
-	}
-
-	// Wildcard проверка (crm.* для crm.clients.view)
-	parts := strings.Split(permission, ".")
-	for i := 1; i < len(parts); i++ {
-		wildcard := strings.Join(parts[:i], ".") + ".*"
-		if allowed, ok := userPerms[wildcard]; ok {
-			return allowed
-		}
-	}
-
-	return false
 }

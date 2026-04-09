@@ -136,51 +136,57 @@ func New(cfg *config.Config, container *di.Container) chi.Router {
 
 				// Specific company routes
 				r.Route("/{id}", func(r chi.Router) {
-					// Company context + access check
+					// Company context + basic access check
 					r.Use(companies.CompanyMembership(container.DB))
 					// Tenant pool middleware
 					r.Use(container.StorageService.TenantPoolMiddleware)
 
+					// Создаем зависимости для мидлвари чекаря
+					permDeps := &permissioner.PermissionDeps{
+						PermService:    container.PermissionService,
+						StorageService: container.StorageService,
+					}
+
 					// Company pricing
 					r.Route("/pricing", func(r chi.Router) {
 						r.Get("/", container.CompaniesHandlers.GetCompanyPricingPlan) // текущий план+остаток
-						r.With(permissioner.RequirePermission(container.PermissionService, config.PERMISSION_PRICING_MIGRATE)).
+						r.With(permissioner.RequirePermission(permDeps, config.PERMISSION_PRICING_MIGRATE)).
 							Post("/migrate", container.CompaniesHandlers.MigratePricingPlan) // смена плана
-						r.With(permissioner.RequirePermission(container.PermissionService, config.PERMISSION_PRICING_TRANSACTIONS)).
+						r.With(permissioner.RequirePermission(permDeps, config.PERMISSION_PRICING_TRANSACTIONS)).
 							Get("/transactions", container.CompaniesHandlers.GetCompanyPricingTransactions) // получение операций
-						r.With(permissioner.RequirePermission(container.PermissionService, config.PERMISSION_PRICING_MIGRATE)).
+						r.With(permissioner.RequirePermission(permDeps, config.PERMISSION_PRICING_MIGRATE)).
 							Post("/transactions/{transactionId}/revoke", container.CompaniesHandlers.RevokePricingTransaction) // отмена транзакции
 					})
 
 					r.Get("/", container.CompaniesHandlers.GetUserCompanyById)
-					r.With(permissioner.RequirePermission(container.PermissionService, config.PERMISSION_COMPANY_UPDATE)).Patch("/", container.CompaniesHandlers.Update)
+					r.With(permissioner.RequirePermission(permDeps, config.PERMISSION_COMPANY_UPDATE)).Patch("/", container.CompaniesHandlers.Update)
 
 					// Company storage
 					r.Route("/storage", func(r chi.Router) {
 						r.Get("/", container.StorageHandlers.Get)
-						r.With(permissioner.RequirePermission(container.PermissionService, config.PERMISSION_STORAGE_SOURCES)).Get("/sources", container.StorageHandlers.GetSources)
+						r.With(permissioner.RequirePermission(permDeps, config.PERMISSION_STORAGE_SOURCES)).Get("/sources", container.StorageHandlers.GetSources)
 					})
 
 					// Company accounts (hrm part)
 					r.Route("/accounts", func(r chi.Router) {
-						r.Use(permissioner.RequirePermission(container.PermissionService, config.PERMISSION_ACCOUNTS))
+						r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_ACCOUNTS))
 						r.Get("/", container.CompaniesHandlers.GetCompanyMembers)
 						r.Get("/{accountId}", container.CompaniesHandlers.GetCompanyMember)
 
 						r.Route("/invitations", func(r chi.Router) {
-							r.Use(permissioner.RequirePermission(container.PermissionService, config.PERMISSION_ACCOUNTS_INVITATIONS))
+							r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_ACCOUNTS_INVITATIONS))
 
 							r.Get("/", container.CompaniesHandlers.GetCompanyInvitations)
-							r.With(permissioner.RequirePermission(container.PermissionService, config.PERMISSION_ACCOUNTS_INVITATIONS_CREATE)).
+							r.With(permissioner.RequirePermission(permDeps, config.PERMISSION_ACCOUNTS_INVITATIONS_CREATE)).
 								Post("/", container.CompaniesHandlers.CreateCompanyInvitation)
-							r.With(permissioner.RequirePermission(container.PermissionService, config.PERMISSION_ACCOUNTS_INVITATIONS_REVOKE)).
+							r.With(permissioner.RequirePermission(permDeps, config.PERMISSION_ACCOUNTS_INVITATIONS_REVOKE)).
 								Delete("/{invitationId}", container.CompaniesHandlers.RevokeInvitation)
 						})
 					})
 
 					// encapsulated modules
 					r.Route("/modules", func(r chi.Router) {
-						container.TenantRoutes.Register(r)
+						container.TenantRoutes.Register(r, permDeps)
 					})
 				})
 			})

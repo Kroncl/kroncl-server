@@ -30,9 +30,7 @@ type CreateRequest struct {
 // UserCompany модель для связи пользователя с компанией и ролью
 type UserCompany struct {
 	Company
-	RoleID   string    `json:"role_id"`
 	RoleCode string    `json:"role_code"`
-	RoleName string    `json:"role_name"`
 	JoinedAt time.Time `json:"joined_at"`
 }
 
@@ -48,13 +46,6 @@ type GetUserCompaniesRequest struct {
 type GetUserCompaniesResponse struct {
 	Companies  []UserCompany   `json:"companies"`
 	Pagination core.Pagination `json:"pagination"`
-}
-
-// Role модель роли
-type Role struct {
-	ID   string `json:"id"`
-	Code string `json:"code"`
-	Name string `json:"name"`
 }
 
 // запрос на обновление
@@ -77,9 +68,7 @@ type CompanyPublicMember struct {
 	Status    string    `json:"status"`
 	AvatarURL *string   `json:"avatar_url"`
 	CreatedAt time.Time `json:"created_at"` // дата создания аккаунта
-	RoleID    string    `json:"role_id"`
 	RoleCode  string    `json:"role_code"`
-	RoleName  string    `json:"role_name"`
 	JoinedAt  time.Time `json:"joined_at"` // дата присоединения к компании
 }
 

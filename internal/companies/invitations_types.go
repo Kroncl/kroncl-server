@@ -9,6 +9,11 @@ import (
 // INVITATIONS
 // ----------
 
+const (
+	RoleOwner = "owner" // все возможности
+	RoleGuest = "guest" // база []
+)
+
 // Типы и константы для приглашений
 const (
 	InvitationStatusWaiting  = "waiting"
@@ -62,10 +67,3 @@ type GetInvitationsByEmailResponse struct {
 	Invitations []InvitationWithCompany `json:"invitations"`
 	Pagination  core.Pagination         `json:"pagination"`
 }
-
-const (
-	RoleOwner  = "owner"
-	RoleAdmin  = "admin"
-	RoleMember = "member"
-	RoleGuest  = "guest"
-)
