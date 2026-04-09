@@ -44,14 +44,21 @@ func (rt *Routes) Register(r chi.Router, permDeps *permissioner.PermissionDeps) 
 	// accounts -> employees actions + account settings
 	// корявенько получилось в плане /modules/accounts и просто /accounts эп,
 	// но пока похуй
-	r.Route("/accounts", func(r chi.Router) {
+	r.Route("/accounts/{accountId}", func(r chi.Router) {
+		r.With(permissioner.RequirePermission(permDeps, config.PERMISSION_ACCOUNTS_SETTINGS))
+
 		r.With(permissioner.RequirePermission(permDeps, config.PERMISSION_ACCOUNTS_DELETE)).
-			Delete("/{accountId}", rt.hrm(func(h *hrm.Handlers) http.HandlerFunc {
+			Delete("/", rt.hrm(func(h *hrm.Handlers) http.HandlerFunc {
 				return h.RemoveEmployeeAccount
 			}))
 
+		// цепочка переопределения разрешений
+		r.Get("/permissions", rt.hrm(func(h *hrm.Handlers) http.HandlerFunc {
+			return h.GetAccountPermissions
+		}))
+
 		// настройки аккаунта в компании
-		r.Route("/{accountId}/settings", func(r chi.Router) {
+		r.Route("/settings", func(r chi.Router) {
 			r.With(permissioner.RequirePermission(permDeps, config.PERMISSION_ACCOUNTS_SETTINGS))
 
 			r.Get("/", rt.hrm(func(h *hrm.Handlers) http.HandlerFunc {

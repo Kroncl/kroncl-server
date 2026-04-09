@@ -107,7 +107,7 @@ func New(cfg *config.Config, container *di.Container) chi.Router {
 			// rate limiter
 			r.Use(httprate.LimitByIP(config.RATE_LIMIT_PUBLIC_ROUTES_PER_MINUTE, 1*time.Minute))
 
-			r.Get("/", container.CompaniesHandlers.GetPermissions)
+			r.Get("/", container.CompaniesHandlers.GetPlatformPermissions)
 		})
 
 		// Protected routes (require auth)
@@ -146,6 +146,9 @@ func New(cfg *config.Config, container *di.Container) chi.Router {
 						PermService:    container.PermissionService,
 						StorageService: container.StorageService,
 					}
+
+					// Company permissions
+					r.Get("/permissions", container.CompaniesHandlers.GetCompanyPermissions)
 
 					// Company pricing
 					r.Route("/pricing", func(r chi.Router) {

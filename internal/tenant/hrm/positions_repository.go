@@ -286,3 +286,51 @@ func (r *Repository) CheckPositionExists(ctx context.Context, positionID string)
 	}
 	return nil
 }
+
+// getPositionPermissions возвращает разрешения из должностей сотрудника
+func (r *Repository) getPositionPermissions(ctx context.Context, accountID string) ([]string, error) {
+	// 1. Находим employee по account_id
+	var employeeID string
+	employeeQuery := `
+		SELECT employee_id
+		FROM employee_account
+		WHERE account_id = $1
+	`
+	err := r.pool.QueryRow(ctx, employeeQuery, accountID).Scan(&employeeID)
+	if err != nil {
+		// Если сотрудник не найден - возвращаем пустой массив
+		return []string{}, nil
+	}
+
+	// 2. Получаем все должности сотрудника
+	positionsQuery := `
+		SELECT p.permissions
+		FROM employee_position ep
+		INNER JOIN employees_positions p ON ep.position_id = p.id
+		WHERE ep.employee_id = $1
+	`
+
+	rows, err := r.pool.Query(ctx, positionsQuery, employeeID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query positions: %w", err)
+	}
+	defer rows.Close()
+
+	var allPermissions []string
+	for rows.Next() {
+		var permissionsJSON []byte
+		if err := rows.Scan(&permissionsJSON); err != nil {
+			return nil, fmt.Errorf("failed to scan permissions: %w", err)
+		}
+
+		var perms []string
+		if len(permissionsJSON) > 0 {
+			if err := json.Unmarshal(permissionsJSON, &perms); err != nil {
+				return nil, fmt.Errorf("failed to parse permissions: %w", err)
+			}
+		}
+		allPermissions = append(allPermissions, perms...)
+	}
+
+	return allPermissions, nil
+}
