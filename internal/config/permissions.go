@@ -173,22 +173,17 @@ func GetAllPermissions() []string {
 // Гость имеет только права на чтение базовых данных, без возможности создания/изменения
 func GetGuestPermissions() map[string]bool {
 	return map[string]bool{
-		PERMISSION_SUPPORT_TICKETS:             true,
-		PERMISSION_SUPPORT_TICKETS_CREATE:      true,
-		PERMISSION_SUPPORT_TICKETS_UPDATE:      true,
-		PERMISSION_PRICING_MIGRATE:             true,
-		PERMISSION_PRICING_TRANSACTIONS:        true,
-		PERMISSION_COMPANY_UPDATE:              true,
-		PERMISSION_STORAGE_SOURCES:             true,
-		PERMISSION_LOGS:                        true,
-		PERMISSION_LOGS_ACTIVITY:               true,
-		PERMISSION_ACCOUNTS:                    true,
-		PERMISSION_ACCOUNTS_DELETE:             true,
-		PERMISSION_ACCOUNTS_SETTINGS:           true,
-		PERMISSION_ACCOUNTS_SETTINGS_UPDATE:    true,
-		PERMISSION_ACCOUNTS_INVITATIONS:        true,
-		PERMISSION_ACCOUNTS_INVITATIONS_CREATE: true,
-		PERMISSION_ACCOUNTS_INVITATIONS_REVOKE: true,
+		PERMISSION_SUPPORT_TICKETS:        true,
+		PERMISSION_SUPPORT_TICKETS_CREATE: true,
+		PERMISSION_SUPPORT_TICKETS_UPDATE: true,
+		PERMISSION_PRICING_MIGRATE:        true,
+		PERMISSION_PRICING_TRANSACTIONS:   true,
+		PERMISSION_COMPANY_UPDATE:         true,
+		PERMISSION_STORAGE_SOURCES:        true,
+		PERMISSION_LOGS:                   true,
+		PERMISSION_LOGS_ACTIVITY:          true,
+		PERMISSION_ACCOUNTS:               true,
+		PERMISSION_ACCOUNTS_INVITATIONS:   true,
 
 		// modules
 		PERMISSION_HRM:               true,
