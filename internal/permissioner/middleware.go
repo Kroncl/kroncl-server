@@ -1,3 +1,4 @@
+// internal/permissioner/middleware.go
 package permissioner
 
 import (
@@ -20,7 +21,6 @@ func RequirePermission(deps *PermissionDeps, permission string) func(http.Handle
 				http.Error(w, "User not authenticated", http.StatusUnauthorized)
 				return
 			}
-			_ = userID // пока не используем, но для логирования пригодится
 
 			companyID, ok := core.GetCompanyIDFromContext(r.Context())
 			if !ok {
@@ -28,19 +28,26 @@ func RequirePermission(deps *PermissionDeps, permission string) func(http.Handle
 				return
 			}
 
-			// Проверяем права через сервис (без tenantPool)
-			hasPerm, err := deps.PermService.CheckPermission(r.Context(), companyID, permission)
+			tenantPool, ok := deps.StorageService.GetTenantPoolFromRequest(r)
+			if !ok {
+				http.Error(w, "Failed to get tenant connection", http.StatusInternalServerError)
+				return
+			}
+
+			result, err := deps.PermService.CheckPermissionDetailed(r.Context(), tenantPool, companyID, userID, permission)
 			if err != nil {
-				log.Printf("Permission check error: %v", err)
+				log.Printf("Permission check error for user %s, company %s, permission %s: %v", userID, companyID, permission, err)
 				http.Error(w, "Permission check failed", http.StatusInternalServerError)
 				return
 			}
 
-			if !hasPerm {
-				http.Error(w, "Insufficient permissions", http.StatusForbidden)
+			if !result.Allowed {
+				log.Printf("Permission denied for user %s, company %s: %s", userID, companyID, result.Reason)
+				http.Error(w, result.Reason, http.StatusForbidden)
 				return
 			}
 
+			log.Printf("Permission granted for user %s, company %s: %s", userID, companyID, result.Reason)
 			next.ServeHTTP(w, r)
 		})
 	}

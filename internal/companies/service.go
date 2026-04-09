@@ -20,3 +20,8 @@ func NewService(pool *pgxpool.Pool, storage *storage.Service, pricingService *pr
 		pricingService: pricingService,
 	}
 }
+
+// переиспользование в permissioner
+func (s *Service) GetPool() *pgxpool.Pool {
+	return s.pool
+}
