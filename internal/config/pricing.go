@@ -31,6 +31,8 @@ var PermissionLvl = map[string]int{
 	PERMISSION_ACCOUNTS_INVITATIONS:        PRICING_PLAN_MAX_LVL,
 	PERMISSION_ACCOUNTS_INVITATIONS_CREATE: PRICING_PLAN_MAX_LVL,
 	PERMISSION_ACCOUNTS_INVITATIONS_REVOKE: PRICING_PLAN_MAX_LVL,
+	PERMISSION_ACCOUNTS_SETTINGS:           PRICING_PLAN_MAX_LVL,
+	PERMISSION_ACCOUNTS_SETTINGS_UPDATE:    PRICING_PLAN_MAX_LVL,
 
 	// ========== HRM ==========
 	PERMISSION_HRM:                  PRICING_PLAN_MAX_LVL,
@@ -110,4 +112,57 @@ func GetPermissionLvl(permission string) int {
 		return lvl
 	}
 	return PRICING_PLAN_MAX_LVL
+}
+
+// GetExpiredAllowedPermissions возвращает разрешения, доступные даже после истечения тарифа
+// Это базовые права на просмотр и чтение, без возможности создания/изменения
+func GetExpiredAllowedPermissions() map[string]bool {
+	return map[string]bool{
+		PERMISSION_SUPPORT_TICKETS:             true,
+		PERMISSION_SUPPORT_TICKETS_CREATE:      true,
+		PERMISSION_SUPPORT_TICKETS_UPDATE:      true,
+		PERMISSION_PRICING_MIGRATE:             true,
+		PERMISSION_PRICING_TRANSACTIONS:        true,
+		PERMISSION_COMPANY_UPDATE:              true,
+		PERMISSION_STORAGE_SOURCES:             true,
+		PERMISSION_LOGS:                        true,
+		PERMISSION_LOGS_ACTIVITY:               true,
+		PERMISSION_ACCOUNTS:                    true,
+		PERMISSION_ACCOUNTS_DELETE:             true,
+		PERMISSION_ACCOUNTS_SETTINGS:           true,
+		PERMISSION_ACCOUNTS_SETTINGS_UPDATE:    true,
+		PERMISSION_ACCOUNTS_INVITATIONS:        true,
+		PERMISSION_ACCOUNTS_INVITATIONS_CREATE: true,
+		PERMISSION_ACCOUNTS_INVITATIONS_REVOKE: true,
+
+		// modules
+		PERMISSION_HRM:               true,
+		PERMISSION_HRM_EMPLOYEES:     true,
+		PERMISSION_HRM_POSITIONS:     true,
+		PERMISSION_FM:                true,
+		PERMISSION_FM_TRANSACTIONS:   true,
+		PERMISSION_FM_COUNTERPARTIES: true,
+		PERMISSION_FM_CREDITS:        true,
+
+		PERMISSION_CRM:         true,
+		PERMISSION_CRM_CLIENTS: true,
+		PERMISSION_CRM_SOURCES: true,
+
+		PERMISSION_WM:                    true,
+		PERMISSION_WM_CATALOG:            true,
+		PERMISSION_WM_CATALOG_CATEGORIES: true,
+		PERMISSION_WM_CATALOG_UNITS:      true,
+		PERMISSION_WM_STOCKS:             true,
+
+		PERMISSION_DM:          true,
+		PERMISSION_DM_TYPES:    true,
+		PERMISSION_DM_STATUSES: true,
+		PERMISSION_DM_DEALS:    true,
+	}
+}
+
+// IsExpiredAllowed проверяет, доступно ли разрешение после истечения тарифа
+func IsExpiredAllowed(permission string) bool {
+	allowed := GetExpiredAllowedPermissions()
+	return allowed[permission]
 }
