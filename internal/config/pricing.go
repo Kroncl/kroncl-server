@@ -136,13 +136,14 @@ func GetExpiredAllowedPermissions() map[string]bool {
 		PERMISSION_ACCOUNTS_INVITATIONS_REVOKE: true,
 
 		// modules
-		PERMISSION_HRM:               true,
-		PERMISSION_HRM_EMPLOYEES:     true,
-		PERMISSION_HRM_POSITIONS:     true,
-		PERMISSION_FM:                true,
-		PERMISSION_FM_TRANSACTIONS:   true,
-		PERMISSION_FM_COUNTERPARTIES: true,
-		PERMISSION_FM_CREDITS:        true,
+		PERMISSION_HRM:                        true,
+		PERMISSION_HRM_EMPLOYEES:              true,
+		PERMISSION_HRM_POSITIONS:              true,
+		PERMISSION_FM:                         true,
+		PERMISSION_FM_TRANSACTIONS:            true,
+		PERMISSION_FM_TRANSACTIONS_CATEGORIES: true,
+		PERMISSION_FM_COUNTERPARTIES:          true,
+		PERMISSION_FM_CREDITS:                 true,
 
 		PERMISSION_CRM:         true,
 		PERMISSION_CRM_CLIENTS: true,
