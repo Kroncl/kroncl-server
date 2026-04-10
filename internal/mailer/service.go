@@ -26,11 +26,10 @@ const (
 // SendSimple отправляет простое письмо
 func (s *Service) SendSimple(ctx context.Context, to, subject, htmlBody, plainText string) (*SendResponse, error) {
 	msg := Message{
-		Recipients:      []Recipient{{Email: to}},
-		Subject:         subject,
-		FromEmail:       s.config.NotifyDomain,
-		FromName:        "Kroncl",
-		SkipUnsubscribe: 1,
+		Recipients: []Recipient{{Email: to}},
+		Subject:    subject,
+		FromEmail:  s.config.NotifyDomain,
+		FromName:   "Kroncl",
 		Body: Body{
 			HTML:      htmlBody,
 			Plaintext: plainText,

@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"kroncl-server/internal/core"
 	"kroncl-server/internal/mailer"
+	"kroncl-server/utils"
 	"net/http"
-	"time"
 )
 
 // Register обрабатывает запрос на регистрацию
@@ -62,13 +62,12 @@ func (h *Handlers) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Отправляем уведомление о входе в горутине
 	go func() {
 		data := &mailer.LoginNotificationData{
 			UserEmail: account.Email,
 			UserName:  account.Name,
 			IPAddress: r.RemoteAddr,
-			LoginTime: time.Now(),
+			LoginTime: utils.GetMoscowTime(),
 		}
 		h.service.mailer.SendLoginNotification(context.Background(), data)
 	}()
