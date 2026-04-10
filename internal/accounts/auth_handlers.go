@@ -1,9 +1,12 @@
 package accounts
 
 import (
+	"context"
 	"encoding/json"
 	"kroncl-server/internal/core"
+	"kroncl-server/internal/mailer"
 	"net/http"
+	"time"
 )
 
 // Register обрабатывает запрос на регистрацию
@@ -58,6 +61,17 @@ func (h *Handlers) Login(w http.ResponseWriter, r *http.Request) {
 		core.SendUnauthorized(w, err.Error())
 		return
 	}
+
+	// Отправляем уведомление о входе в горутине
+	go func() {
+		data := &mailer.LoginNotificationData{
+			UserEmail: account.Email,
+			UserName:  account.Name,
+			IPAddress: r.RemoteAddr,
+			LoginTime: time.Now(),
+		}
+		h.service.mailer.SendLoginNotification(context.Background(), data)
+	}()
 
 	// Формируем данные
 	data := map[string]interface{}{
