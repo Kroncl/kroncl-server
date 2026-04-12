@@ -3,30 +3,39 @@ package accounts
 import (
 	"context"
 	"fmt"
+	"kroncl-server/internal/mailer"
 	"math/rand"
 	"time"
 )
 
-// Генерация, очистка старых + отправка нового кода подтверждения
 func (s *Service) GenerateAndSendCode(ctx context.Context, account *Account) (bool, error) {
-	// Генерация и отправка кода подтверждения
+	// Генерируем код
 	code, err := s.GenerateConfirmationCode(ctx, account.ID, "email_confirmation", 6, 15)
 	if err != nil {
-		// Логируем ошибку, но не прерываем регистрацию
-		fmt.Printf("⚠️ Failed to generate confirmation code: %v\n", err)
-	} else {
-		go func(ctx context.Context) {
-			select {
-			case <-ctx.Done():
-				return // Контекст отменен
-			default:
-				if err := SendConfirmationEmail(account.Email, code); err != nil {
-					// Логируем, но не паникуем
-					fmt.Printf("⚠️ Failed to send confirmation email: %v\n", err)
-				}
-			}
-		}(context.WithoutCancel(ctx))
+		return false, fmt.Errorf("failed to generate confirmation code: %w", err)
 	}
+
+	// Получаем время истечения кода
+	activeCode, err := s.GetActiveCode(ctx, account.ID, "email_confirmation")
+	if err != nil {
+		return false, fmt.Errorf("failed to get active code: %w", err)
+	}
+
+	// Отправляем письмо асинхронно
+	go func() {
+		// Используем background context, чтобы письмо отправилось даже если HTTP-контекст отменён
+		bgCtx := context.Background()
+
+		data := &mailer.ConfirmationCodeData{
+			UserEmail: account.Email,
+			UserName:  account.Name,
+			Code:      code,
+			ExpiresAt: activeCode.ExpiresAt,
+		}
+
+		s.mailer.SendConfirmationCode(bgCtx, data)
+	}()
+
 	return true, nil
 }
 
@@ -158,11 +167,4 @@ func generateRandomCode(length int) string {
 	}
 
 	return string(code)
-}
-
-// SendConfirmationEmail отправляет код на email (заглушка)
-func SendConfirmationEmail(email, code string) error {
-	fmt.Printf("📧 Отправляем код %s на email %s\n", code, email)
-
-	return nil
 }

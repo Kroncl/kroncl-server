@@ -14,6 +14,7 @@ import (
 )
 
 const (
+	DEFAULT_TIMEZONE                     = "Europe/Moscow"
 	RATE_LIMIT_PUBLIC_ROUTES_PER_MINUTE  = 20
 	RATE_LIMIT_PRIVATE_ROUTES_PER_MINUTE = 2000
 )

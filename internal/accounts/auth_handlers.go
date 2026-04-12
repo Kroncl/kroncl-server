@@ -7,6 +7,7 @@ import (
 	"kroncl-server/internal/mailer"
 	"kroncl-server/utils"
 	"net/http"
+	"time"
 )
 
 // Register обрабатывает запрос на регистрацию
@@ -66,8 +67,8 @@ func (h *Handlers) Login(w http.ResponseWriter, r *http.Request) {
 		data := &mailer.LoginNotificationData{
 			UserEmail: account.Email,
 			UserName:  account.Name,
-			IPAddress: r.RemoteAddr,
-			LoginTime: utils.GetMoscowTime(),
+			IPAddress: utils.GetClientIP(r),
+			LoginTime: time.Now(),
 		}
 		h.service.mailer.SendLoginNotification(context.Background(), data)
 	}()

@@ -3,6 +3,7 @@ package accounts
 import (
 	"context"
 	"fmt"
+	"kroncl-server/internal/mailer"
 	"strings"
 	"time"
 
@@ -108,6 +109,11 @@ func (s *Service) Authenticate(ctx context.Context, email, password string) (*Ac
 
 // ConfirmEmail подтверждает email по коду
 func (s *Service) ConfirmEmail(ctx context.Context, userID, code string) error {
+	account, err := s.GetByID(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("user not found: %w", err)
+	}
+
 	// Проверяем код
 	valid, err := s.VerifyConfirmationCode(ctx, userID, code, "email_confirmation")
 	if err != nil {
@@ -116,6 +122,18 @@ func (s *Service) ConfirmEmail(ctx context.Context, userID, code string) error {
 	if !valid {
 		return fmt.Errorf("invalid or expired confirmation code")
 	}
+
+	// Отправляем письмо асинхронно
+	go func() {
+		bgCtx := context.Background()
+
+		data := &mailer.RegistrationSuccessData{
+			UserEmail: account.Email,
+			UserName:  account.Name,
+		}
+
+		s.mailer.SendRegistrationSuccess(bgCtx, data)
+	}()
 
 	// Обновляем статус аккаунта
 	return s.markAccountAsConfirmed(ctx, userID)
@@ -132,10 +150,31 @@ func (s *Service) ResendConfirmationCode(ctx context.Context, userID string) err
 		return fmt.Errorf("account cannot be verified: current status is %s", account.Status)
 	}
 
-	_, err = s.GenerateAndSendCode(ctx, account)
+	// Генерируем новый код
+	code, err := s.GenerateConfirmationCode(ctx, account.ID, "email_confirmation", 6, 15)
 	if err != nil {
-		return fmt.Errorf("failed to send confirmation code: %w", err)
+		return fmt.Errorf("failed to generate confirmation code: %w", err)
 	}
+
+	// Получаем время истечения
+	activeCode, err := s.GetActiveCode(ctx, account.ID, "email_confirmation")
+	if err != nil {
+		return fmt.Errorf("failed to get active code: %w", err)
+	}
+
+	// Отправляем письмо асинхронно
+	go func() {
+		bgCtx := context.Background()
+
+		data := &mailer.ConfirmationCodeData{
+			UserEmail: account.Email,
+			UserName:  account.Name,
+			Code:      code,
+			ExpiresAt: activeCode.ExpiresAt,
+		}
+
+		s.mailer.SendConfirmationCodeResend(bgCtx, data)
+	}()
 
 	return nil
 }
