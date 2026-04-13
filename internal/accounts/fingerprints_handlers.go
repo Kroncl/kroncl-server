@@ -15,7 +15,6 @@ import (
 // FINGERPRINTS
 // ----------
 
-// CreateFingerprint создает новый фингерпринт
 func (h *Handlers) CreateFingerprint(w http.ResponseWriter, r *http.Request) {
 
 	claims, ok := auth.GetUserFromContext(r.Context())
@@ -39,7 +38,6 @@ func (h *Handlers) CreateFingerprint(w http.ResponseWriter, r *http.Request) {
 	core.SendSuccess(w, fp, "Fingerprint created successfully")
 }
 
-// GetFingerprints возвращает список фингерпринтов текущего пользователя
 func (h *Handlers) GetFingerprints(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.GetUserFromContext(r.Context())
 	if !ok {
@@ -47,7 +45,6 @@ func (h *Handlers) GetFingerprints(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Парсим параметры запроса
 	req := FingerprintListRequest{
 		Page:  parseInt(r.URL.Query().Get("page"), 1),
 		Limit: parseInt(r.URL.Query().Get("limit"), 20),
@@ -70,7 +67,6 @@ func (h *Handlers) GetFingerprints(w http.ResponseWriter, r *http.Request) {
 	core.SendSuccess(w, fingerprints, "Fingerprints retrieved successfully")
 }
 
-// Вспомогательная функция
 func parseInt(s string, defaultValue int) int {
 	if s == "" {
 		return defaultValue
@@ -82,7 +78,6 @@ func parseInt(s string, defaultValue int) int {
 	return val
 }
 
-// LoginWithFingerprint вход по фингерпринту
 func (h *Handlers) LoginWithFingerprint(w http.ResponseWriter, r *http.Request) {
 
 	var req FingerprintLoginRequest
@@ -111,7 +106,6 @@ func (h *Handlers) LoginWithFingerprint(w http.ResponseWriter, r *http.Request) 
 	core.SendSuccess(w, response, "Login successful")
 }
 
-// RevokeFingerprint отзывает фингерпринт
 func (h *Handlers) RevokeFingerprint(w http.ResponseWriter, r *http.Request) {
 
 	claims, ok := auth.GetUserFromContext(r.Context())
@@ -120,7 +114,6 @@ func (h *Handlers) RevokeFingerprint(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Получаем ID из URL
 	fingerprintID := chi.URLParam(r, "fingerprintId")
 	if fingerprintID == "" {
 		core.SendValidationError(w, "Fingerprint ID is required")

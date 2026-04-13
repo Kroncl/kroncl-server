@@ -6,24 +6,22 @@ import (
 	"kroncl-server/internal/mailer"
 	"math/rand"
 	"time"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 func (s *Service) GenerateAndSendCode(ctx context.Context, account *Account) (bool, error) {
-	// Генерируем код
 	code, err := s.GenerateConfirmationCode(ctx, account.ID, "email_confirmation", 6, 15)
 	if err != nil {
 		return false, fmt.Errorf("failed to generate confirmation code: %w", err)
 	}
 
-	// Получаем время истечения кода
 	activeCode, err := s.GetActiveCode(ctx, account.ID, "email_confirmation")
 	if err != nil {
 		return false, fmt.Errorf("failed to get active code: %w", err)
 	}
 
-	// Отправляем письмо асинхронно
 	go func() {
-		// Используем background context, чтобы письмо отправилось даже если HTTP-контекст отменён
 		bgCtx := context.Background()
 
 		data := &mailer.ConfirmationCodeData{
@@ -39,16 +37,13 @@ func (s *Service) GenerateAndSendCode(ctx context.Context, account *Account) (bo
 	return true, nil
 }
 
-// GenerateConfirmationCode создает код подтверждения для пользователя
 func (s *Service) GenerateConfirmationCode(ctx context.Context, accountID, codeType string, length, expiryMinutes int) (string, error) {
-	// Начинаем транзакцию
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return "", fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer tx.Rollback(ctx) // В случае ошибки откатываем
+	defer tx.Rollback(ctx)
 
-	// Сначала помечаем все старые коды как использованные (а не удаляем!)
 	markQuery := `
 		UPDATE confirmation_codes 
 		SET used = TRUE
@@ -61,59 +56,86 @@ func (s *Service) GenerateConfirmationCode(ctx context.Context, accountID, codeT
 		return "", fmt.Errorf("failed to mark old codes as used: %w", err)
 	}
 
-	// Генерируем случайный код
 	code := generateRandomCode(length)
+	codeHash, err := s.hashCode(code)
+	if err != nil {
+		return "", fmt.Errorf("failed to hash code: %w", err)
+	}
 
-	// Вставляем новый код
 	insertQuery := `
-		INSERT INTO confirmation_codes (account_id, code, type, expires_at)
+		INSERT INTO confirmation_codes (account_id, code_hash, type, expires_at)
 		VALUES ($1, $2, $3, NOW() + $4 * INTERVAL '1 minute')
-		RETURNING code
+		RETURNING code_hash
 	`
 
-	var resultCode string
-	err = tx.QueryRow(ctx, insertQuery, accountID, code, codeType, expiryMinutes).Scan(&resultCode)
+	var resultHash string
+	err = tx.QueryRow(ctx, insertQuery, accountID, codeHash, codeType, expiryMinutes).Scan(&resultHash)
 	if err != nil {
 		return "", fmt.Errorf("failed to create confirmation code: %w", err)
 	}
 
-	// Коммитим транзакцию
 	err = tx.Commit(ctx)
 	if err != nil {
 		return "", fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
-	return resultCode, nil
+	return code, nil
 }
 
-// VerifyConfirmationCode проверяет код подтверждения
 func (s *Service) VerifyConfirmationCode(ctx context.Context, accountID, code, codeType string) (bool, error) {
 	query := `
+		SELECT code_hash
+		FROM confirmation_codes 
+		WHERE account_id = $1 
+		  AND type = $2
+		  AND used = FALSE
+		  AND expires_at > NOW()
+	`
+
+	rows, err := s.pool.Query(ctx, query, accountID, codeType)
+	if err != nil {
+		return false, fmt.Errorf("failed to query codes: %w", err)
+	}
+	defer rows.Close()
+
+	var matchingHash string
+	var found bool
+
+	for rows.Next() {
+		var hash string
+		if err := rows.Scan(&hash); err != nil {
+			continue
+		}
+		if s.verifyCode(hash, code) {
+			matchingHash = hash
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		return false, nil
+	}
+
+	updateQuery := `
 		UPDATE confirmation_codes 
 		SET used = TRUE
 		WHERE account_id = $1 
-		  AND code = $2
+		  AND code_hash = $2
 		  AND type = $3
 		  AND used = FALSE
-		  AND expires_at > NOW()
-		RETURNING id
 	`
-
-	var id string
-	err := s.pool.QueryRow(ctx, query, accountID, code, codeType).Scan(&id)
-
+	_, err = s.pool.Exec(ctx, updateQuery, accountID, matchingHash, codeType)
 	if err != nil {
-		// Код не найден или не валиден
-		return false, nil
+		return false, fmt.Errorf("failed to mark code as used: %w", err)
 	}
 
 	return true, nil
 }
 
-// GetActiveCode возвращает активный код для пользователя
 func (s *Service) GetActiveCode(ctx context.Context, accountID, codeType string) (*ConfirmationCode, error) {
 	query := `
-		SELECT id, account_id, code, type, expires_at, used, created_at
+		SELECT id, account_id, code_hash, type, expires_at, used, created_at
 		FROM confirmation_codes 
 		WHERE account_id = $1 
 		  AND type = $2
@@ -126,7 +148,7 @@ func (s *Service) GetActiveCode(ctx context.Context, accountID, codeType string)
 	err := s.pool.QueryRow(ctx, query, accountID, codeType).Scan(
 		&code.ID,
 		&code.AccountID,
-		&code.Code,
+		&code.CodeHash,
 		&code.Type,
 		&code.ExpiresAt,
 		&code.Used,
@@ -140,7 +162,6 @@ func (s *Service) GetActiveCode(ctx context.Context, accountID, codeType string)
 	return &code, nil
 }
 
-// CleanupExpiredCodes удаляет устаревшие коды
 func (s *Service) CleanupExpiredCodes(ctx context.Context) (int64, error) {
 	query := `
 		DELETE FROM confirmation_codes 
@@ -156,7 +177,6 @@ func (s *Service) CleanupExpiredCodes(ctx context.Context) (int64, error) {
 	return result.RowsAffected(), nil
 }
 
-// generateRandomCode генерирует случайный цифровой код
 func generateRandomCode(length int) string {
 	const digits = "0123456789"
 	code := make([]byte, length)
@@ -167,4 +187,17 @@ func generateRandomCode(length int) string {
 	}
 
 	return string(code)
+}
+
+func (s *Service) hashCode(code string) (string, error) {
+	hashedBytes, err := bcrypt.GenerateFromPassword([]byte(code), bcrypt.DefaultCost)
+	if err != nil {
+		return "", err
+	}
+	return string(hashedBytes), nil
+}
+
+func (s *Service) verifyCode(hash, code string) bool {
+	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(code))
+	return err == nil
 }

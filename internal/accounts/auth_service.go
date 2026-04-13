@@ -11,14 +11,11 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// Create создает новый аккаунт и возвращает токены
 func (s *Service) Create(ctx context.Context, email, name, password string) (*Account, string, string, error) {
-	// Валидация email
 	if !s.validateEmailFormat(email) {
 		return nil, "", "", fmt.Errorf("invalid email format")
 	}
 
-	// Проверка уникальности email
 	isUnique, err := s.checkEmailUnique(ctx, email)
 	if err != nil {
 		return nil, "", "", fmt.Errorf("email uniqueness check failed: %w", err)
@@ -27,29 +24,24 @@ func (s *Service) Create(ctx context.Context, email, name, password string) (*Ac
 		return nil, "", "", fmt.Errorf("email already exists")
 	}
 
-	// Валидация имени
 	if err := s.validateName(name); err != nil {
 		return nil, "", "", fmt.Errorf("name validation failed: %w", err)
 	}
 
-	// Валидация пароля
 	if !s.validatePassword(password) {
 		return nil, "", "", fmt.Errorf("password too weak")
 	}
 
-	// Хэширование пароля
 	hashedPassword, err := s.hashPassword(password)
 	if err != nil {
 		return nil, "", "", fmt.Errorf("password hashing failed: %w", err)
 	}
 
-	// Создание аккаунта в БД
 	account, err := s.createAccountInDB(ctx, email, name, hashedPassword)
 	if err != nil {
 		return nil, "", "", fmt.Errorf("failed to create account: %w", err)
 	}
 
-	// Генерация JWT токенов
 	accessToken, err := s.jwtService.GenerateAccessToken(account.ID)
 	if err != nil {
 		return account, "", "", fmt.Errorf("failed to generate access token: %w", err)
@@ -69,31 +61,25 @@ func (s *Service) Create(ctx context.Context, email, name, password string) (*Ac
 	return account, accessToken, refreshToken, nil
 }
 
-// Authenticate проверяет логин/пароль и возвращает токены
 func (s *Service) Authenticate(ctx context.Context, email, password string) (*Account, string, string, error) {
-	// Находим аккаунт
 	account, err := s.GetByEmail(ctx, email)
 	if err != nil {
 		return nil, "", "", fmt.Errorf("invalid credentials")
 	}
 
-	// Получаем хэш пароля из БД
 	hashedPassword, err := s.getPasswordHash(ctx, account.ID)
 	if err != nil {
 		return nil, "", "", fmt.Errorf("authentication failed")
 	}
 
-	// Проверяем пароль
 	if !s.verifyPassword(hashedPassword, password) {
 		return nil, "", "", fmt.Errorf("invalid credentials")
 	}
 
-	// Проверяем статус аккаунта
-	if account.Status != "confirmed" {
+	if account.Status != ACCOUNT_STATUS_CONFIRMED {
 		return nil, "", "", fmt.Errorf("account not confirmed")
 	}
 
-	// Генерируем токены
 	accessToken, err := s.jwtService.GenerateAccessToken(account.ID)
 	if err != nil {
 		return nil, "", "", fmt.Errorf("failed to generate access token: %w", err)
@@ -107,14 +93,12 @@ func (s *Service) Authenticate(ctx context.Context, email, password string) (*Ac
 	return account, accessToken, refreshToken, nil
 }
 
-// ConfirmEmail подтверждает email по коду
 func (s *Service) ConfirmEmail(ctx context.Context, userID, code string) error {
 	account, err := s.GetByID(ctx, userID)
 	if err != nil {
 		return fmt.Errorf("user not found: %w", err)
 	}
 
-	// Проверяем код
 	valid, err := s.VerifyConfirmationCode(ctx, userID, code, "email_confirmation")
 	if err != nil {
 		return fmt.Errorf("confirmation code verification failed: %w", err)
@@ -123,7 +107,6 @@ func (s *Service) ConfirmEmail(ctx context.Context, userID, code string) error {
 		return fmt.Errorf("invalid or expired confirmation code")
 	}
 
-	// Отправляем письмо асинхронно
 	go func() {
 		bgCtx := context.Background()
 
@@ -135,34 +118,29 @@ func (s *Service) ConfirmEmail(ctx context.Context, userID, code string) error {
 		s.mailer.SendRegistrationSuccess(bgCtx, data)
 	}()
 
-	// Обновляем статус аккаунта
 	return s.markAccountAsConfirmed(ctx, userID)
 }
 
-// ResendConfirmationCode повторно отправляет код подтверждения
 func (s *Service) ResendConfirmationCode(ctx context.Context, userID string) error {
 	account, err := s.GetByID(ctx, userID)
 	if err != nil {
 		return fmt.Errorf("user not found: %w", err)
 	}
 
-	if account.Status != "waiting" {
+	if account.Status != ACCOUNT_STATUS_WAITING {
 		return fmt.Errorf("account cannot be verified: current status is %s", account.Status)
 	}
 
-	// Генерируем новый код
 	code, err := s.GenerateConfirmationCode(ctx, account.ID, "email_confirmation", 6, 15)
 	if err != nil {
 		return fmt.Errorf("failed to generate confirmation code: %w", err)
 	}
 
-	// Получаем время истечения
 	activeCode, err := s.GetActiveCode(ctx, account.ID, "email_confirmation")
 	if err != nil {
 		return fmt.Errorf("failed to get active code: %w", err)
 	}
 
-	// Отправляем письмо асинхронно
 	go func() {
 		bgCtx := context.Background()
 
@@ -179,10 +157,7 @@ func (s *Service) ResendConfirmationCode(ctx context.Context, userID string) err
 	return nil
 }
 
-// Вспомогательные методы
 func (s *Service) createAccountInDB(ctx context.Context, email, name, hashedPassword string) (*Account, error) {
-
-	// Генерируем UUID
 	uuid, err := uuid.NewRandom()
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate UUID: %w", err)
@@ -211,7 +186,7 @@ func (s *Service) createAccountInDB(ctx context.Context, email, name, hashedPass
 		name,
 		hashedPassword,
 		"password",
-		"waiting", // статус по умолчанию
+		ACCOUNT_STATUS_WAITING,
 		currentTime,
 		currentTime,
 	).Scan(
@@ -232,26 +207,21 @@ func (s *Service) createAccountInDB(ctx context.Context, email, name, hashedPass
 	return &account, nil
 }
 
-// RefreshTokens обновляет пару токенов по refresh токену
 func (s *Service) RefreshTokens(ctx context.Context, refreshToken string) (accessToken, newRefreshToken string, err error) {
-	// Валидируем refresh токен и получаем user_id
 	userID, err := s.jwtService.GetUserIDFromToken(refreshToken)
 	if err != nil {
 		return "", "", fmt.Errorf("invalid refresh token: %w", err)
 	}
 
-	// Получаем информацию о пользователе
 	account, err := s.GetByID(ctx, userID)
 	if err != nil {
 		return "", "", fmt.Errorf("user not found: %w", err)
 	}
 
-	// Проверяем, что аккаунт подтвержден
-	if account.Status != "confirmed" {
+	if account.Status != ACCOUNT_STATUS_CONFIRMED {
 		return "", "", fmt.Errorf("account not confirmed")
 	}
 
-	// Генерируем новую пару токенов
 	accessToken, err = s.jwtService.GenerateAccessToken(account.ID)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to generate access token: %w", err)
@@ -278,11 +248,11 @@ func (s *Service) getPasswordHash(ctx context.Context, userID string) (string, e
 func (s *Service) markAccountAsConfirmed(ctx context.Context, userID string) error {
 	query := `
 		UPDATE accounts 
-		SET status = 'confirmed', updated_at = NOW()
-		WHERE id = $1
+		SET status = $1, updated_at = NOW()
+		WHERE id = $2
 	`
 
-	_, err := s.pool.Exec(ctx, query, userID)
+	_, err := s.pool.Exec(ctx, query, ACCOUNT_STATUS_CONFIRMED, userID)
 	return err
 }
 
