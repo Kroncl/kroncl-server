@@ -64,6 +64,10 @@ services:
       MINIO_USE_SSL: ${MINIO_USE_SSL:-false}
       MINIO_PUBLIC_BUCKET: ${MINIO_PUBLIC_BUCKET:-public}
       MINIO_EXTERNAL_HOST: ${MINIO_EXTERNAL_HOST:-localhost:9000}
+      # unisender-go
+      UNISENDER_GO_API_URL: ${UNISENDER_GO_API_URL}
+      UNISENDER_GO_API_KEY: ${UNISENDER_GO_API_KEY}
+      UNISENDER_GO_NOTIFY_DOMAIN: ${UNISENDER_GO_NOTIFY_DOMAIN}
     depends_on:
       postgres:
         condition: service_healthy

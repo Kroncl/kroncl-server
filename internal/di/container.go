@@ -7,6 +7,7 @@ import (
 	"kroncl-server/internal/auth"
 	"kroncl-server/internal/companies"
 	"kroncl-server/internal/config"
+	"kroncl-server/internal/mailer"
 	"kroncl-server/internal/media"
 	"kroncl-server/internal/migrator"
 	"kroncl-server/internal/permissioner"
@@ -34,6 +35,7 @@ type Container struct {
 	PermissionService *permissioner.Service
 	StorageService    *storage.Service
 	Migrator          *migrator.Migrator
+	Mailer            *mailer.Service
 
 	// Media
 	MediaRepo     *media.Repository
@@ -45,6 +47,9 @@ type Container struct {
 	CompaniesHandlers *companies.Handlers
 	StorageHandlers   *storage.Handlers
 	PricingHandlers   *pricing.Handlers
+
+	// мидлварь зависимости
+	PermissionDeps *permissioner.PermissionDeps
 
 	// Tenant модули
 	TenantRoutes *tenant.Routes
@@ -129,11 +134,14 @@ func (c *Container) initServices(ctx context.Context) error {
 	// Pricing Service
 	c.PricingService = pricing.NewService(c.DB)
 
+	// Mailer Service
+	c.Mailer = mailer.NewService(&c.Config.MailSender)
+
 	// Companies Service (зависит от Storage)
-	c.CompaniesService = companies.NewService(c.DB, c.StorageService, c.PricingService)
+	c.CompaniesService = companies.NewService(c.DB, c.StorageService, c.PricingService, c.Mailer)
 
 	// Accounts Service (зависит от JWT и Companies)
-	c.AccountsService = accounts.NewService(c.DB, c.JWTService, c.CompaniesService)
+	c.AccountsService = accounts.NewService(c.DB, c.JWTService, c.CompaniesService, c.Mailer)
 
 	// Permission Service
 	c.PermissionService = permissioner.NewService(c.CompaniesService)
@@ -154,6 +162,13 @@ func (c *Container) initServices(ctx context.Context) error {
 	}
 
 	mediaHandlers := media.NewHandlers(mediaService)
+
+	// Permission Service
+	c.PermissionService = permissioner.NewService(c.CompaniesService)
+	c.PermissionDeps = &permissioner.PermissionDeps{
+		PermService:    c.PermissionService,
+		StorageService: c.StorageService,
+	}
 
 	// Сохраняем в контейнер
 	c.MediaRepo = mediaRepo

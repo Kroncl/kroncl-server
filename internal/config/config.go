@@ -14,6 +14,7 @@ import (
 )
 
 const (
+	DEFAULT_TIMEZONE                     = "Europe/Moscow"
 	RATE_LIMIT_PUBLIC_ROUTES_PER_MINUTE  = 20
 	RATE_LIMIT_PRIVATE_ROUTES_PER_MINUTE = 2000
 )
@@ -27,11 +28,12 @@ var WebSocketUpgrader = websocket.Upgrader{
 }
 
 type Config struct {
-	Server   ServerConfig
-	Database utils.DBConfig
-	JWT      JWTConfig
-	CORS     CORSConfig
-	MinIO    MinIOConfig
+	Server     ServerConfig
+	Database   utils.DBConfig
+	JWT        JWTConfig
+	CORS       CORSConfig
+	MinIO      MinIOConfig
+	MailSender MailSenderConfig
 }
 
 type ServerConfig struct {
@@ -66,6 +68,12 @@ type MinIOConfig struct {
 	ExternalHost string
 }
 
+type MailSenderConfig struct {
+	ApiUrl       string
+	ApiKey       string
+	NotifyDomain string
+}
+
 func Load() (*Config, error) {
 	if err := loadEnvFile(); err != nil {
 		log.Printf("⚠️  Warning: %v", err)
@@ -83,9 +91,18 @@ func Load() (*Config, error) {
 		ExternalHost: getEnv("MINIO_EXTERNAL_HOST", "localhost:9000"),
 	}
 
+	// unisender go
+	mailSenderConfig := MailSenderConfig{
+		ApiUrl:       getEnv("UNISENDER_GO_API_URL", "https://goapi.unisender.ru/ru/transactional/api/v1"),
+		ApiKey:       getEnv("UNISENDER_GO_API_KEY", "хуй там плавал"),
+		NotifyDomain: getEnv("UNISENDER_GO_NOTIFY_DOMAIN", "notify@kroncl.com"),
+	}
+	maskedApiKey := utils.MaskApiKey(mailSenderConfig.ApiKey)
+
 	// log
 	log.Printf("📋 Конфигурация загружена:")
 	log.Printf("   - Server: %s:%s", getEnv("HOST", "0.0.0.0"), getEnv("PORT", "8080"))
+	log.Printf("   - Mail Sender: %s:%s", maskedApiKey, mailSenderConfig.NotifyDomain)
 	log.Printf("   - Database: %s@%s:%d/%s",
 		dbConfig.Username,
 		dbConfig.Host,
@@ -115,7 +132,8 @@ func Load() (*Config, error) {
 			AllowCredentials: true,
 			MaxAge:           300,
 		},
-		MinIO: minioConfig,
+		MinIO:      minioConfig,
+		MailSender: mailSenderConfig,
 	}, nil
 }
 

@@ -20,3 +20,13 @@ func IsValidEmail(email string) bool {
 
 	return true
 }
+
+// Функция для маскировки ключа
+func MaskApiKey(key string) string {
+	if len(key) <= 8 {
+		return "***"
+	}
+	prefix := key[:4]
+	suffix := key[len(key)-4:]
+	return prefix + "********" + suffix
+}
