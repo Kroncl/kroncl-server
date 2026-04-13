@@ -70,6 +70,7 @@ func New(cfg *config.Config, container *di.Container) chi.Router {
 				r.Patch("/", container.AccountsHandlers.Update)
 				r.Post("/confirm", container.AccountsHandlers.ConfirmEmail)
 				r.Post("/confirm/resend", container.AccountsHandlers.ResendConfirmationCode)
+				r.Post("/log-out", container.AccountsHandlers.Logout)
 
 				// Accounts -> companies invitations [protected]
 				r.Route("/invitations", func(r chi.Router) {

@@ -12,11 +12,10 @@ type RegisterRequest struct {
 }
 
 type RegisterResponse struct {
-	Message      string `json:"message"`
-	UserID       string `json:"user_id"`
-	AccessToken  string `json:"access_token,omitempty"`
-	RefreshToken string `json:"refresh_token,omitempty"`
-	EmailSent    bool   `json:"email_sent"`
+	Message     string `json:"message"`
+	UserID      string `json:"user_id"`
+	AccessToken string `json:"access_token,omitempty"`
+	EmailSent   bool   `json:"email_sent"`
 }
 
 type LoginRequest struct {
@@ -25,9 +24,8 @@ type LoginRequest struct {
 }
 
 type LoginResponse struct {
-	AccessToken  string   `json:"access_token"`
-	RefreshToken string   `json:"refresh_token"`
-	User         *Account `json:"user"`
+	AccessToken string   `json:"access_token"`
+	User        *Account `json:"user"`
 }
 
 type ConfirmRequest struct {

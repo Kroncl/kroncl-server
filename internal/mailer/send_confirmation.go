@@ -30,7 +30,7 @@ func (s *Service) SendConfirmationCode(ctx context.Context, data *ConfirmationCo
 		<h2>Подтверждение регистрации</h2>
 		<p>Здравствуйте, <strong>%s</strong>!</p>
 		<p>Благодарим за регистрацию в Kroncl. Для завершения регистрации введите код подтверждения:</p>
-		<div style="margin: 30px 0; padding: 20px; background-color: #f5f5f5; border-radius: 8px; text-align: center;">
+		<div style="margin: 30px 0; padding: 20px; background-color: #f5f5f5; border-radius: 8px; text-align: center; border-bottom: 4px solid #e8551f;">
 			<span style="font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #333;">%s</span>
 		</div>
 		<p>Код действителен до: <strong>%s</strong>.</p>
@@ -78,7 +78,7 @@ func (s *Service) SendConfirmationCodeResend(ctx context.Context, data *Confirma
 		<h2>Новый код подтверждения</h2>
 		<p>Здравствуйте, <strong>%s</strong>!</p>
 		<p>Вы запросили новый код подтверждения для завершения регистрации в Kroncl.</p>
-		<div style="margin: 30px 0; padding: 20px; background-color: #f5f5f5; border-radius: 8px; text-align: center;">
+		<div style="margin: 30px 0; padding: 20px; background-color: #f5f5f5; border-radius: 8px; text-align: center; border-bottom: 4px solid #e8551f;">
 			<span style="font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #333;">%s</span>
 		</div>
 		<p>Код действителен до: <strong>%s</strong>.</p>
