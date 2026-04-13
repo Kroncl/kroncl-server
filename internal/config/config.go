@@ -13,14 +13,6 @@ import (
 	"github.com/joho/godotenv"
 )
 
-const (
-	DEFAULT_TIMEZONE  = "Europe/Moscow"
-	AUTH_REFRESH_PATH = "/api/account/refresh"
-
-	RATE_LIMIT_PUBLIC_ROUTES_PER_MINUTE  = 20
-	RATE_LIMIT_PRIVATE_ROUTES_PER_MINUTE = 2000
-)
-
 var WebSocketUpgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
 		return true
@@ -30,7 +22,6 @@ var WebSocketUpgrader = websocket.Upgrader{
 }
 
 type Config struct {
-	Env        string
 	Server     ServerConfig
 	Database   utils.DBConfig
 	JWT        JWTConfig
@@ -114,7 +105,6 @@ func Load() (*Config, error) {
 	log.Printf("   - MinIO: %s (bucket: %s)", minioConfig.Endpoint, minioConfig.PublicBucket)
 
 	return &Config{
-		Env: getEnv("ENV", "production"),
 		Server: ServerConfig{
 			Host:         getEnv("HOST", "0.0.0.0"),
 			Port:         getEnv("PORT", "8080"),

@@ -7,9 +7,47 @@ import (
 	"kroncl-server/internal/core"
 	"kroncl-server/internal/mailer"
 	"kroncl-server/utils"
+	"log"
 	"net/http"
 	"time"
 )
+
+func (h *Handlers) setRefreshCookie(w http.ResponseWriter, token string) {
+	refreshMaxAge := int(h.service.jwtService.GetRefreshDuration().Seconds())
+
+	cookie := &http.Cookie{
+		Name:     "refresh_token",
+		Value:    token,
+		HttpOnly: true,
+		Secure:   config.GetCookieSecure(),
+		SameSite: config.GetCookieSameSite(),
+		Path:     config.AUTH_REFRESH_PATH,
+		Domain:   config.GetCookieDomain(),
+		MaxAge:   refreshMaxAge,
+	}
+
+	http.SetCookie(w, cookie)
+
+	log.Printf("🍪 Refresh cookie set: secure=%v, sameSite=%v, domain=%s, maxAge=%d",
+		cookie.Secure, cookie.SameSite, cookie.Domain, cookie.MaxAge)
+}
+
+func (h *Handlers) clearRefreshCookie(w http.ResponseWriter) {
+	cookie := &http.Cookie{
+		Name:     "refresh_token",
+		Value:    "",
+		HttpOnly: true,
+		Secure:   config.GetCookieSecure(),
+		SameSite: config.GetCookieSameSite(),
+		Path:     config.AUTH_REFRESH_PATH,
+		Domain:   config.GetCookieDomain(),
+		MaxAge:   -1,
+	}
+
+	http.SetCookie(w, cookie)
+
+	log.Printf("🍪 Refresh cookie cleared: domain=%s", cookie.Domain)
+}
 
 func (h *Handlers) Register(w http.ResponseWriter, r *http.Request) {
 	var req RegisterRequest
@@ -25,21 +63,14 @@ func (h *Handlers) Register(w http.ResponseWriter, r *http.Request) {
 		req.Password,
 	)
 	if err != nil {
+		log.Printf("❌ Register failed for %s: %v", req.Email, err)
 		core.SendValidationError(w, err.Error())
 		return
 	}
 
-	refreshMaxAge := int(h.service.jwtService.GetRefreshDuration().Seconds())
+	h.setRefreshCookie(w, refreshToken)
 
-	http.SetCookie(w, &http.Cookie{
-		Name:     "refresh_token",
-		Value:    refreshToken,
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteStrictMode,
-		Path:     config.AUTH_REFRESH_PATH,
-		MaxAge:   refreshMaxAge,
-	})
+	log.Printf("✅ User registered: %s (%s)", account.Email, account.ID)
 
 	data := map[string]interface{}{
 		"user_id":      account.ID,
@@ -63,21 +94,14 @@ func (h *Handlers) Login(w http.ResponseWriter, r *http.Request) {
 		req.Password,
 	)
 	if err != nil {
+		log.Printf("❌ Login failed for %s: %v", req.Email, err)
 		core.SendUnauthorized(w, err.Error())
 		return
 	}
 
-	refreshMaxAge := int(h.service.jwtService.GetRefreshDuration().Seconds())
+	h.setRefreshCookie(w, refreshToken)
 
-	http.SetCookie(w, &http.Cookie{
-		Name:     "refresh_token",
-		Value:    refreshToken,
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteStrictMode,
-		Path:     config.AUTH_REFRESH_PATH,
-		MaxAge:   refreshMaxAge,
-	})
+	log.Printf("✅ User logged in: %s (%s) from %s", account.Email, account.ID, utils.GetClientIP(r))
 
 	go func() {
 		data := &mailer.LoginNotificationData{
@@ -100,27 +124,21 @@ func (h *Handlers) Login(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) Refresh(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie("refresh_token")
 	if err != nil {
+		log.Printf("❌ Refresh failed: no cookie")
 		core.SendUnauthorized(w, "Refresh token not found")
 		return
 	}
 
 	accessToken, newRefreshToken, err := h.service.RefreshTokens(r.Context(), cookie.Value)
 	if err != nil {
+		log.Printf("❌ Refresh failed: %v", err)
 		core.SendUnauthorized(w, err.Error())
 		return
 	}
 
-	refreshMaxAge := int(h.service.jwtService.GetRefreshDuration().Seconds())
+	h.setRefreshCookie(w, newRefreshToken)
 
-	http.SetCookie(w, &http.Cookie{
-		Name:     "refresh_token",
-		Value:    newRefreshToken,
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteStrictMode,
-		Path:     config.AUTH_REFRESH_PATH,
-		MaxAge:   refreshMaxAge,
-	})
+	log.Printf("🔄 Tokens refreshed")
 
 	data := map[string]interface{}{
 		"access_token": accessToken,
@@ -130,15 +148,10 @@ func (h *Handlers) Refresh(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) Logout(w http.ResponseWriter, r *http.Request) {
-	http.SetCookie(w, &http.Cookie{
-		Name:     "refresh_token",
-		Value:    "",
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteStrictMode,
-		Path:     config.AUTH_REFRESH_PATH,
-		MaxAge:   -1,
-	})
+	h.clearRefreshCookie(w)
+
+	userID, _ := core.GetUserIDFromContext(r.Context())
+	log.Printf("👋 User logged out: %s", userID)
 
 	core.SendSuccess(w, nil, "Logged out")
 }
