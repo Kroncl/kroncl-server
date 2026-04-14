@@ -1,10 +1,12 @@
 package companies
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"kroncl-server/internal/auth"
 	"kroncl-server/internal/core"
+	"kroncl-server/internal/mailer"
 	"kroncl-server/utils"
 	"net/http"
 	"strings"
@@ -71,12 +73,17 @@ func (h *Handlers) GetCompanyInvitations(w http.ResponseWriter, r *http.Request)
 
 // создает новое приглашение в компанию
 func (h *Handlers) CreateCompanyInvitation(w http.ResponseWriter, r *http.Request) {
-
 	// Получаем ID компании из URL
 	companyID := chi.URLParam(r, "id")
 	if companyID == "" {
 		core.SendValidationError(w, "Company ID required")
 		return
+	}
+
+	// Получаем профиль компании
+	company, err := h.service.GetCompanyByID(r.Context(), companyID)
+	if err != nil {
+		core.SendUnauthorized(w, "Unknown company")
 	}
 
 	// Проверяем авторизацию
@@ -124,6 +131,14 @@ func (h *Handlers) CreateCompanyInvitation(w http.ResponseWriter, r *http.Reques
 		}
 		return
 	}
+
+	go func() {
+		data := &mailer.CompanyInvitationData{
+			UserEmail:   req.Email,
+			CompanyName: company.Name,
+		}
+		h.service.mailer.SendCompanyInvitation(context.Background(), data)
+	}()
 
 	// Отправляем успешный ответ
 	core.SendCreated(w, response.Invitation, response.Message)
