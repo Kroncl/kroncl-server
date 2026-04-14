@@ -75,7 +75,6 @@ func Load() (*Config, error) {
 
 	dbConfig := LoadDBConfigFromEnv()
 
-	// minio
 	minioConfig := MinIOConfig{
 		RootUser:     getEnv("MINIO_ROOT_USER", "minioadmin"),
 		RootPassword: getEnv("MINIO_ROOT_PASSWORD", "minioadmin"),
@@ -85,15 +84,13 @@ func Load() (*Config, error) {
 		ExternalHost: getEnv("MINIO_EXTERNAL_HOST", "localhost:9000"),
 	}
 
-	// unisender go
 	mailSenderConfig := MailSenderConfig{
 		ApiUrl:       getEnv("UNISENDER_GO_API_URL", "https://goapi.unisender.ru/ru/transactional/api/v1"),
-		ApiKey:       getEnv("UNISENDER_GO_API_KEY", "хуй там плавал"),
+		ApiKey:       getEnv("UNISENDER_GO_API_KEY", ""),
 		NotifyDomain: getEnv("UNISENDER_GO_NOTIFY_DOMAIN", "notify@kroncl.com"),
 	}
 	maskedApiKey := utils.MaskApiKey(mailSenderConfig.ApiKey)
 
-	// log
 	log.Printf("📋 Конфигурация загружена:")
 	log.Printf("   - Server: %s:%s", getEnv("HOST", "0.0.0.0"), getEnv("PORT", "8080"))
 	log.Printf("   - Mail Sender: %s:%s", maskedApiKey, mailSenderConfig.NotifyDomain)
@@ -103,6 +100,8 @@ func Load() (*Config, error) {
 		dbConfig.Port,
 		dbConfig.Name)
 	log.Printf("   - MinIO: %s (bucket: %s)", minioConfig.Endpoint, minioConfig.PublicBucket)
+
+	allowedOrigins := getCORSOrigins()
 
 	return &Config{
 		Server: ServerConfig{
@@ -114,21 +113,45 @@ func Load() (*Config, error) {
 		},
 		Database: dbConfig,
 		JWT: JWTConfig{
-			SecretKey:       getEnv("JWT_SECRET", "development-secret-key-change-in-production"),
-			AccessDuration:  60 * 24 * time.Minute,
-			RefreshDuration: 7 * 24 * time.Hour,
+			SecretKey:       getEnv("JWT_SECRET_KEY", "development-secret-key-change-in-production"),
+			AccessDuration:  parseDuration(getEnv("JWT_ACCESS_DURATION", "24h")),
+			RefreshDuration: parseDuration(getEnv("JWT_REFRESH_DURATION", "168h")),
 		},
 		CORS: CORSConfig{
-			AllowedOrigins:   []string{"*"},
+			AllowedOrigins:   allowedOrigins,
 			AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
 			AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
-			ExposedHeaders:   []string{"Link", "X-Total-Count", "X-Access-Token", "X-Refresh-Token"},
+			ExposedHeaders:   []string{"Link", "X-Total-Count"},
 			AllowCredentials: true,
 			MaxAge:           300,
 		},
 		MinIO:      minioConfig,
 		MailSender: mailSenderConfig,
 	}, nil
+}
+
+func getCORSOrigins() []string {
+	env := getEnv("ENV", "development")
+	if env == "production" {
+		return []string{
+			"https://kroncl.com",
+			"https://www.kroncl.com",
+			"https://kroncl-client.vercel.app",
+		}
+	}
+	return []string{
+		"http://localhost:3000",
+		"http://127.0.0.1:3000",
+	}
+}
+
+func parseDuration(s string) time.Duration {
+	d, err := time.ParseDuration(s)
+	if err != nil {
+		log.Printf("⚠️ Failed to parse duration '%s', using 24h", s)
+		return 24 * time.Hour
+	}
+	return d
 }
 
 func loadEnvFile() error {
@@ -161,7 +184,7 @@ func LoadDBConfigFromEnv() utils.DBConfig {
 		Host:     getEnv("DB_HOST", "localhost"),
 		Port:     port,
 		Name:     getEnv("DB_NAME", "kroncl"),
-		Username: getEnv("DB_USER", "postgres"),
+		Username: getEnv("DB_USERNAME", "postgres"),
 		Password: getEnv("DB_PASSWORD", ""),
 		SSLMode:  getEnv("DB_SSLMODE", "disable"),
 	}

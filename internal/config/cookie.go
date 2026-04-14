@@ -58,7 +58,7 @@ func GetCookieDomain() string {
 	if IsProduction() {
 		return "." + GetBaseDomain()
 	}
-	return GetBaseDomain()
+	return ""
 }
 
 func GetCookieSecure() bool {
@@ -69,5 +69,5 @@ func GetCookieSameSite() http.SameSite {
 	if IsProduction() {
 		return http.SameSiteNoneMode
 	}
-	return http.SameSiteLaxMode
+	return http.SameSiteNoneMode
 }
