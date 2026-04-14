@@ -56,6 +56,7 @@ type FingerprintLoginRequest struct {
 // FingerprintLoginResponse ответ при входе по фингерпринту
 type FingerprintLoginResponse struct {
 	AccessToken string   `json:"access_token"`
+	ExpiresAt   string   `json:"expires_at"`
 	User        *Account `json:"user"`
 }
 

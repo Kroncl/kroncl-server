@@ -117,3 +117,11 @@ func (s *JWTService) GetUserIDFromToken(tokenString string) (string, error) {
 func (s *JWTService) GetRefreshDuration() time.Duration {
 	return s.refreshDuration
 }
+
+func (s *JWTService) GetAccessDuration() time.Duration {
+	return s.accessDuration
+}
+
+func (s *JWTService) GetAccessExpiresAt() string {
+	return time.Now().Add(s.GetAccessDuration()).Format(time.RFC3339)
+}

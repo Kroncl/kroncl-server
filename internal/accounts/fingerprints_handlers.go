@@ -119,6 +119,7 @@ func (h *Handlers) LoginWithFingerprint(w http.ResponseWriter, r *http.Request) 
 	response := FingerprintLoginResponse{
 		AccessToken: accessToken,
 		User:        account,
+		ExpiresAt:   h.service.jwtService.GetAccessExpiresAt(),
 	}
 
 	core.SendSuccess(w, response, "Login successful")

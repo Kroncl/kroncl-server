@@ -75,6 +75,7 @@ func (h *Handlers) Register(w http.ResponseWriter, r *http.Request) {
 	data := map[string]interface{}{
 		"user_id":      account.ID,
 		"access_token": accessToken,
+		"expires_at":   h.service.jwtService.GetAccessDuration(),
 		"email_sent":   true,
 	}
 
@@ -115,6 +116,7 @@ func (h *Handlers) Login(w http.ResponseWriter, r *http.Request) {
 
 	data := map[string]interface{}{
 		"access_token": accessToken,
+		"expires_at":   h.service.jwtService.GetAccessDuration(),
 		"user":         account,
 	}
 
@@ -142,6 +144,7 @@ func (h *Handlers) Refresh(w http.ResponseWriter, r *http.Request) {
 
 	data := map[string]interface{}{
 		"access_token": accessToken,
+		"expires_at":   h.service.jwtService.GetAccessDuration(),
 	}
 
 	core.SendSuccess(w, data, "Tokens refreshed")
