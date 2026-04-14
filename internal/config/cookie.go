@@ -58,13 +58,16 @@ func GetCookieDomain() string {
 	if IsProduction() {
 		return "." + GetBaseDomain()
 	}
-	return "api.localhost"
+	return GetBaseDomain()
 }
 
 func GetCookieSecure() bool {
-	return false
+	return IsProduction()
 }
 
 func GetCookieSameSite() http.SameSite {
+	if IsProduction() {
+		return http.SameSiteNoneMode
+	}
 	return http.SameSiteLaxMode
 }
