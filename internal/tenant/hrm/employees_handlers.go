@@ -48,6 +48,12 @@ func (h *Handlers) RemoveEmployeeAccount(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// запрещаем дропать самого себя
+	if targetAccountID == accountID {
+		core.SendError(w, http.StatusBadRequest, "You can't delete yourself.")
+		return
+	}
+
 	// Удаляем связь
 	err := h.repository.RemoveEmployeeAccount(r.Context(), companyID, targetAccountID)
 	if err != nil {
