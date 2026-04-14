@@ -1,12 +1,17 @@
 package accounts
 
 import (
+	"context"
 	"encoding/json"
 	"kroncl-server/internal/auth"
 	"kroncl-server/internal/core"
+	"kroncl-server/internal/mailer"
+	"kroncl-server/utils"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -79,7 +84,6 @@ func parseInt(s string, defaultValue int) int {
 }
 
 func (h *Handlers) LoginWithFingerprint(w http.ResponseWriter, r *http.Request) {
-
 	var req FingerprintLoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		core.SendValidationError(w, "Invalid request format")
@@ -93,14 +97,28 @@ func (h *Handlers) LoginWithFingerprint(w http.ResponseWriter, r *http.Request) 
 
 	accessToken, refreshToken, account, err := h.service.LoginWithFingerprint(r.Context(), req.Key)
 	if err != nil {
+		log.Printf("❌ Fingerprint login failed: %v", err)
 		core.SendUnauthorized(w, err.Error())
 		return
 	}
 
+	h.setRefreshCookie(w, refreshToken)
+
+	log.Printf("✅ Fingerprint login: %s (%s) from %s", account.Email, account.ID, utils.GetClientIP(r))
+
+	go func() {
+		data := &mailer.LoginNotificationData{
+			UserEmail: account.Email,
+			UserName:  account.Name,
+			IPAddress: utils.GetClientIP(r),
+			LoginTime: time.Now(),
+		}
+		h.service.mailer.SendLoginNotification(context.Background(), data)
+	}()
+
 	response := FingerprintLoginResponse{
-		AccessToken:  accessToken,
-		RefreshToken: refreshToken,
-		User:         account,
+		AccessToken: accessToken,
+		User:        account,
 	}
 
 	core.SendSuccess(w, response, "Login successful")

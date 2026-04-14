@@ -55,9 +55,8 @@ type FingerprintLoginRequest struct {
 
 // FingerprintLoginResponse ответ при входе по фингерпринту
 type FingerprintLoginResponse struct {
-	AccessToken  string   `json:"access_token"`
-	RefreshToken string   `json:"refresh_token"`
-	User         *Account `json:"user"`
+	AccessToken string   `json:"access_token"`
+	User        *Account `json:"user"`
 }
 
 // FingerprintRevokeRequest отзыв фингерпринта
