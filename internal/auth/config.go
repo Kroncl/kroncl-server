@@ -11,18 +11,17 @@ type JWTConfig struct {
 	RefreshDuration time.Duration // Время жизни refresh токена
 }
 
-// LoadJWTConfig загружает конфигурацию JWT из переменных окружения
 func LoadJWTConfig() *JWTConfig {
 	secretKey := os.Getenv("JWT_SECRET_KEY")
 
 	accessDurationStr := os.Getenv("JWT_ACCESS_DURATION")
 	if accessDurationStr == "" {
-		accessDurationStr = "15m" // 15 минут по умолчанию
+		accessDurationStr = "15m"
 	}
 
 	refreshDurationStr := os.Getenv("JWT_REFRESH_DURATION")
 	if refreshDurationStr == "" {
-		refreshDurationStr = "168h" // 7 дней по умолчанию
+		refreshDurationStr = "168h"
 	}
 
 	accessDuration, _ := time.ParseDuration(accessDurationStr)

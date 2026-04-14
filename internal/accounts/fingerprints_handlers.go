@@ -1,12 +1,17 @@
 package accounts
 
 import (
+	"context"
 	"encoding/json"
 	"kroncl-server/internal/auth"
 	"kroncl-server/internal/core"
+	"kroncl-server/internal/mailer"
+	"kroncl-server/utils"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -15,7 +20,6 @@ import (
 // FINGERPRINTS
 // ----------
 
-// CreateFingerprint создает новый фингерпринт
 func (h *Handlers) CreateFingerprint(w http.ResponseWriter, r *http.Request) {
 
 	claims, ok := auth.GetUserFromContext(r.Context())
@@ -39,7 +43,6 @@ func (h *Handlers) CreateFingerprint(w http.ResponseWriter, r *http.Request) {
 	core.SendSuccess(w, fp, "Fingerprint created successfully")
 }
 
-// GetFingerprints возвращает список фингерпринтов текущего пользователя
 func (h *Handlers) GetFingerprints(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.GetUserFromContext(r.Context())
 	if !ok {
@@ -47,7 +50,6 @@ func (h *Handlers) GetFingerprints(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Парсим параметры запроса
 	req := FingerprintListRequest{
 		Page:  parseInt(r.URL.Query().Get("page"), 1),
 		Limit: parseInt(r.URL.Query().Get("limit"), 20),
@@ -70,7 +72,6 @@ func (h *Handlers) GetFingerprints(w http.ResponseWriter, r *http.Request) {
 	core.SendSuccess(w, fingerprints, "Fingerprints retrieved successfully")
 }
 
-// Вспомогательная функция
 func parseInt(s string, defaultValue int) int {
 	if s == "" {
 		return defaultValue
@@ -82,9 +83,7 @@ func parseInt(s string, defaultValue int) int {
 	return val
 }
 
-// LoginWithFingerprint вход по фингерпринту
 func (h *Handlers) LoginWithFingerprint(w http.ResponseWriter, r *http.Request) {
-
 	var req FingerprintLoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		core.SendValidationError(w, "Invalid request format")
@@ -98,20 +97,34 @@ func (h *Handlers) LoginWithFingerprint(w http.ResponseWriter, r *http.Request) 
 
 	accessToken, refreshToken, account, err := h.service.LoginWithFingerprint(r.Context(), req.Key)
 	if err != nil {
+		log.Printf("❌ Fingerprint login failed: %v", err)
 		core.SendUnauthorized(w, err.Error())
 		return
 	}
 
+	h.setRefreshCookie(w, refreshToken)
+
+	log.Printf("✅ Fingerprint login: %s (%s) from %s", account.Email, account.ID, utils.GetClientIP(r))
+
+	go func() {
+		data := &mailer.LoginNotificationData{
+			UserEmail: account.Email,
+			UserName:  account.Name,
+			IPAddress: utils.GetClientIP(r),
+			LoginTime: time.Now(),
+		}
+		h.service.mailer.SendLoginNotification(context.Background(), data)
+	}()
+
 	response := FingerprintLoginResponse{
-		AccessToken:  accessToken,
-		RefreshToken: refreshToken,
-		User:         account,
+		AccessToken: accessToken,
+		User:        account,
+		ExpiresAt:   h.service.jwtService.GetAccessExpiresAt(),
 	}
 
 	core.SendSuccess(w, response, "Login successful")
 }
 
-// RevokeFingerprint отзывает фингерпринт
 func (h *Handlers) RevokeFingerprint(w http.ResponseWriter, r *http.Request) {
 
 	claims, ok := auth.GetUserFromContext(r.Context())
@@ -120,7 +133,6 @@ func (h *Handlers) RevokeFingerprint(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Получаем ID из URL
 	fingerprintID := chi.URLParam(r, "fingerprintId")
 	if fingerprintID == "" {
 		core.SendValidationError(w, "Fingerprint ID is required")

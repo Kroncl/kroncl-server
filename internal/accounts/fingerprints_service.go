@@ -15,21 +15,17 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// CreateFingerprint создает новый фингерпринт для аккаунта
 func (s *Service) CreateFingerprint(ctx context.Context, accountID string, expiresIn *string) (*FingerprintWithKey, error) {
-	// Генерируем ключ
 	key, err := generateFingerprintKey()
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate key: %w", err)
 	}
 
-	// Хэшируем ключ
 	hash, err := s.hashFingerprint(key)
 	if err != nil {
 		return nil, fmt.Errorf("failed to hash key: %w", err)
 	}
 
-	// Считаем expiration
 	var expiredAt *time.Time
 	if expiresIn != nil && *expiresIn != "never" && *expiresIn != "" {
 		duration, err := time.ParseDuration(*expiresIn)
@@ -46,7 +42,6 @@ func (s *Service) CreateFingerprint(ctx context.Context, accountID string, expir
 	}
 	defer tx.Rollback(ctx)
 
-	// Создаем фингерпринт
 	var fp Fingerprint
 	var fpID uuid.UUID
 
@@ -64,7 +59,6 @@ func (s *Service) CreateFingerprint(ctx context.Context, accountID string, expir
 	}
 	fp.ID = fpID.String()
 
-	// Связываем с аккаунтом
 	_, err = tx.Exec(ctx, `
         INSERT INTO account_fingerprints (account_id, fingerprint_id, created_at)
         VALUES ($1, $2, NOW())
@@ -78,16 +72,13 @@ func (s *Service) CreateFingerprint(ctx context.Context, accountID string, expir
 		return nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
-	// Возвращаем ключ только один раз!
 	return &FingerprintWithKey{
 		Fingerprint: fp,
 		Key:         key,
 	}, nil
 }
 
-// LoginWithFingerprint вход по фингерпринту
 func (s *Service) LoginWithFingerprint(ctx context.Context, key string) (accessToken, refreshToken string, account *Account, err error) {
-	// Достаём все фингерпринты (или используем частичный индекс)
 	query := `
         SELECT 
             f.id, f.hash, f.status, f.expired_at, 
@@ -105,7 +96,6 @@ func (s *Service) LoginWithFingerprint(ctx context.Context, key string) (accessT
 	}
 	defer rows.Close()
 
-	// Ищем подходящий ключ
 	var accountID string
 	var fpID uuid.UUID
 	var found bool
@@ -123,7 +113,6 @@ func (s *Service) LoginWithFingerprint(ctx context.Context, key string) (accessT
 			continue
 		}
 
-		// Проверяем ключ
 		if s.verifyFingerprint(hash, key) {
 			accountID = accID
 			fpID = id
@@ -136,7 +125,6 @@ func (s *Service) LoginWithFingerprint(ctx context.Context, key string) (accessT
 		return "", "", nil, fmt.Errorf("invalid fingerprint key")
 	}
 
-	// Обновляем last_used_at
 	_, err = s.pool.Exec(ctx, `
         UPDATE account_fingerprints 
         SET last_used_at = NOW() 
@@ -146,7 +134,6 @@ func (s *Service) LoginWithFingerprint(ctx context.Context, key string) (accessT
 		log.Printf("failed to update last_used_at: %v", err)
 	}
 
-	// Получаем аккаунт для проверки статуса
 	account, err = s.GetByID(ctx, accountID)
 	if err != nil {
 		return "", "", nil, fmt.Errorf("account not found")
@@ -156,7 +143,6 @@ func (s *Service) LoginWithFingerprint(ctx context.Context, key string) (accessT
 		return "", "", nil, fmt.Errorf("account not confirmed")
 	}
 
-	// Генерируем токены
 	accessToken, err = s.jwtService.GenerateAccessToken(account.ID)
 	if err != nil {
 		return "", "", nil, fmt.Errorf("failed to generate access token: %w", err)
@@ -175,9 +161,7 @@ func (s *Service) verifyFingerprint(hash, key string) bool {
 	return err == nil
 }
 
-// RevokeFingerprint отзывает фингерпринт
 func (s *Service) RevokeFingerprint(ctx context.Context, accountID, fingerprintID string) error {
-	// Проверяем, что фингерпринт принадлежит этому аккаунту
 	var exists bool
 	err := s.pool.QueryRow(ctx, `
         SELECT EXISTS(
@@ -194,7 +178,6 @@ func (s *Service) RevokeFingerprint(ctx context.Context, accountID, fingerprintI
 		return fmt.Errorf("fingerprint not found or does not belong to you")
 	}
 
-	// Отзываем (мягкое удаление - меняем статус)
 	_, err = s.pool.Exec(ctx, `
         UPDATE fingerprints 
         SET status = 'inactive' 
@@ -208,13 +191,10 @@ func (s *Service) RevokeFingerprint(ctx context.Context, accountID, fingerprintI
 	return nil
 }
 
-// GetAccountFingerprints возвращает список фингерпринтов аккаунта с пагинацией и фильтрацией
 func (s *Service) GetAccountFingerprints(ctx context.Context, accountID string, req FingerprintListRequest) (*FingerprintsResponse, error) {
-	// Базовый запрос
 	queryBase := `FROM fingerprints f
                   JOIN account_fingerprints af ON f.id = af.fingerprint_id`
 
-	// WHERE условия
 	whereConditions := []string{`af.account_id = $1`}
 	args := []interface{}{accountID}
 	argIndex := 2
@@ -226,7 +206,6 @@ func (s *Service) GetAccountFingerprints(ctx context.Context, accountID string, 
 	}
 
 	if req.Search != nil && *req.Search != "" {
-		// Поиск по ID или по маске (используем last 8 символов хэша для маски)
 		whereConditions = append(whereConditions, fmt.Sprintf(
 			"(f.id::text ILIKE $%d OR RIGHT(f.hash, 8) ILIKE $%d)",
 			argIndex, argIndex+1,
@@ -238,7 +217,6 @@ func (s *Service) GetAccountFingerprints(ctx context.Context, accountID string, 
 
 	whereClause := " WHERE " + strings.Join(whereConditions, " AND ")
 
-	// Общее количество
 	countQuery := "SELECT COUNT(*) " + queryBase + whereClause
 	var total int64
 	err := s.pool.QueryRow(ctx, countQuery, args...).Scan(&total)
@@ -246,7 +224,6 @@ func (s *Service) GetAccountFingerprints(ctx context.Context, accountID string, 
 		return nil, fmt.Errorf("failed to count fingerprints: %w", err)
 	}
 
-	// Пагинация
 	limit := 20
 	if req.Limit > 0 {
 		limit = req.Limit
@@ -261,7 +238,6 @@ func (s *Service) GetAccountFingerprints(ctx context.Context, accountID string, 
 	}
 	offset := (page - 1) * limit
 
-	// Основной запрос
 	query := `
         SELECT 
             f.id, f.status, f.expired_at, f.created_at,
@@ -302,7 +278,6 @@ func (s *Service) GetAccountFingerprints(ctx context.Context, accountID string, 
 		fingerprints = append(fingerprints, fp)
 	}
 
-	// Считаем страницы
 	pages := int(total) / limit
 	if int(total)%limit > 0 {
 		pages++
@@ -321,7 +296,6 @@ func (s *Service) GetAccountFingerprints(ctx context.Context, accountID string, 
 	}, nil
 }
 
-// Вспомогательные функции
 func generateFingerprintKey() (string, error) {
 	bytes := make([]byte, 32)
 	_, err := rand.Read(bytes)

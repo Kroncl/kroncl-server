@@ -47,6 +47,8 @@ services:
     ports:
       - "8080:8080"
     environment:
+      ENV: ${ENV:-production}
+      BASE_DOMAIN: ${BASE_DOMAIN-kroncl.com}
       HOST: 0.0.0.0
       DB_HOST: ${DB_HOST}
       DB_PORT: ${DB_PORT}
