@@ -19,7 +19,7 @@ func (s *Service) SendCompanyInvitation(ctx context.Context, data *CompanyInvita
 
 	subject := fmt.Sprintf("Приглашение в компанию %s — Kroncl", data.CompanyName)
 
-	baseDomain := config.GetBaseDomain()
+	baseDomain := config.GetClientDomain()
 	inviteLink := baseDomain // пока похуй, просто ведём на основу
 
 	htmlBody := fmt.Sprintf(`
