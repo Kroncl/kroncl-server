@@ -6,7 +6,6 @@ services:
       POSTGRES_DB: ${DB_NAME}
       POSTGRES_USER: ${DB_USERNAME}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
-      # Добавляем настройки для ускорения восстановления
       POSTGRES_INITDB_ARGS: "--data-checksums"
     ports:
       - "5432:5432"
@@ -49,6 +48,7 @@ services:
     environment:
       ENV: ${ENV:-production}
       BASE_DOMAIN: ${BASE_DOMAIN-kroncl.com}
+      CLIENT_DOMAIN: ${CLIENT_DOMAIN-kroncl.com}
       HOST: 0.0.0.0
       DB_HOST: ${DB_HOST}
       DB_PORT: ${DB_PORT}
@@ -73,7 +73,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-        restart: true   # Добавить эту строку
+        restart: true
       minio:
         condition: service_healthy
     networks:

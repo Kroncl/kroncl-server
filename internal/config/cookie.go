@@ -43,6 +43,17 @@ func GetBaseDomain() string {
 	return domain
 }
 
+func GetClientDomain() string {
+	domain := os.Getenv("CLIENT_DOMAIN")
+	if domain == "" {
+		if IsProduction() {
+			return "kroncl.com"
+		}
+		return "localhost:3000"
+	}
+	return domain
+}
+
 func GetCookieDomain() string {
 	if IsProduction() {
 		return "." + GetBaseDomain()
