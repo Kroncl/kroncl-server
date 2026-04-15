@@ -32,3 +32,16 @@ type ConfirmRequest struct {
 	UserID string `json:"user_id"`
 	Code   string `json:"code"`
 }
+
+type PasswordResetRequest struct {
+	Email string `json:"email"`
+}
+
+type PasswordResetValidateRequest struct {
+	Token string `json:"token"`
+}
+
+type PasswordResetConfirmRequest struct {
+	Token       string `json:"token"`
+	NewPassword string `json:"new_password"`
+}

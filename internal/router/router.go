@@ -59,6 +59,12 @@ func New(cfg *config.Config, container *di.Container) chi.Router {
 			r.Post("/fingerprints/auth", container.AccountsHandlers.LoginWithFingerprint)
 			r.Post("/refresh", container.AccountsHandlers.Refresh)
 
+			r.Route("/reset-password", func(r chi.Router) {
+				r.Post("/send-link", container.AccountsHandlers.RequestPasswordReset)
+				r.Post("/validate-token", container.AccountsHandlers.ValidateResetToken)
+				r.Post("/", container.AccountsHandlers.ResetPassword)
+			})
+
 			// account [protected]
 			r.Group(func(r chi.Router) {
 				r.Use(container.JWTService.RequireAuth)

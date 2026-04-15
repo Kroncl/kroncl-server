@@ -11,6 +11,8 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+const EMAIL_CONFIRMATION_TYPE = "email_confirmation"
+
 func (s *Service) Create(ctx context.Context, email, name, password string) (*Account, string, string, error) {
 	if !s.validateEmailFormat(email) {
 		return nil, "", "", fmt.Errorf("invalid email format")
@@ -99,7 +101,7 @@ func (s *Service) ConfirmEmail(ctx context.Context, userID, code string) error {
 		return fmt.Errorf("user not found: %w", err)
 	}
 
-	valid, err := s.VerifyConfirmationCode(ctx, userID, code, "email_confirmation")
+	valid, err := s.VerifyConfirmationCode(ctx, userID, code, EMAIL_CONFIRMATION_TYPE)
 	if err != nil {
 		return fmt.Errorf("confirmation code verification failed: %w", err)
 	}
@@ -131,12 +133,12 @@ func (s *Service) ResendConfirmationCode(ctx context.Context, userID string) err
 		return fmt.Errorf("account cannot be verified: current status is %s", account.Status)
 	}
 
-	code, err := s.GenerateConfirmationCode(ctx, account.ID, "email_confirmation", 6, 15)
+	code, err := s.GenerateConfirmationCode(ctx, account.ID, EMAIL_CONFIRMATION_TYPE, 6, 15)
 	if err != nil {
 		return fmt.Errorf("failed to generate confirmation code: %w", err)
 	}
 
-	activeCode, err := s.GetActiveCode(ctx, account.ID, "email_confirmation")
+	activeCode, err := s.GetActiveCode(ctx, account.ID, EMAIL_CONFIRMATION_TYPE)
 	if err != nil {
 		return fmt.Errorf("failed to get active code: %w", err)
 	}
@@ -234,6 +236,38 @@ func (s *Service) RefreshTokens(ctx context.Context, refreshToken string) (acces
 
 	return accessToken, newRefreshToken, nil
 }
+
+func (s *Service) ResetPassword(ctx context.Context, accountID, newPassword string) error {
+	if !s.validatePassword(newPassword) {
+		return fmt.Errorf("password too weak")
+	}
+
+	hashedPassword, err := s.hashPassword(newPassword)
+	if err != nil {
+		return fmt.Errorf("password hashing failed: %w", err)
+	}
+
+	query := `
+		UPDATE accounts 
+		SET password_hash = $1, updated_at = NOW()
+		WHERE id = $2
+	`
+
+	result, err := s.pool.Exec(ctx, query, hashedPassword, accountID)
+	if err != nil {
+		return fmt.Errorf("failed to update password: %w", err)
+	}
+
+	if result.RowsAffected() == 0 {
+		return fmt.Errorf("account not found")
+	}
+
+	return nil
+}
+
+// --------
+// UTILS
+// --------
 
 func (s *Service) getPasswordHash(ctx context.Context, userID string) (string, error) {
 	var passwordHash string

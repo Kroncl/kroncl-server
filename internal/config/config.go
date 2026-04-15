@@ -39,9 +39,11 @@ type ServerConfig struct {
 }
 
 type JWTConfig struct {
-	SecretKey       string
-	AccessDuration  time.Duration
-	RefreshDuration time.Duration
+	SecretKey              string
+	AccessDuration         time.Duration
+	RefreshDuration        time.Duration
+	ResetPasswordSecretKey string
+	ResetPasswordDuration  time.Duration
 }
 
 type CORSConfig struct {
@@ -113,9 +115,11 @@ func Load() (*Config, error) {
 		},
 		Database: dbConfig,
 		JWT: JWTConfig{
-			SecretKey:       getEnv("JWT_SECRET_KEY", "development-secret-key-change-in-production"),
-			AccessDuration:  parseDuration(getEnv("JWT_ACCESS_DURATION", "24h")),
-			RefreshDuration: parseDuration(getEnv("JWT_REFRESH_DURATION", "168h")),
+			SecretKey:              getEnv("JWT_SECRET_KEY", "development-secret-key-change-in-production"),
+			AccessDuration:         parseDuration(getEnv("JWT_ACCESS_DURATION", "24h")),
+			RefreshDuration:        parseDuration(getEnv("JWT_REFRESH_DURATION", "168h")),
+			ResetPasswordSecretKey: getEnv("JWT_RESET_PASSWORD_SECRET_KEY", "development-secret-key-change-in-production"),
+			ResetPasswordDuration:  parseDuration(getEnv("JWT_RESET_PASSWORD_DURATION", "15m")),
 		},
 		CORS: CORSConfig{
 			AllowedOrigins:   allowedOrigins,

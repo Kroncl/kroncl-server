@@ -9,9 +9,11 @@ import (
 )
 
 type JWTService struct {
-	secretKey       []byte
-	accessDuration  time.Duration
-	refreshDuration time.Duration
+	secretKey              []byte
+	accessDuration         time.Duration
+	refreshDuration        time.Duration
+	resetPasswordSecretKey []byte
+	resetPasswordDuration  time.Duration
 }
 
 type AccessClaims struct {
@@ -19,11 +21,26 @@ type AccessClaims struct {
 	jwt.RegisteredClaims
 }
 
-func NewJWTService(secretKey string, accessDuration, refreshDuration time.Duration) *JWTService {
+type ResetPasswordClaims struct {
+	AccountID string `json:"account_id"`
+	jwt.RegisteredClaims
+}
+
+const TOKEN_ISSUER = "kroncl-authorization-server"
+
+func NewJWTService(
+	secretKey string,
+	accessDuration time.Duration,
+	refreshDuration time.Duration,
+	resetPasswordSecretKey string,
+	resetPasswordDuration time.Duration,
+) *JWTService {
 	return &JWTService{
-		secretKey:       []byte(secretKey),
-		accessDuration:  accessDuration,
-		refreshDuration: refreshDuration,
+		secretKey:              []byte(secretKey),
+		accessDuration:         accessDuration,
+		refreshDuration:        refreshDuration,
+		resetPasswordSecretKey: []byte(resetPasswordSecretKey),
+		resetPasswordDuration:  resetPasswordDuration,
 	}
 }
 
@@ -33,7 +50,7 @@ func (s *JWTService) GenerateAccessToken(userID string) (string, error) {
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(s.accessDuration)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			Issuer:    "kroncl-authorization-server",
+			Issuer:    TOKEN_ISSUER,
 			Subject:   userID,
 		},
 	}
@@ -46,12 +63,46 @@ func (s *JWTService) GenerateRefreshToken(userID string) (string, error) {
 	claims := &jwt.RegisteredClaims{
 		ExpiresAt: jwt.NewNumericDate(time.Now().Add(s.refreshDuration)),
 		IssuedAt:  jwt.NewNumericDate(time.Now()),
-		Issuer:    "kroncl-authorization-server",
+		Issuer:    TOKEN_ISSUER,
 		Subject:   userID,
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString(s.secretKey)
+}
+
+func (s *JWTService) GenerateResetPasswordToken(accountID string) (string, error) {
+	claims := &ResetPasswordClaims{
+		AccountID: accountID,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(s.resetPasswordDuration)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			Issuer:    TOKEN_ISSUER,
+			Subject:   accountID,
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString(s.resetPasswordSecretKey)
+}
+
+func (s *JWTService) ValidateResetPasswordToken(tokenString string) (*ResetPasswordClaims, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &ResetPasswordClaims{}, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		return s.resetPasswordSecretKey, nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	if claims, ok := token.Claims.(*ResetPasswordClaims); ok && token.Valid {
+		return claims, nil
+	}
+
+	return nil, errors.New("invalid token")
 }
 
 func (s *JWTService) ValidateAccessToken(tokenString string) (*AccessClaims, error) {

@@ -125,6 +125,8 @@ func (c *Container) initServices(ctx context.Context) error {
 		c.Config.JWT.SecretKey,
 		c.Config.JWT.AccessDuration,
 		c.Config.JWT.RefreshDuration,
+		c.Config.JWT.ResetPasswordSecretKey,
+		c.Config.JWT.ResetPasswordDuration,
 	)
 
 	// Storage
