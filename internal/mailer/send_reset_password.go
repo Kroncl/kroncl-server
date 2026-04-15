@@ -21,7 +21,7 @@ func (s *Service) SendPasswordReset(ctx context.Context, data *PasswordResetData
 	subject := "Сброс пароля — Kroncl"
 
 	clientDomain := config.GetClientDomain()
-	resetLink := fmt.Sprintf("%s/sso/recovery/reset_password?token=%s", clientDomain, data.Token)
+	resetLink := fmt.Sprintf("%s/sso/recovery/reset-password?token=%s", clientDomain, data.Token)
 
 	htmlBody := fmt.Sprintf(`
 		<h2>Сброс пароля</h2>
