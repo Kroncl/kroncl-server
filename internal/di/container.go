@@ -12,6 +12,7 @@ import (
 	"kroncl-server/internal/migrator"
 	"kroncl-server/internal/permissioner"
 	"kroncl-server/internal/pricing"
+	"kroncl-server/internal/public"
 	"kroncl-server/internal/tenant"
 	"kroncl-server/internal/tenant/storage"
 	"kroncl-server/utils"
@@ -36,6 +37,7 @@ type Container struct {
 	StorageService    *storage.Service
 	Migrator          *migrator.Migrator
 	Mailer            *mailer.Service
+	PublicService     *public.Service
 
 	// Media
 	MediaRepo     *media.Repository
@@ -47,6 +49,7 @@ type Container struct {
 	CompaniesHandlers *companies.Handlers
 	StorageHandlers   *storage.Handlers
 	PricingHandlers   *pricing.Handlers
+	PublicHandlers    *public.Handlers
 
 	// мидлварь зависимости
 	PermissionDeps *permissioner.PermissionDeps
@@ -148,6 +151,9 @@ func (c *Container) initServices(ctx context.Context) error {
 	// Permission Service
 	c.PermissionService = permissioner.NewService(c.CompaniesService)
 
+	// Public Service
+	c.PublicService = public.NewService(c.DB, c.Mailer)
+
 	// media
 	mediaRepo := media.NewRepository(c.DB)
 	mediaService, err := media.NewService(media.Config{
@@ -182,6 +188,7 @@ func (c *Container) initServices(ctx context.Context) error {
 	c.CompaniesHandlers = companies.NewHandlers(c.CompaniesService)
 	c.StorageHandlers = storage.NewHandlers(c.StorageService)
 	c.PricingHandlers = pricing.NewHandlers(c.PricingService)
+	c.PublicHandlers = public.NewHandlers(c.PublicService)
 
 	return nil
 }

@@ -100,6 +100,14 @@ func New(cfg *config.Config, container *di.Container) chi.Router {
 			})
 		})
 
+		// partners actions
+		r.Route("/partners", func(r chi.Router) {
+			// rate limiter
+			r.Use(httprate.LimitByIP(config.RATE_LIMIT_PUBLIC_ROUTES_PER_MINUTE, 1*time.Minute))
+
+			r.Post("/become", container.PublicHandlers.CreatePartner)
+		})
+
 		// pricing-plans actions
 		r.Route("/plans", func(r chi.Router) {
 			// rate limiter
