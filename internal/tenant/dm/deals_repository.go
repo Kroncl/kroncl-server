@@ -882,8 +882,10 @@ func (r *Repository) UpdateDeal(ctx context.Context, id string, req UpdateDealRe
 	}
 
 	// 2. Обновляем клиента если указан
-	if err := r.updateDealClient(ctx, tx, id, req.ClientID); err != nil {
-		return err
+	if req.ClientID != nil {
+		if err := r.updateDealClient(ctx, tx, id, req.ClientID); err != nil {
+			return err
+		}
 	}
 
 	// 3. Обновляем статус если указан
