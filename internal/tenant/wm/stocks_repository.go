@@ -386,7 +386,6 @@ func (r *Repository) GetStockPositions(ctx context.Context, req GetStockPosition
 		offset = 0
 	}
 
-	// Базовый запрос
 	fromClause := `FROM stock_positions sp
 		INNER JOIN catalog_units u ON sp.unit_id = u.id
 		LEFT JOIN stock_position_batch spb ON sp.id = spb.position_id`
@@ -413,12 +412,19 @@ func (r *Repository) GetStockPositions(ctx context.Context, req GetStockPosition
 		conditions = append(conditions, "sp.quantity > 0")
 	}
 
+	if req.Search != nil && *req.Search != "" {
+		searchPattern := "%" + strings.ToLower(*req.Search) + "%"
+		conditions = append(conditions,
+			"(sp.id::text ILIKE $"+strconv.Itoa(argIndex)+" OR LOWER(u.name) ILIKE $"+strconv.Itoa(argIndex)+")")
+		args = append(args, searchPattern)
+		argIndex++
+	}
+
 	whereClause := ""
 	if len(conditions) > 0 {
 		whereClause = "WHERE " + strings.Join(conditions, " AND ")
 	}
 
-	// Получаем общее количество
 	countQuery := "SELECT COUNT(DISTINCT sp.id) " + fromClause + " " + whereClause
 	var total int
 	err := r.pool.QueryRow(ctx, countQuery, args...).Scan(&total)
@@ -426,7 +432,6 @@ func (r *Repository) GetStockPositions(ctx context.Context, req GetStockPosition
 		return nil, 0, fmt.Errorf("failed to count stock positions: %w", err)
 	}
 
-	// Получаем позиции с пагинацией - ИСПРАВЛЕНО: batch_id как *string
 	query := `
 		SELECT DISTINCT
 			sp.id, sp.type, sp.unit_id, sp.quantity, sp.created_at,
@@ -450,7 +455,7 @@ func (r *Repository) GetStockPositions(ctx context.Context, req GetStockPosition
 	for rows.Next() {
 		var pos PositionWithUnitResponse
 		var unit CatalogUnit
-		var batchID *string // ИСПРАВЛЕНО: используем указатель
+		var batchID *string
 
 		err := rows.Scan(
 			&pos.ID,
@@ -473,7 +478,7 @@ func (r *Repository) GetStockPositions(ctx context.Context, req GetStockPosition
 			&unit.Metadata,
 			&unit.CreatedAt,
 			&unit.UpdatedAt,
-			&batchID, // ИСПРАВЛЕНО: сканируем в указатель
+			&batchID,
 		)
 		if err != nil {
 			return nil, 0, fmt.Errorf("failed to scan stock position: %w", err)
@@ -481,7 +486,7 @@ func (r *Repository) GetStockPositions(ctx context.Context, req GetStockPosition
 
 		pos.Unit = unit
 		if batchID != nil {
-			pos.BatchID = *batchID // ИСПРАВЛЕНО: разыменовываем если не nil
+			pos.BatchID = *batchID
 		}
 		positions = append(positions, pos)
 	}

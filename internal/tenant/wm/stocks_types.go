@@ -114,6 +114,7 @@ type GetStockPositionsParams struct {
 	UnitID  *string            `json:"unit_id,omitempty"`
 	BatchID *string            `json:"batch_id,omitempty"`
 	InStock *bool              `json:"in_stock,omitempty"`
+	Search  *string            `json:"search,omitempty"`
 }
 
 // StockPositionsResponse represents paginated response for positions
