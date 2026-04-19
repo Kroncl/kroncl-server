@@ -19,18 +19,23 @@ func (s *Service) Create(
 	avatarURL string,
 	isPublic bool,
 	planCode string,
+	region string,
 ) (*CreateCompanyResponse, error) {
-	// 0. Проверка planCode
 	if planCode == "" {
 		return nil, fmt.Errorf("plan_code is required")
 	}
 
-	// 1. Валидация
+	if region == "" {
+		region = RegionRu
+	}
+	if !IsValidRegion(region) {
+		return nil, fmt.Errorf("invalid region: %s", region)
+	}
+
 	if err := s.ValidateCompanyName(name); err != nil {
 		return nil, err
 	}
 
-	// 2. Проверка slug
 	isUnique, err := s.checkSlugUnique(ctx, slug)
 	if err != nil {
 		return nil, fmt.Errorf("slug uniqueness check failed: %w", err)
@@ -39,7 +44,6 @@ func (s *Service) Create(
 		return nil, fmt.Errorf("company slug isn't unique")
 	}
 
-	// 3. Начинаем транзакцию
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to start transaction: %w", err)
@@ -52,20 +56,18 @@ func (s *Service) Create(
 
 	currentTime := time.Now()
 
-	// 4. Генерируем UUID для компании
 	companyID, err := uuid.NewRandom()
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate company UUID: %w", err)
 	}
 
-	// 5. Создаем компанию
 	companyQuery := `
 		INSERT INTO companies (
 			id, slug, name, description, avatar_url, 
-			is_public, created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+			is_public, region, created_at, updated_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 		RETURNING id, slug, name, description, avatar_url, 
-		          is_public, created_at, updated_at
+		          is_public, email, region, site, metadata, created_at, updated_at
 	`
 
 	var company Company
@@ -77,6 +79,7 @@ func (s *Service) Create(
 		description,
 		avatarURL,
 		isPublic,
+		region,
 		currentTime,
 		currentTime,
 	).Scan(
@@ -86,6 +89,10 @@ func (s *Service) Create(
 		&company.Description,
 		&company.AvatarUrl,
 		&company.IsPublic,
+		&company.Email,
+		&company.Region,
+		&company.Site,
+		&company.Metadata,
 		&company.CreatedAt,
 		&company.UpdatedAt,
 	)
@@ -93,7 +100,6 @@ func (s *Service) Create(
 		return nil, fmt.Errorf("failed to create company: %w", err)
 	}
 
-	// 6. Добавляем создателя как владельца в company_accounts
 	memberQuery := `
 		INSERT INTO company_accounts (
 			company_id, account_id, role_code, permissions,
@@ -115,14 +121,12 @@ func (s *Service) Create(
 		return nil, fmt.Errorf("failed to add owner to company: %w", err)
 	}
 
-	// 7. Коммитим транзакцию по созданию компании
 	if err := tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	tx = nil
 
-	// 8. Создаем trial-транзакцию
 	expiresAt := currentTime.Add(time.Duration(config.PRICING_TRIAL_PERIOD_DAYS) * 24 * time.Hour)
 
 	stoicPlanCode := config.PRICING_PLAN_LVL_1
@@ -143,14 +147,12 @@ func (s *Service) Create(
 		return nil, fmt.Errorf("failed to create trial transaction: %w", err)
 	}
 
-	// 9. Обновляем статус транзакции на success
 	_, err = s.pricingService.UpdateTransactionStatus(ctx, trialTx.ID, pricing.TransactionStatusSuccess)
 	if err != nil {
 		s.deleteCompany(ctx, company.ID)
 		return nil, fmt.Errorf("failed to update trial transaction status: %w", err)
 	}
 
-	// 10. Запускаем процесс создания хранилища
 	storage, err := s.storage.InitStorage(ctx, company.ID)
 	if err != nil || storage == nil {
 		s.deleteCompany(ctx, company.ID)
@@ -165,7 +167,6 @@ func (s *Service) Create(
 	return &companyWithStorage, nil
 }
 
-// deleteCompany удаляет компанию при ошибке в не транзакционных операциях
 func (s *Service) deleteCompany(ctx context.Context, companyID string) {
 	_, _ = s.pool.Exec(ctx, `DELETE FROM companies WHERE id = $1`, companyID)
 }

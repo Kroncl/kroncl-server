@@ -7,8 +7,38 @@ import (
 	"strings"
 )
 
-// обновление компании
-func (s *Service) UpdateById(ctx context.Context, companyID string, req *UpdateRequest) (*Company, error) {
+func (s *Service) GetCompanyVisitCard(ctx context.Context, slug string) (*Company, error) {
+	query := `
+		SELECT id, slug, name, description, avatar_url, is_public,
+		       email, region, site, metadata, created_at, updated_at
+		FROM companies 
+		WHERE slug = $1 AND is_public = true
+	`
+
+	var company Company
+	err := s.pool.QueryRow(ctx, query, slug).Scan(
+		&company.ID,
+		&company.Slug,
+		&company.Name,
+		&company.Description,
+		&company.AvatarUrl,
+		&company.IsPublic,
+		&company.Email,
+		&company.Region,
+		&company.Site,
+		&company.Metadata,
+		&company.CreatedAt,
+		&company.UpdatedAt,
+	)
+
+	if err != nil {
+		return nil, fmt.Errorf("company not found or not public: %w", err)
+	}
+
+	return &company, nil
+}
+
+func (s *Service) UpdateById(ctx context.Context, userID string, companyID string, req *UpdateRequest) (*UserCompany, error) {
 	updater := core.NewUpdater("companies")
 
 	if req.Name != nil && *req.Name != "" {
@@ -18,32 +48,52 @@ func (s *Service) UpdateById(ctx context.Context, companyID string, req *UpdateR
 		updater.SetString("name", *req.Name)
 	}
 	if req.Description != nil {
-		updater.Set("description", *req.Description)
+		updater.SetString("description", *req.Description)
 	}
 	if req.AvatarUrl != nil {
 		updater.SetString("avatar_url", *req.AvatarUrl)
+	}
+	if req.IsPublic != nil {
+		updater.SetBool("is_public", *req.IsPublic)
+	}
+	if req.Region != nil && *req.Region != "" {
+		if !IsValidRegion(*req.Region) {
+			return nil, fmt.Errorf("invalid region: %s", *req.Region)
+		}
+		updater.SetString("region", *req.Region)
+	}
+	if req.Site != nil {
+		if *req.Site == "" {
+			updater.SetNull("site")
+		} else {
+			updater.SetString("site", *req.Site)
+		}
+	}
+	if req.Email != nil {
+		if *req.Email == "" {
+			updater.SetNull("email")
+		} else {
+			updater.SetString("email", *req.Email)
+		}
 	}
 
 	updater.Where("id = $1", companyID)
 
 	query, args := updater.Build()
-	if query == "" {
-		return s.GetCompanyByID(ctx, companyID)
+	if query != "" {
+		_, err := s.pool.Exec(ctx, query, args...)
+		if err != nil {
+			return nil, fmt.Errorf("failed to update company: %w", err)
+		}
 	}
 
-	_, err := s.pool.Exec(ctx, query, args...)
-	if err != nil {
-		return nil, fmt.Errorf("failed to update company: %w", err)
-	}
-
-	return s.GetCompanyByID(ctx, companyID)
+	return s.GetUserCompanyById(ctx, userID, companyID)
 }
 
-// получение организации без принадлежности к пользователю
 func (s *Service) GetCompanyByID(ctx context.Context, companyID string) (*Company, error) {
 	query := `
 		SELECT id, slug, name, description, avatar_url, is_public,
-		       created_at, updated_at
+		       email, region, site, metadata, created_at, updated_at
 		FROM companies 
 		WHERE id = $1
 	`
@@ -56,6 +106,10 @@ func (s *Service) GetCompanyByID(ctx context.Context, companyID string) (*Compan
 		&company.Description,
 		&company.AvatarUrl,
 		&company.IsPublic,
+		&company.Email,
+		&company.Region,
+		&company.Site,
+		&company.Metadata,
 		&company.CreatedAt,
 		&company.UpdatedAt,
 	)
@@ -67,12 +121,11 @@ func (s *Service) GetCompanyByID(ctx context.Context, companyID string) (*Compan
 	return &company, nil
 }
 
-// получение организации с метками принадлежности пользователя
 func (s *Service) GetUserCompanyById(ctx context.Context, userID string, companyID string) (*UserCompany, error) {
 	query := `
 		SELECT 
 			c.id, c.slug, c.name, c.description, c.avatar_url, c.is_public,
-			c.created_at, c.updated_at,
+			c.email, c.region, c.site, c.metadata, c.created_at, c.updated_at,
 			ca.role_code,
 			ca.created_at as joined_at
 		FROM companies c
@@ -88,6 +141,10 @@ func (s *Service) GetUserCompanyById(ctx context.Context, userID string, company
 		&company.Description,
 		&company.AvatarUrl,
 		&company.IsPublic,
+		&company.Email,
+		&company.Region,
+		&company.Site,
+		&company.Metadata,
 		&company.CreatedAt,
 		&company.UpdatedAt,
 		&company.RoleCode,
@@ -101,7 +158,6 @@ func (s *Service) GetUserCompanyById(ctx context.Context, userID string, company
 	return &company, nil
 }
 
-// возвращает список организаций пользователя с ролью и пагинацией
 func (s *Service) GetUserCompanies(ctx context.Context, userID string, req *GetUserCompaniesRequest) (*GetUserCompaniesResponse, error) {
 	if req.Page < 1 {
 		req.Page = 1
@@ -130,7 +186,7 @@ func (s *Service) GetUserCompanies(ctx context.Context, userID string, req *GetU
 	baseQuery := `
 		SELECT 
 			c.id, c.slug, c.name, c.description, c.avatar_url, c.is_public,
-			c.created_at, c.updated_at,
+			c.email, c.region, c.site, c.metadata, c.created_at, c.updated_at,
 			ca.role_code,
 			ca.created_at as joined_at
 		FROM companies c
@@ -185,6 +241,10 @@ func (s *Service) GetUserCompanies(ctx context.Context, userID string, req *GetU
 			&uc.Description,
 			&uc.AvatarUrl,
 			&uc.IsPublic,
+			&uc.Email,
+			&uc.Region,
+			&uc.Site,
+			&uc.Metadata,
 			&uc.CreatedAt,
 			&uc.UpdatedAt,
 			&uc.RoleCode,
@@ -240,7 +300,6 @@ func (s *Service) CheckCompanyMembership(ctx context.Context, companyID, userID 
 	return exists, err
 }
 
-// RemoveCompanyMember удаляет участника из компании (если он не владелец)
 func (s *Service) RemoveCompanyMember(ctx context.Context, companyID, memberID string) error {
 	var isOwner bool
 	checkOwnerQuery := `
@@ -293,7 +352,6 @@ func (s *Service) RemoveCompanyMember(ctx context.Context, companyID, memberID s
 	return nil
 }
 
-// GetCompanyMember возвращает информацию об одном участнике компании
 func (s *Service) GetCompanyMember(ctx context.Context, companyID, memberID string) (*CompanyPublicMember, error) {
 	query := `
 		SELECT 

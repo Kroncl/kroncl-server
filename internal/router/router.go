@@ -125,6 +125,11 @@ func New(cfg *config.Config, container *di.Container) chi.Router {
 			r.Get("/", container.CompaniesHandlers.GetPlatformPermissions)
 		})
 
+		// Public companies overview
+		r.Route("/visit-cards/{slug}", func(r chi.Router) {
+			r.Get("/", container.CompaniesHandlers.GetCompanyVisitCard)
+		})
+
 		// Protected routes (require auth)
 		r.Group(func(r chi.Router) {
 			r.Use(container.JWTService.RequireAuth)
