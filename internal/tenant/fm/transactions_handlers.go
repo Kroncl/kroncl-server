@@ -46,16 +46,6 @@ func (h *Handlers) CreateTransaction(w http.ResponseWriter, r *http.Request) {
 		core.SendError(w, http.StatusBadRequest, "Amount must be greater than 0.")
 		return
 	}
-	if req.EmployeeID == "" {
-		h.logsService.Log(r.Context(), config.PERMISSION_FM_TRANSACTIONS_CREATE, accountID,
-			logs.WithStatus(logs.LogStatusError),
-			logs.WithUserAgent(r.UserAgent()),
-			logs.WithMetadata("error", "Employee ID is required"),
-			logs.WithMetadata("path", r.URL.Path),
-		)
-		core.SendError(w, http.StatusBadRequest, "Employee ID is required.")
-		return
-	}
 	if req.Direction == "" {
 		h.logsService.Log(r.Context(), config.PERMISSION_FM_TRANSACTIONS_CREATE, accountID,
 			logs.WithStatus(logs.LogStatusError),

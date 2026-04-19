@@ -13,58 +13,47 @@ import (
 // TRANSACTIONS
 // ---------
 
-// инит транзакции
 func (r *Repository) CreateTransaction(ctx context.Context, req CreateTransactionRequest) (*TransactionDetail, error) {
-	// Валидация
 	if req.BaseAmount <= 0 {
 		return nil, fmt.Errorf("base_amount must be greater than 0")
 	}
 
-	if req.EmployeeID == "" {
-		return nil, fmt.Errorf("employee_id is required")
-	}
-
-	// Проверяем соответствие знака направлению
 	if req.Direction != TransactionDirectionIncome && req.Direction != TransactionDirectionExpense {
 		return nil, fmt.Errorf("invalid transaction direction: %s", req.Direction)
 	}
 
-	// Валидация валюты
 	switch req.Currency {
 	case CurrencyRUB:
-		// OK
 	default:
 		return nil, fmt.Errorf("invalid currency: %s", req.Currency)
 	}
 
-	// Начинаем транзакцию БД
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to begin transaction: %w", err)
 	}
 	defer tx.Rollback(ctx)
 
-	// проверка сотрудника в той же транзакции
-	employee, err := r.employeesRepository.GetEmployeeByID(ctx, req.EmployeeID)
-	if err != nil {
-		return nil, fmt.Errorf("invalid employee_id: %w", err)
+	// Сотрудник опционален
+	if req.EmployeeID != "" {
+		employee, err := r.employeesRepository.GetEmployeeByID(ctx, req.EmployeeID)
+		if err != nil {
+			return nil, fmt.Errorf("invalid employee_id: %w", err)
+		}
+		_ = employee
 	}
-	_ = employee // используем если нужно
 
-	// Подготавливаем данные
 	comment := strings.TrimSpace(req.Comment)
 	var commentPtr *string
 	if comment != "" {
 		commentPtr = &comment
 	}
 
-	// Статус по умолчанию - completed
 	status := TransactionStatusCompleted
 	if req.Status != "" {
 		status = TransactionStatus(req.Status)
 	}
 
-	// 1. Создаем транзакцию
 	transactionQuery := `
 		INSERT INTO transactions (
 			id, base_amount, currency, direction, status, comment,
@@ -73,8 +62,7 @@ func (r *Repository) CreateTransaction(ctx context.Context, req CreateTransactio
 			gen_random_uuid(), $1, $2, $3, $4, $5,
 			CURRENT_TIMESTAMP, $6
 		)
-		RETURNING 
-			id
+		RETURNING id
 	`
 
 	var transactionID string
@@ -91,22 +79,22 @@ func (r *Repository) CreateTransaction(ctx context.Context, req CreateTransactio
 		return nil, fmt.Errorf("failed to create transaction: %w", err)
 	}
 
-	// 2. Создаем связь с сотрудником
-	linkEmployeeQuery := `
-		INSERT INTO transaction_employee (
-			id, employee_id, transaction_id, created_at
-		) VALUES (
-			gen_random_uuid(), $1, $2, CURRENT_TIMESTAMP
-		)
-	`
-	_, err = tx.Exec(ctx, linkEmployeeQuery, req.EmployeeID, transactionID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to link employee to transaction: %w", err)
+	// Создаем связь с сотрудником только если он указан
+	if req.EmployeeID != "" {
+		linkEmployeeQuery := `
+			INSERT INTO transaction_employee (
+				id, employee_id, transaction_id, created_at
+			) VALUES (
+				gen_random_uuid(), $1, $2, CURRENT_TIMESTAMP
+			)
+		`
+		_, err = tx.Exec(ctx, linkEmployeeQuery, req.EmployeeID, transactionID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to link employee to transaction: %w", err)
+		}
 	}
 
-	// 3. Если указана категория - создаем связь с категорией
 	if req.CategoryID != "" {
-		// Проверяем существование категории
 		var exists bool
 		checkCategoryQuery := `SELECT EXISTS(SELECT 1 FROM transaction_categories WHERE id = $1)`
 		err = tx.QueryRow(ctx, checkCategoryQuery, req.CategoryID).Scan(&exists)
@@ -117,7 +105,6 @@ func (r *Repository) CreateTransaction(ctx context.Context, req CreateTransactio
 			return nil, fmt.Errorf("category not found: %s", req.CategoryID)
 		}
 
-		// Создаем связь с категорией
 		linkCategoryQuery := `
 			INSERT INTO transaction_category (
 				id, transaction_id, category_id, created_at
@@ -131,12 +118,10 @@ func (r *Repository) CreateTransaction(ctx context.Context, req CreateTransactio
 		}
 	}
 
-	// Коммитим транзакцию
 	if err := tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
-	// Возвращаем полную информацию о транзакции через GetTransactionByID
 	return r.GetTransactionByID(ctx, transactionID)
 }
 
@@ -415,16 +400,13 @@ func (r *Repository) GetTransactions(ctx context.Context, offset, limit int, fil
 	return transactions, total, nil
 }
 
-// ReverseTransaction создает обратную (сторно) транзакцию
 func (r *Repository) CreateReverseTransaction(ctx context.Context, originalID string) (*TransactionDetail, error) {
-	// Начинаем транзакцию БД
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to begin transaction: %w", err)
 	}
 	defer tx.Rollback(ctx)
 
-	// 1. Проверяем существование оригинальной транзакции
 	var exists bool
 	checkQuery := `SELECT EXISTS(SELECT 1 FROM transactions WHERE id = $1)`
 	err = tx.QueryRow(ctx, checkQuery, originalID).Scan(&exists)
@@ -435,7 +417,6 @@ func (r *Repository) CreateReverseTransaction(ctx context.Context, originalID st
 		return nil, fmt.Errorf("original transaction not found: %s", originalID)
 	}
 
-	// 2. Проверяем, не было ли уже сторно для этой транзакции
 	var reverseExists bool
 	checkReverseQuery := `SELECT EXISTS(SELECT 1 FROM transactions WHERE reverse_to = $1)`
 	err = tx.QueryRow(ctx, checkReverseQuery, originalID).Scan(&reverseExists)
@@ -446,16 +427,15 @@ func (r *Repository) CreateReverseTransaction(ctx context.Context, originalID st
 		return nil, fmt.Errorf("reverse transaction already exists for: %s", originalID)
 	}
 
-	// 3. Получаем данные оригинальной транзакции и employee_id
 	var original struct {
 		BaseAmount int64
 		Currency   CurrencyType
 		Direction  TransactionDirection
 		Comment    *string
 		Metadata   map[string]interface{}
-		EmployeeID string
+		EmployeeID *string
+		CategoryID *string
 	}
-	var originalCategoryID *string
 
 	originalQuery := `
 		SELECT 
@@ -478,24 +458,17 @@ func (r *Repository) CreateReverseTransaction(ctx context.Context, originalID st
 		&original.Comment,
 		&original.Metadata,
 		&original.EmployeeID,
-		&originalCategoryID,
+		&original.CategoryID,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get original transaction: %w", err)
 	}
 
-	// Проверяем, что нашли employee
-	if original.EmployeeID == "" {
-		return nil, fmt.Errorf("original transaction has no linked employee")
-	}
-
-	// 4. Определяем противоположное направление
 	reverseDirection := TransactionDirectionExpense
 	if original.Direction == TransactionDirectionExpense {
 		reverseDirection = TransactionDirectionIncome
 	}
 
-	// 5. Создаем обратную транзакцию
 	reverseQuery := `
 		INSERT INTO transactions (
 			id, base_amount, currency, direction, status, comment,
@@ -522,21 +495,21 @@ func (r *Repository) CreateReverseTransaction(ctx context.Context, originalID st
 		return nil, fmt.Errorf("failed to create reverse transaction: %w", err)
 	}
 
-	// 6. Создаем связь с сотрудником (того же, что и в оригинале)
-	linkEmployeeQuery := `
-		INSERT INTO transaction_employee (
-			id, employee_id, transaction_id, created_at
-		) VALUES (
-			gen_random_uuid(), $1, $2, CURRENT_TIMESTAMP
-		)
-	`
-	_, err = tx.Exec(ctx, linkEmployeeQuery, original.EmployeeID, reverseID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to link employee to reverse transaction: %w", err)
+	if original.EmployeeID != nil && *original.EmployeeID != "" {
+		linkEmployeeQuery := `
+			INSERT INTO transaction_employee (
+				id, employee_id, transaction_id, created_at
+			) VALUES (
+				gen_random_uuid(), $1, $2, CURRENT_TIMESTAMP
+			)
+		`
+		_, err = tx.Exec(ctx, linkEmployeeQuery, *original.EmployeeID, reverseID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to link employee to reverse transaction: %w", err)
+		}
 	}
 
-	// 7. Если была категория - создаем связь с категорией для обратной транзакции
-	if originalCategoryID != nil && *originalCategoryID != "" {
+	if original.CategoryID != nil && *original.CategoryID != "" {
 		linkCategoryQuery := `
 			INSERT INTO transaction_category (
 				id, transaction_id, category_id, created_at
@@ -544,17 +517,15 @@ func (r *Repository) CreateReverseTransaction(ctx context.Context, originalID st
 				gen_random_uuid(), $1, $2, CURRENT_TIMESTAMP
 			)
 		`
-		_, err = tx.Exec(ctx, linkCategoryQuery, reverseID, *originalCategoryID)
+		_, err = tx.Exec(ctx, linkCategoryQuery, reverseID, *original.CategoryID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to link category to reverse transaction: %w", err)
 		}
 	}
 
-	// Коммитим транзакцию
 	if err := tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
-	// Возвращаем полную информацию о созданной обратной транзакции
 	return r.GetTransactionByID(ctx, reverseID)
 }
