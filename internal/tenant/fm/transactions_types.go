@@ -36,7 +36,7 @@ const (
 // Transaction represents a financial transaction record
 type Transaction struct {
 	ID         string                 `json:"id"`
-	BaseAmount int64                  `json:"base_amount"` // рубли/тенге/доллары/евро (целое число)
+	BaseAmount int64                  `json:"base_amount"`
 	Currency   CurrencyType           `json:"currency"`
 	Direction  TransactionDirection   `json:"direction"`
 	Status     TransactionStatus      `json:"status"`

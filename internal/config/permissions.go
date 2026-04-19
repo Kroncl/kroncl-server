@@ -78,6 +78,9 @@ const (
 	PERMISSION_DM_DEALS_CREATE                   = "dm.deals.create"
 	PERMISSION_DM_DEALS_UPDATE                   = "dm.deals.update"
 	PERMISSION_DM_DEALS_DELETE                   = "dm.deals.delete"
+	PERMISSION_DM_DEALS_TRANSACTIONS             = "dm.deals.transactions"
+	PERMISSION_DM_DEALS_TRANSACTIONS_CREATE      = "dm.deals.transactions.create"
+	PERMISSION_DM_DEALS_TRANSACTIONS_SUMMARY     = "dm.deals.transactions.summary"
 	PERMISSION_DM_ANALYSIS                       = "dm.analysis"
 )
 
@@ -165,6 +168,9 @@ func GetAllPermissions() []string {
 		PERMISSION_DM_DEALS_CREATE,
 		PERMISSION_DM_DEALS_UPDATE,
 		PERMISSION_DM_DEALS_DELETE,
+		PERMISSION_DM_DEALS_TRANSACTIONS,
+		PERMISSION_DM_DEALS_TRANSACTIONS_CREATE,
+		PERMISSION_DM_DEALS_TRANSACTIONS_SUMMARY,
 		PERMISSION_DM_ANALYSIS,
 	}
 }
@@ -204,10 +210,11 @@ func GetGuestPermissions() map[string]bool {
 		PERMISSION_WM_CATALOG_UNITS:      true,
 		PERMISSION_WM_STOCKS:             true,
 
-		PERMISSION_DM:          true,
-		PERMISSION_DM_TYPES:    true,
-		PERMISSION_DM_STATUSES: true,
-		PERMISSION_DM_DEALS:    true,
+		PERMISSION_DM:                    true,
+		PERMISSION_DM_TYPES:              true,
+		PERMISSION_DM_STATUSES:           true,
+		PERMISSION_DM_DEALS:              true,
+		PERMISSION_DM_DEALS_TRANSACTIONS: true,
 	}
 }
 

@@ -665,6 +665,24 @@ func (rt *Routes) Register(r chi.Router, permDeps *permissioner.PermissionDeps) 
 					Delete("/", rt.dm(func(h *dm.Handlers) http.HandlerFunc {
 						return h.DeleteDeal
 					}))
+
+				r.Route("/transactions", func(r chi.Router) {
+					r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_DM_DEALS_TRANSACTIONS))
+
+					r.Get("/", rt.dm(func(h *dm.Handlers) http.HandlerFunc {
+						return h.GetDealTransactions
+					}))
+
+					r.With(permissioner.RequirePermission(permDeps, config.PERMISSION_DM_DEALS_TRANSACTIONS_CREATE)).
+						Post("/", rt.dm(func(h *dm.Handlers) http.HandlerFunc {
+							return h.CreateDealTransaction
+						}))
+
+					r.With(permissioner.RequirePermission(permDeps, config.PERMISSION_DM_DEALS_TRANSACTIONS_SUMMARY)).
+						Get("/summary", rt.dm(func(h *dm.Handlers) http.HandlerFunc {
+							return h.GetDealTransactionsSummary
+						}))
+				})
 			})
 		})
 	})
