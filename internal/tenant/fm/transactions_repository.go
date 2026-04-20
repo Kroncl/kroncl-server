@@ -495,6 +495,22 @@ func (r *Repository) CreateReverseTransaction(ctx context.Context, originalID st
 		return nil, fmt.Errorf("failed to create reverse transaction: %w", err)
 	}
 
+	var dealID *string
+	err = tx.QueryRow(ctx, `SELECT deal_id FROM deals_transactions WHERE transaction_id = $1`, originalID).Scan(&dealID)
+	if err == nil && dealID != nil {
+		linkDealQuery := `
+			INSERT INTO deals_transactions (
+				id, deal_id, transaction_id, created_at, updated_at
+			) VALUES (
+				gen_random_uuid(), $1, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+			)
+		`
+		_, err = tx.Exec(ctx, linkDealQuery, *dealID, reverseID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to link deal to reverse transaction: %w", err)
+		}
+	}
+
 	if original.EmployeeID != nil && *original.EmployeeID != "" {
 		linkEmployeeQuery := `
 			INSERT INTO transaction_employee (
