@@ -130,6 +130,36 @@ func (r *Repository) GetAnalysisSummary(ctx context.Context, startDate, endDate 
 	return &summary, nil
 }
 
+func (r *Repository) GetOverallDealTransactionsSummary(ctx context.Context, filters GetTransactionsRequest) (*DealTransactionsSummary, error) {
+	query := `
+		SELECT 
+			COALESCE(SUM(CASE WHEN t.direction = 'income' THEN t.base_amount ELSE -t.base_amount END), 0) as total_amount,
+			COALESCE(SUM(CASE WHEN t.direction = 'income' THEN t.base_amount ELSE 0 END), 0) as income_amount,
+			COALESCE(SUM(CASE WHEN t.direction = 'expense' THEN t.base_amount ELSE 0 END), 0) as expense_amount,
+			COALESCE(COUNT(CASE WHEN t.direction = 'income' THEN 1 END), 0) as income_count,
+			COALESCE(COUNT(CASE WHEN t.direction = 'expense' THEN 1 END), 0) as expense_count,
+			COUNT(t.id) as total_count
+		FROM transactions t
+		INNER JOIN deals_transactions dt ON t.id = dt.transaction_id
+		WHERE ($1::timestamptz IS NULL OR t.created_at >= $1)
+		  AND ($2::timestamptz IS NULL OR t.created_at <= $2)
+	`
+
+	var summary DealTransactionsSummary
+	err := r.pool.QueryRow(ctx, query, filters.StartDate, filters.EndDate).Scan(
+		&summary.TotalAmount,
+		&summary.IncomeAmount,
+		&summary.ExpenseAmount,
+		&summary.IncomeCount,
+		&summary.ExpenseCount,
+		&summary.TotalCount,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &summary, nil
+}
+
 // // DailyStats represents financial stats for a single day
 // type DailyStats struct {
 // 	Date             string `json:"date"` // YYYY-MM-DD
