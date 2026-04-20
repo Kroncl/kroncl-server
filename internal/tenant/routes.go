@@ -685,5 +685,20 @@ func (rt *Routes) Register(r chi.Router, permDeps *permissioner.PermissionDeps) 
 				})
 			})
 		})
+
+		// analysis
+		r.Route("/analysis", func(r chi.Router) {
+			r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_DM_ANALYSIS))
+
+			r.Get("/summary", rt.dm(func(h *dm.Handlers) http.HandlerFunc {
+				return h.GetAnalysisSummary
+			}))
+			r.Get("/grouped", rt.dm(func(h *dm.Handlers) http.HandlerFunc {
+				return h.GetAnalysisGrouped
+			}))
+			r.Get("/financial-summary", rt.dm(func(h *dm.Handlers) http.HandlerFunc {
+				return h.GetAnalysisFinancialSummary
+			}))
+		})
 	})
 }
