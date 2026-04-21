@@ -183,7 +183,10 @@ func New(cfg *config.Config, container *di.Container) chi.Router {
 					// Company storage
 					r.Route("/storage", func(r chi.Router) {
 						r.Get("/", container.StorageHandlers.Get)
-						r.With(permissioner.RequirePermission(container.PermissionDeps, config.PERMISSION_STORAGE_SOURCES)).Get("/sources", container.StorageHandlers.GetSources)
+						r.With(permissioner.RequirePermission(container.PermissionDeps, config.PERMISSION_STORAGE_SOURCES)).
+							Get("/sources", container.StorageHandlers.GetSources)
+						r.With(permissioner.RequirePermission(container.PermissionDeps, config.PERMISSION_STORAGE_SOURCES)).
+							Get("/sources/modules", container.StorageHandlers.GetByModules)
 					})
 
 					// Company accounts (hrm part)

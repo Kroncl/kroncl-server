@@ -63,3 +63,29 @@ type StorageStatusResponse struct {
 	SchemaName   string   `json:"schema_name,omitempty"`   // Имя схемы БД (если есть)
 	SchemaExists bool     `json:"schema_exists,omitempty"` // Существует ли схема физически
 }
+
+// ----------------
+// MODULES ANALYSIS
+// ----------------
+
+type ModuleStorageStats struct {
+	Module      string       `json:"module"`
+	TableCount  int          `json:"table_count"`
+	TotalBytes  int64        `json:"total_bytes"`
+	TotalSizeMB float64      `json:"total_size_mb"`
+	Tables      []TableStats `json:"tables,omitempty"`
+	RowCount    int64        `json:"row_count"`
+}
+
+type TableStats struct {
+	TableName   string  `json:"table_name"`
+	Exists      bool    `json:"exists"`
+	TotalBytes  int64   `json:"total_bytes"`
+	TotalSizeMB float64 `json:"total_size_mb"`
+	RowCount    int64   `json:"row_count"`
+}
+
+type ModulesStorageResponse struct {
+	Modules map[string]*ModuleStorageStats `json:"modules"`
+	Total   *ModuleStorageStats            `json:"total"`
+}

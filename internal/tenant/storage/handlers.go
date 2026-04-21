@@ -57,3 +57,19 @@ func (h *Handlers) Get(w http.ResponseWriter, r *http.Request) {
 
 	core.SendSuccess(w, storage, "Company storage retrieved successfully.")
 }
+
+func (h *Handlers) GetByModules(w http.ResponseWriter, r *http.Request) {
+	companyID := chi.URLParam(r, "id")
+	if companyID == "" {
+		core.SendValidationError(w, "Company ID required.")
+		return
+	}
+
+	result, err := h.service.GetStorageByModules(r.Context(), companyID)
+	if err != nil {
+		core.SendValidationError(w, err.Error())
+		return
+	}
+
+	core.SendSuccess(w, result, "Module storage statistics retrieved successfully.")
+}

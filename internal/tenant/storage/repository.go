@@ -265,3 +265,69 @@ func (r *Repository) DropSchema(ctx context.Context, schemaName string) error {
 
 	return nil
 }
+
+// ----------------
+// MODULES ANALYSIS
+// ----------------
+
+func (r *Repository) GetStorageByModules(ctx context.Context, schemaName string) (*ModulesStorageResponse, error) {
+	result := &ModulesStorageResponse{
+		Modules: make(map[string]*ModuleStorageStats),
+		Total: &ModuleStorageStats{
+			Module: "total",
+		},
+	}
+
+	for moduleName, tables := range ModuleTablesMap {
+		moduleStats := &ModuleStorageStats{
+			Module: moduleName,
+			Tables: []TableStats{},
+		}
+
+		for _, tableName := range tables {
+			tableStats := TableStats{
+				TableName: tableName,
+				Exists:    false,
+			}
+
+			query := `
+				SELECT 
+					EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema = $1 AND table_name = $2),
+					COALESCE(pg_total_relation_size($1 || '.' || $2), 0),
+					COALESCE((SELECT n_live_tup FROM pg_stat_user_tables WHERE schemaname = $1 AND relname = $2), 0)
+			`
+
+			var exists bool
+			var totalBytes int64
+			var rowCount int64
+
+			err := r.pool.QueryRow(ctx, query, schemaName, tableName).Scan(&exists, &totalBytes, &rowCount)
+			if err != nil {
+				continue
+			}
+
+			tableStats.Exists = exists
+			if exists {
+				tableStats.TotalBytes = totalBytes
+				tableStats.TotalSizeMB = float64(totalBytes) / (1024 * 1024)
+				tableStats.RowCount = rowCount
+
+				moduleStats.TotalBytes += totalBytes
+				moduleStats.TableCount++
+
+				result.Total.TotalBytes += totalBytes
+				result.Total.TableCount++
+				result.Total.RowCount += rowCount
+			}
+
+			moduleStats.Tables = append(moduleStats.Tables, tableStats)
+		}
+
+		moduleStats.TotalSizeMB = float64(moduleStats.TotalBytes) / (1024 * 1024)
+		result.Modules[moduleName] = moduleStats
+	}
+
+	result.Total.TotalSizeMB = float64(result.Total.TotalBytes) / (1024 * 1024)
+
+	return result, nil
+}

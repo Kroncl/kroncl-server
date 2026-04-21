@@ -268,3 +268,24 @@ func (s *Service) getStatusMessage(status StorageStatus) string {
 		return string(status)
 	}
 }
+
+// -----------------
+// MODULES ANALYSIS
+// -----------------
+
+func (s *Service) GetStorageByModules(ctx context.Context, companyID string) (*ModulesStorageResponse, error) {
+	storage, err := s.repository.GetStorageByCompanyID(ctx, companyID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get storage: %w", err)
+	}
+
+	if storage == nil {
+		return nil, fmt.Errorf("storage not found for company: %s", companyID)
+	}
+
+	if storage.Status != StorageStatusActive {
+		return nil, fmt.Errorf("storage is not active, status: %s", storage.Status)
+	}
+
+	return s.repository.GetStorageByModules(ctx, storage.SchemaName)
+}
