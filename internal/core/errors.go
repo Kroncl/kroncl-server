@@ -40,6 +40,10 @@ func SendUnauthorized(w http.ResponseWriter, message string) {
 	SendError(w, http.StatusUnauthorized, message)
 }
 
+func SendForbidden(w http.ResponseWriter, message string) {
+	SendError(w, http.StatusForbidden, message)
+}
+
 // SendNotFound отправляет ошибку "не найдено"
 func SendNotFound(w http.ResponseWriter, message string) {
 	SendError(w, http.StatusNotFound, message)

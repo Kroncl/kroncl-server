@@ -1,4 +1,3 @@
-// internal/permissioner/middleware.go
 package permissioner
 
 import (

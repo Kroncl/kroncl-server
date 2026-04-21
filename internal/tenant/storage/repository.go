@@ -253,3 +253,15 @@ func (r *Repository) GetStorageByCompanyID(ctx context.Context, companyID string
 
 	return &storage, nil
 }
+
+// DropSchema удаляет схему тенанта
+func (r *Repository) DropSchema(ctx context.Context, schemaName string) error {
+	query := fmt.Sprintf("DROP SCHEMA IF EXISTS %s CASCADE", schemaName)
+
+	_, err := r.pool.Exec(ctx, query)
+	if err != nil {
+		return fmt.Errorf("failed to drop schema %s: %w", schemaName, err)
+	}
+
+	return nil
+}

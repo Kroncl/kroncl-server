@@ -247,3 +247,33 @@ func (h *Handlers) CheckSlugUnique(w http.ResponseWriter, r *http.Request) {
 		"unique": true,
 	}, "The slug is unique")
 }
+
+func (h *Handlers) Drop(w http.ResponseWriter, r *http.Request) {
+	account, ok := auth.GetUserFromContext(r.Context())
+	if !ok {
+		core.SendUnauthorized(w, "Authentication required")
+		return
+	}
+
+	companyID := chi.URLParam(r, "id")
+	if companyID == "" {
+		core.SendValidationError(w, "Company ID required.")
+		return
+	}
+
+	_, err := h.service.GetUserCompanyById(r.Context(), account.UserID, companyID)
+	if err != nil {
+		core.SendNotFound(w, "Company not found")
+		return
+	}
+
+	if err := h.service.Drop(r.Context(), companyID); err != nil {
+		core.SendInternalError(w, fmt.Sprintf("Failed to drop company: %v", err))
+		return
+	}
+
+	core.SendSuccess(w, map[string]interface{}{
+		"company_id": companyID,
+		"dropped":    true,
+	}, "Company dropped successfully")
+}

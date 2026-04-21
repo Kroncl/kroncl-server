@@ -7,6 +7,7 @@ const (
 	PERMISSION_PRICING_MIGRATE                   = "pricing.migrate"
 	PERMISSION_PRICING_TRANSACTIONS              = "pricing.transactions"
 	PERMISSION_COMPANY_UPDATE                    = "company.update"
+	PERMISSION_COMPANY_DELETE                    = "company.delete"
 	PERMISSION_STORAGE_SOURCES                   = "storage.sources"
 	PERMISSION_LOGS                              = "logs"
 	PERMISSION_LOGS_CLEAR                        = "logs.clear"
@@ -97,6 +98,7 @@ func GetAllPermissions() []string {
 		PERMISSION_PRICING_MIGRATE,
 		PERMISSION_PRICING_TRANSACTIONS,
 		PERMISSION_COMPANY_UPDATE,
+		PERMISSION_COMPANY_DELETE,
 		PERMISSION_STORAGE_SOURCES,
 		PERMISSION_LOGS,
 		PERMISSION_LOGS_CLEAR,
@@ -182,9 +184,7 @@ func GetGuestPermissions() map[string]bool {
 		PERMISSION_SUPPORT_TICKETS:        true,
 		PERMISSION_SUPPORT_TICKETS_CREATE: true,
 		PERMISSION_SUPPORT_TICKETS_UPDATE: true,
-		PERMISSION_PRICING_MIGRATE:        true,
 		PERMISSION_PRICING_TRANSACTIONS:   true,
-		PERMISSION_COMPANY_UPDATE:         true,
 		PERMISSION_STORAGE_SOURCES:        true,
 		PERMISSION_LOGS:                   true,
 		PERMISSION_LOGS_ACTIVITY:          true,

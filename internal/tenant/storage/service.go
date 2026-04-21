@@ -209,6 +209,53 @@ func (s *Service) CloseAll() {
 	})
 }
 
+// DropStorage запускает воркер на удаление хранилища
+func (s *Service) DropStorage(ctx context.Context, companyID string) error {
+	storage, err := s.repository.GetStorageByCompanyID(ctx, companyID)
+	if err != nil {
+		return fmt.Errorf("failed to get storage: %w", err)
+	}
+
+	if storage == nil {
+		return fmt.Errorf("storage not found for company %s", companyID)
+	}
+
+	// Удаляем пул из кэша если есть
+	s.tenantPools.Delete(companyID)
+
+	// Запускаем воркер удаления в фоне
+	go s.runDropWorker(storage.ID, storage.SchemaName)
+
+	return nil
+}
+
+// runDropWorker выполняет удаление схемы и обновление статуса
+func (s *Service) runDropWorker(storageID, schemaName string) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	log.Printf("🗑️ Starting drop worker for storage %s, schema: %s", storageID, schemaName)
+
+	// 1. Удаляем схему
+	if err := s.repository.DropSchema(ctx, schemaName); err != nil {
+		log.Printf("❌ Failed to drop schema %s: %v", schemaName, err)
+		return
+	}
+	log.Printf("✅ Schema %s dropped successfully", schemaName)
+
+	// 2. Обновляем статус на 'none'
+	if err := s.repository.UpdateStorageStatus(ctx, storageID, string(StorageStatusNone)); err != nil {
+		log.Printf("❌ Failed to update storage status to none: %v", err)
+		return
+	}
+
+	log.Printf("✅ Drop worker completed for storage %s", storageID)
+}
+
+// ---------
+// UTILS
+// ---------
+
 func (s *Service) getStatusMessage(status StorageStatus) string {
 	switch status {
 	case StorageStatusProvisioning:

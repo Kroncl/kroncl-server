@@ -175,8 +175,10 @@ func New(cfg *config.Config, container *di.Container) chi.Router {
 							Post("/transactions/{transactionId}/revoke", container.CompaniesHandlers.RevokePricingTransaction) // отмена транзакции
 					})
 
+					// Company basics
 					r.Get("/", container.CompaniesHandlers.GetUserCompanyById)
 					r.With(permissioner.RequirePermission(container.PermissionDeps, config.PERMISSION_COMPANY_UPDATE)).Patch("/", container.CompaniesHandlers.Update)
+					r.With(permissioner.RequirePermission(container.PermissionDeps, config.PERMISSION_COMPANY_DELETE)).Post("/delete", container.CompaniesHandlers.Drop)
 
 					// Company storage
 					r.Route("/storage", func(r chi.Router) {
