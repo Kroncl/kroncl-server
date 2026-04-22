@@ -15,7 +15,9 @@ func (s *Service) GetByEmail(ctx context.Context, email string) (*Account, error
 		SELECT 
 			id, email, name, auth_type, status, 
 			created_at, updated_at, 
-			COALESCE(avatar_url, '') as avatar_url
+			COALESCE(avatar_url, '') as avatar_url,
+			COALESCE(description, '') as description,
+			COALESCE(type, '') as type
 		FROM accounts 
 		WHERE email = $1
 	`
@@ -30,6 +32,8 @@ func (s *Service) GetByEmail(ctx context.Context, email string) (*Account, error
 		&account.CreatedAt,
 		&account.UpdatedAt,
 		&account.AvatarURL,
+		&account.Description,
+		&account.Type,
 	)
 
 	if err != nil {
@@ -39,13 +43,14 @@ func (s *Service) GetByEmail(ctx context.Context, email string) (*Account, error
 	return &account, nil
 }
 
-// возвращает аккаунт по ID
 func (s *Service) GetByID(ctx context.Context, id string) (*Account, error) {
 	query := `
 		SELECT 
 			id, email, name, auth_type, status, 
 			created_at, updated_at, 
-			COALESCE(avatar_url, '') as avatar_url
+			COALESCE(avatar_url, '') as avatar_url,
+			COALESCE(description, '') as description,
+			COALESCE(type, '') as type
 		FROM accounts 
 		WHERE id = $1
 	`
@@ -60,6 +65,8 @@ func (s *Service) GetByID(ctx context.Context, id string) (*Account, error) {
 		&account.CreatedAt,
 		&account.UpdatedAt,
 		&account.AvatarURL,
+		&account.Description,
+		&account.Type,
 	)
 
 	if err != nil {
@@ -69,7 +76,6 @@ func (s *Service) GetByID(ctx context.Context, id string) (*Account, error) {
 	return &account, nil
 }
 
-// обновление аккаунта
 func (s *Service) UpdateById(ctx context.Context, accountID string, req *UpdateRequest) (*Account, error) {
 	updater := core.NewUpdater("accounts")
 
@@ -82,6 +88,19 @@ func (s *Service) UpdateById(ctx context.Context, accountID string, req *UpdateR
 	if req.AvatarUrl != nil {
 		updater.SetString("avatar_url", *req.AvatarUrl)
 	}
+	if req.Description != nil {
+		if *req.Description == "" {
+			updater.SetNull("description")
+		} else {
+			updater.SetString("description", *req.Description)
+		}
+	}
+	if req.Type != nil {
+		if !validAccountTypes[*req.Type] {
+			return nil, fmt.Errorf("invalid account type: %s, valid types: owner, employee, admin, outsourcing, tech", *req.Type)
+		}
+		updater.SetString("type", *req.Type)
+	}
 
 	updater.Where("id = $1", accountID)
 
@@ -90,7 +109,6 @@ func (s *Service) UpdateById(ctx context.Context, accountID string, req *UpdateR
 		return s.GetByID(ctx, accountID)
 	}
 
-	// Выполняем запрос
 	_, err := s.pool.Exec(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update account: %w", err)
@@ -99,39 +117,31 @@ func (s *Service) UpdateById(ctx context.Context, accountID string, req *UpdateR
 	return s.GetByID(ctx, accountID)
 }
 
-// ---------
-// PUBLIC
-// ---------
-
-// GetPublicAccounts возвращает список AccountPublic с пагинацией и поиском
-// Показывает только аккаунты со статусом 'confirmed'
 func (s *Service) GetPublicAccounts(
 	ctx context.Context,
 	search string,
 	params core.PaginationParams,
 ) ([]AccountPublic, core.Pagination, error) {
-	// Базовый запрос - только подтвержденные аккаунты
 	baseQuery := `
         SELECT 
             id, name, email, status,
             COALESCE(avatar_url, '') as avatar_url,
+            COALESCE(description, '') as description,
+            COALESCE(type, '') as type,
             created_at
         FROM accounts
         WHERE status = 'confirmed'
     `
 
-	// Запрос для подсчета общего количества
 	countQuery := `
         SELECT COUNT(*) 
         FROM accounts
         WHERE status = 'confirmed'
     `
 
-	// Подготавливаем аргументы
 	var args []interface{}
 	var argCounter = 1
 
-	// Добавляем условия поиска если есть
 	if search != "" {
 		searchPattern := "%" + strings.ToLower(search) + "%"
 
@@ -148,26 +158,22 @@ func (s *Service) GetPublicAccounts(
 		argCounter++
 	}
 
-	// Получаем общее количество для пагинации
 	var total int
 	err := s.pool.QueryRow(ctx, countQuery, args...).Scan(&total)
 	if err != nil {
 		return nil, core.Pagination{}, fmt.Errorf("failed to count accounts: %w", err)
 	}
 
-	// Добавляем сортировку и лимиты для основного запроса
 	baseQuery += " ORDER BY created_at DESC"
 	baseQuery += " LIMIT $" + strconv.Itoa(argCounter) + " OFFSET $" + strconv.Itoa(argCounter+1)
 	args = append(args, params.Limit, params.Offset)
 
-	// Выполняем основной запрос
 	rows, err := s.pool.Query(ctx, baseQuery, args...)
 	if err != nil {
 		return nil, core.Pagination{}, fmt.Errorf("failed to query accounts: %w", err)
 	}
 	defer rows.Close()
 
-	// Собираем результаты
 	var accounts []AccountPublic
 	for rows.Next() {
 		account, err := scanAccountPublic(rows)
@@ -181,18 +187,18 @@ func (s *Service) GetPublicAccounts(
 		return nil, core.Pagination{}, fmt.Errorf("rows iteration error: %w", err)
 	}
 
-	// Создаем пагинацию
 	pagination := core.NewPagination(total, params.Page, params.Limit)
 
 	return accounts, pagination, nil
 }
 
-// GetPublicByID возвращает один AccountPublic по ID
 func (s *Service) GetPublicByID(ctx context.Context, accountID string) (*AccountPublic, error) {
 	query := `
         SELECT 
             id, name, email, status,
             COALESCE(avatar_url, '') as avatar_url,
+            COALESCE(description, '') as description,
+            COALESCE(type, '') as type,
             created_at
         FROM accounts 
         WHERE id = $1
@@ -202,13 +208,11 @@ func (s *Service) GetPublicByID(ctx context.Context, accountID string) (*Account
 	return scanAccountPublic(row)
 }
 
-// GetPublicAccountsByIDs возвращает коллекцию AccountPublic по массиву ID
 func (s *Service) GetPublicAccountsByIDs(ctx context.Context, accountIDs []string) (map[string]AccountPublic, error) {
 	if len(accountIDs) == 0 {
 		return make(map[string]AccountPublic), nil
 	}
 
-	// Создаем placeholders для IN запроса
 	placeholders := make([]string, len(accountIDs))
 	args := make([]interface{}, len(accountIDs))
 	for i, id := range accountIDs {
@@ -220,6 +224,8 @@ func (s *Service) GetPublicAccountsByIDs(ctx context.Context, accountIDs []strin
         SELECT 
             id, name, email, status,
             COALESCE(avatar_url, '') as avatar_url,
+            COALESCE(description, '') as description,
+            COALESCE(type, '') as type,
             created_at
         FROM accounts 
         WHERE id IN (%s)
@@ -247,14 +253,12 @@ func (s *Service) GetPublicAccountsByIDs(ctx context.Context, accountIDs []strin
 	return accounts, nil
 }
 
-// GetPublicBatch возвращает слайс AccountPublic (удобно для JSON ответов)
 func (s *Service) GetPublicBatch(ctx context.Context, accountIDs []string) ([]AccountPublic, error) {
 	accountsMap, err := s.GetPublicAccountsByIDs(ctx, accountIDs)
 	if err != nil {
 		return nil, err
 	}
 
-	// Сохраняем порядок из запроса
 	result := make([]AccountPublic, 0, len(accountsMap))
 	for _, id := range accountIDs {
 		if account, ok := accountsMap[id]; ok {
@@ -273,6 +277,8 @@ func scanAccountPublic(row pgx.Row) (*AccountPublic, error) {
 		&account.Email,
 		&account.Status,
 		&account.AvatarURL,
+		&account.Description,
+		&account.Type,
 		&account.CreatedAt,
 	)
 	if err != nil {
