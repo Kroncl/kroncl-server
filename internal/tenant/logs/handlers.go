@@ -199,7 +199,7 @@ func (h *Handlers) ClearLogs(w http.ResponseWriter, r *http.Request) {
 		WithMetadata("path", r.URL.Path),
 	)
 
-	err := h.service.сlearLogs(r.Context())
+	err := h.service.clearLogs(r.Context())
 	if err != nil {
 		// Логируем ошибку
 		h.service.Log(r.Context(), config.PERMISSION_LOGS_CLEAR, accountID,

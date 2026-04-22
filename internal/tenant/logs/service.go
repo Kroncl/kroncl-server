@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"kroncl-server/internal/config"
+	"net/netip"
 	"strconv"
 	"strings"
 	"time"
@@ -22,15 +23,11 @@ func NewService(tenantPool *pgxpool.Pool) *Service {
 	}
 }
 
-// Log creates a log entry asynchronously
 func (s *Service) Log(ctx context.Context, key, accountId string, opts ...LogOption) {
-	// Запускаем в горутине, чтобы не блокировать основной поток
 	go func() {
-		// Создаем новый контекст с таймаутом, чтобы не зависнуть
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		// Базовые параметры
 		log := Log{
 			ID:          uuid.New().String(),
 			Key:         key,
@@ -41,7 +38,6 @@ func (s *Service) Log(ctx context.Context, key, accountId string, opts ...LogOpt
 			CreatedAt:   time.Now(),
 		}
 
-		// Применяем опции
 		for _, opt := range opts {
 			opt(&log)
 		}
@@ -55,6 +51,13 @@ func (s *Service) Log(ctx context.Context, key, accountId string, opts ...LogOpt
 			)
 		`
 
+		var ip interface{}
+		if log.IP != nil {
+			if addr, err := netip.ParseAddr(*log.IP); err == nil {
+				ip = addr
+			}
+		}
+
 		_, err := s.pool.Exec(ctx, query,
 			log.ID,
 			log.Key,
@@ -63,19 +66,17 @@ func (s *Service) Log(ctx context.Context, key, accountId string, opts ...LogOpt
 			log.AccountID,
 			log.RequestID,
 			log.UserAgent,
-			log.IP,
+			ip,
 			log.Metadata,
 			log.CreatedAt,
 		)
 
 		if err != nil {
-			// Только логируем ошибку, не возвращаем
 			fmt.Printf("failed to create log: %v\n", err)
 		}
 	}()
 }
 
-// LogSync creates a log entry synchronously (для критических случаев)
 func (s *Service) LogSync(ctx context.Context, key, accountId string, opts ...LogOption) error {
 	log := Log{
 		ID:          uuid.New().String(),
@@ -100,6 +101,13 @@ func (s *Service) LogSync(ctx context.Context, key, accountId string, opts ...Lo
 		)
 	`
 
+	var ip interface{}
+	if log.IP != nil {
+		if addr, err := netip.ParseAddr(*log.IP); err == nil {
+			ip = addr
+		}
+	}
+
 	_, err := s.pool.Exec(ctx, query,
 		log.ID,
 		log.Key,
@@ -108,7 +116,7 @@ func (s *Service) LogSync(ctx context.Context, key, accountId string, opts ...Lo
 		log.AccountID,
 		log.RequestID,
 		log.UserAgent,
-		log.IP,
+		ip,
 		log.Metadata,
 		log.CreatedAt,
 	)
@@ -116,7 +124,6 @@ func (s *Service) LogSync(ctx context.Context, key, accountId string, opts ...Lo
 	return err
 }
 
-// GetLogByID возвращает лог по ID
 func (s *Service) GetLogByID(ctx context.Context, id string) (*Log, error) {
 	query := `
 		SELECT 
@@ -127,6 +134,8 @@ func (s *Service) GetLogByID(ctx context.Context, id string) (*Log, error) {
 	`
 
 	var log Log
+	var ip netip.Addr
+
 	err := s.pool.QueryRow(ctx, query, id).Scan(
 		&log.ID,
 		&log.Key,
@@ -135,7 +144,7 @@ func (s *Service) GetLogByID(ctx context.Context, id string) (*Log, error) {
 		&log.AccountID,
 		&log.RequestID,
 		&log.UserAgent,
-		&log.IP,
+		&ip,
 		&log.Metadata,
 		&log.CreatedAt,
 	)
@@ -144,15 +153,17 @@ func (s *Service) GetLogByID(ctx context.Context, id string) (*Log, error) {
 		return nil, fmt.Errorf("failed to get log: %w", err)
 	}
 
+	if ip.IsValid() {
+		ipStr := ip.String()
+		log.IP = &ipStr
+	}
+
 	return &log, nil
 }
 
-// GetLogs возвращает список логов с пагинацией и фильтрацией
 func (s *Service) GetLogs(ctx context.Context, req GetLogsRequest) ([]Log, int64, error) {
-	// Базовый запрос
 	queryBase := `FROM logs`
 
-	// WHERE clause
 	whereConditions := []string{}
 	args := []interface{}{}
 	argIndex := 1
@@ -200,8 +211,6 @@ func (s *Service) GetLogs(ctx context.Context, req GetLogsRequest) ([]Log, int64
 	}
 
 	if req.Search != nil && *req.Search != "" {
-		// Поиск по metadata (например, в PostgreSQL можно использовать jsonb_path_exists)
-		// Упрощённо: ищем вхождение строки в metadata::text
 		whereConditions = append(whereConditions, fmt.Sprintf("metadata::text ILIKE $%d", argIndex))
 		args = append(args, "%"+*req.Search+"%")
 		argIndex++
@@ -212,7 +221,6 @@ func (s *Service) GetLogs(ctx context.Context, req GetLogsRequest) ([]Log, int64
 		whereClause = " WHERE " + strings.Join(whereConditions, " AND ")
 	}
 
-	// Общее количество
 	countQuery := "SELECT COUNT(*) " + queryBase + whereClause
 	var total int64
 	err := s.pool.QueryRow(ctx, countQuery, args...).Scan(&total)
@@ -220,7 +228,6 @@ func (s *Service) GetLogs(ctx context.Context, req GetLogsRequest) ([]Log, int64
 		return nil, 0, fmt.Errorf("failed to count logs: %w", err)
 	}
 
-	// Основной запрос с пагинацией
 	limit := 20
 	offset := 0
 	if req.Limit > 0 {
@@ -249,6 +256,8 @@ func (s *Service) GetLogs(ctx context.Context, req GetLogsRequest) ([]Log, int64
 	var logs []Log
 	for rows.Next() {
 		var log Log
+		var ip netip.Addr
+
 		err := rows.Scan(
 			&log.ID,
 			&log.Key,
@@ -257,26 +266,26 @@ func (s *Service) GetLogs(ctx context.Context, req GetLogsRequest) ([]Log, int64
 			&log.AccountID,
 			&log.RequestID,
 			&log.UserAgent,
-			&log.IP,
+			&ip,
 			&log.Metadata,
 			&log.CreatedAt,
 		)
 		if err != nil {
 			return nil, 0, fmt.Errorf("failed to scan log: %w", err)
 		}
+
+		if ip.IsValid() {
+			ipStr := ip.String()
+			log.IP = &ipStr
+		}
+
 		logs = append(logs, log)
 	}
 
 	return logs, total, nil
 }
 
-// --------
-// TECH
-// --------
-
-// GetLogsActivity возвращает активность по дням (как грядка GitHub)
 func (s *Service) GetLogsActivity(ctx context.Context, startDate, endDate *time.Time) ([]LogActivity, error) {
-	// Базовый запрос
 	query := `
 		SELECT 
 			DATE(created_at) as date,
@@ -327,8 +336,7 @@ func (s *Service) GetLogsActivity(ctx context.Context, startDate, endDate *time.
 	return activities, nil
 }
 
-// clearLogs удаляет все логи компании
-func (s *Service) сlearLogs(ctx context.Context) error {
+func (s *Service) clearLogs(ctx context.Context) error {
 	query := `TRUNCATE TABLE logs`
 
 	_, err := s.pool.Exec(ctx, query)
@@ -339,8 +347,6 @@ func (s *Service) сlearLogs(ctx context.Context) error {
 	return nil
 }
 
-// service.go - метод оптимизации логов
-// optimizeLogs удаляет логи, которые хранятся дольше LOGS_OPTIMAL_STORAGE_PERIOD_DAYS
 func (s *Service) optimizeLogs(ctx context.Context) error {
 	query := `
 		DELETE FROM logs
