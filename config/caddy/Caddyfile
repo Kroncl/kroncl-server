@@ -1,5 +1,5 @@
 api.kroncl.com {
-    reverse_proxy api:8080
+    reverse_proxy api:8080/api
 }
 minio.kroncl.com {
     reverse_proxy minio:9000
