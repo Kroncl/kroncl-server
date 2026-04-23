@@ -1,5 +1,7 @@
 api.kroncl.com {
-    reverse_proxy api:8080/api
+    handle_path /api* {
+        reverse_proxy http://api:8080
+    }
 }
 minio.kroncl.com {
     reverse_proxy minio:9000
