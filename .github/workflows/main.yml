@@ -21,6 +21,61 @@ jobs:
           source: "."
           target: "/opt/kroncl"
 
+      - name: Create .env file on server
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cat > /opt/kroncl/.env << 'EOF'
+            # production / development
+            ENV=production
+            BASE_DOMAIN=kroncl.com
+            CLIENT_DOMAIN=kroncl-client.vercel.app
+
+            # Api
+            HOST=0.0.0.0
+
+            # JWT
+            JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }}
+            JWT_ACCESS_DURATION=24h
+            JWT_REFRESH_DURATION=168h
+            JWT_RESET_PASSWORD_SECRET_KEY=${{ secrets.JWT_RESET_PASSWORD_SECRET_KEY }}
+            JWT_RESET_PASSWORD_DURATION=15m
+
+            # DB
+            DB_HOST=postgres
+            DB_PORT=5432
+            DB_NAME=kroncl
+            DB_USERNAME=postgres
+            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+            DB_SSLMODE=disable
+
+            # Pgadmin
+            PGADMIN_EMAIL=admin@admin.com
+            PGADMIN_PASSWORD=${{ secrets.PGADMIN_PASSWORD }}
+
+            # Grafana
+            GRAFANA_USER=admin
+            GRAFANA_PASSWORD=${{ secrets.GRAFANA_PASSWORD }}
+
+            # MinIO
+            MINIO_ROOT_USER=admin
+            MINIO_ROOT_PASSWORD=${{ secrets.MINIO_ROOT_PASSWORD }}
+            MINIO_ENDPOINT=minio:9000
+            MINIO_USE_SSL=false
+            MINIO_PUBLIC_BUCKET=public
+            MINIO_EXTERNAL_HOST=localhost:9000
+
+            # Unisender Go
+            UNISENDER_GO_API_URL=https://goapi.unisender.ru/ru/transactional/api/v1
+            UNISENDER_GO_API_KEY=${{ secrets.UNISENDER_GO_API_KEY }}
+            UNISENDER_GO_NOTIFY_DOMAIN=notify@kroncl.com
+            EOF
+
+            chmod 600 /opt/kroncl/.env
+
       - name: Deploy with Docker Compose
         uses: appleboy/ssh-action@v1.2.2
         with:
