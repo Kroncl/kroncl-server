@@ -13,10 +13,10 @@ services:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_NAME} || exit 1"]
-      interval: 10s      # Увеличили с 5s до 10s
-      timeout: 10s       # Увеличили с 5s до 10s
-      retries: 30        # Увеличили с 5 до 30
-      start_period: 60s  # Добавили период игнорирования ошибок при старте
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 60s
     networks:
       - kroncl-network
     restart: unless-stopped
@@ -43,12 +43,12 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: kroncl-api
-    ports:
-      - "8080:8080"
+    expose:
+      - "8080"
     environment:
       ENV: ${ENV:-production}
-      BASE_DOMAIN: ${BASE_DOMAIN-kroncl.com}
-      CLIENT_DOMAIN: ${CLIENT_DOMAIN-kroncl.com}
+      BASE_DOMAIN: ${BASE_DOMAIN:-kroncl.com}
+      CLIENT_DOMAIN: ${CLIENT_DOMAIN:-kroncl.com}
       HOST: 0.0.0.0
       DB_HOST: ${DB_HOST}
       DB_PORT: ${DB_PORT}
@@ -61,21 +61,18 @@ services:
       JWT_REFRESH_DURATION: ${JWT_REFRESH_DURATION}
       JWT_RESET_PASSWORD_SECRET_KEY: ${JWT_RESET_PASSWORD_SECRET_KEY}
       JWT_RESET_PASSWORD_DURATION: ${JWT_RESET_PASSWORD_DURATION}
-      # minio-api
       MINIO_ENDPOINT: ${MINIO_ENDPOINT:-minio:9000}
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
       MINIO_USE_SSL: ${MINIO_USE_SSL:-false}
       MINIO_PUBLIC_BUCKET: ${MINIO_PUBLIC_BUCKET:-public}
       MINIO_EXTERNAL_HOST: ${MINIO_EXTERNAL_HOST:-localhost:9000}
-      # unisender-go
       UNISENDER_GO_API_URL: ${UNISENDER_GO_API_URL}
       UNISENDER_GO_API_KEY: ${UNISENDER_GO_API_KEY}
       UNISENDER_GO_NOTIFY_DOMAIN: ${UNISENDER_GO_NOTIFY_DOMAIN}
     depends_on:
       postgres:
         condition: service_healthy
-        restart: true
       minio:
         condition: service_healthy
     networks:
@@ -124,8 +121,8 @@ services:
     image: minio/minio:latest
     container_name: kroncl-minio
     ports:
-      - "9000:9000"      # API для приложений
-      - "9001:9001"      # Web UI (MinIO Console)
+      - "9000:9000"
+      - "9001:9001"
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
@@ -176,20 +173,21 @@ services:
     networks:
       - kroncl-network
 
-  nginx:
-    image: nginx:alpine
-    container_name: kroncl-nginx
+  caddy:
+    image: caddy:alpine
+    container_name: kroncl-caddy
     ports:
       - "80:80"
+      - "443:443"
     volumes:
-      - ./config/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./config/caddy/Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
     depends_on:
       api:
         condition: service_started
       minio:
         condition: service_healthy
-      minio-init:
-        condition: service_completed_successfully
     networks:
       - kroncl-network
     restart: unless-stopped
@@ -200,6 +198,8 @@ volumes:
   prometheus_data:
   grafana_data:
   minio_data:
+  caddy_data:
+  caddy_config:
 
 networks:
   kroncl-network:
