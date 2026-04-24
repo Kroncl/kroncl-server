@@ -1,0 +1,185 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: kroncl-db
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_INITDB_ARGS: "--data-checksums"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_NAME} || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 60s
+    networks:
+      - kroncl-network
+    restart: unless-stopped
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: kroncl-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "5050:80"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - kroncl-network
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: kroncl-api
+    environment:
+      ENV: development
+      BASE_DOMAIN: localhost
+      CLIENT_DOMAIN: localhost:3000
+      HOST: 0.0.0.0
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      DB_NAME: ${DB_NAME}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_SSLMODE: ${DB_SSLMODE}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      JWT_ACCESS_DURATION: ${JWT_ACCESS_DURATION}
+      JWT_REFRESH_DURATION: ${JWT_REFRESH_DURATION}
+      JWT_RESET_PASSWORD_SECRET_KEY: ${JWT_RESET_PASSWORD_SECRET_KEY}
+      JWT_RESET_PASSWORD_DURATION: ${JWT_RESET_PASSWORD_DURATION}
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_USE_SSL: false
+      MINIO_PUBLIC_BUCKET: public
+      MINIO_EXTERNAL_HOST: localhost:9000
+      UNISENDER_GO_API_URL: ${UNISENDER_GO_API_URL}
+      UNISENDER_GO_API_KEY: ${UNISENDER_GO_API_KEY}
+      UNISENDER_GO_NOTIFY_DOMAIN: ${UNISENDER_GO_NOTIFY_DOMAIN}
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - kroncl-network
+    volumes:
+      - ./migrations:/app/migrations
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: kroncl-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.listen-address=0.0.0.0:9090'
+    networks:
+      - kroncl-network
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: kroncl-grafana
+    ports:
+      - "3030:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_INSTALL_PLUGINS=grafana-piechart-panel
+    volumes:
+      - ./config/grafana/datasources:/etc/grafana/provisioning/datasources
+      - ./config/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      prometheus:
+        condition: service_started
+    networks:
+      - kroncl-network
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio:latest
+    container_name: kroncl-minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_BROWSER: "on"
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - kroncl-network
+    restart: unless-stopped
+
+  minio-init:
+    image: minio/mc:latest
+    container_name: kroncl-minio-init
+    restart: "on-failure"
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_PUBLIC_BUCKET: public
+    entrypoint: |
+      /bin/sh -c "
+        echo '⏳ Waiting for MinIO...' &&
+        sleep 10 &&
+        until mc alias set myminio http://minio:9000 $${MINIO_ROOT_USER} $${MINIO_ROOT_PASSWORD}; do
+          echo '⏳ MinIO not ready, retrying...' && sleep 3;
+        done &&
+        echo 'MinIO ready, checking buckets...' &&
+        if ! mc ls myminio/$${MINIO_PUBLIC_BUCKET} 2>/dev/null; then
+          echo 'Creating bucket...' &&
+          mc mb myminio/$${MINIO_PUBLIC_BUCKET};
+        fi &&
+        echo 'Setting public policy...' &&
+        mc anonymous set public myminio/$${MINIO_PUBLIC_BUCKET} &&
+        if ! mc ls myminio/temp 2>/dev/null; then
+          mc mb myminio/temp;
+        fi &&
+        echo 'All done! Buckets:' &&
+        mc ls myminio
+      "
+    networks:
+      - kroncl-network
+
+volumes:
+  postgres_data:
+  pgadmin_data:
+  prometheus_data:
+  grafana_data:
+  minio_data:
+
+networks:
+  kroncl-network:
+    driver: bridge
