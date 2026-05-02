@@ -68,7 +68,6 @@ type Container struct {
 func NewContainer(ctx context.Context, cfg *config.Config) (*Container, error) {
 	c := &Container{Config: cfg}
 
-	// Инициализация в правильном порядке
 	if err := c.initDB(ctx); err != nil {
 		return nil, err
 	}
@@ -79,6 +78,9 @@ func NewContainer(ctx context.Context, cfg *config.Config) (*Container, error) {
 		return nil, err
 	}
 	if err := c.initTenantRoutes(); err != nil {
+		return nil, err
+	}
+	if err := c.initAdminRoutes(); err != nil {
 		return nil, err
 	}
 
