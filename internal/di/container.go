@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"kroncl-server/internal/accounts"
+	adminauth "kroncl-server/internal/admin/auth"
 	"kroncl-server/internal/auth"
 	"kroncl-server/internal/companies"
 	"kroncl-server/internal/config"
@@ -56,6 +57,9 @@ type Container struct {
 
 	// Tenant модули
 	TenantRoutes *tenant.Routes
+
+	// admin
+	AdminAuthService *adminauth.Service
 }
 
 func NewContainer(ctx context.Context, cfg *config.Config) (*Container, error) {
@@ -132,6 +136,13 @@ func (c *Container) initServices(ctx context.Context) error {
 		c.Config.JWT.ResetPasswordDuration,
 	)
 
+	// admin-auth
+	c.AdminAuthService = adminauth.NewService(c.DB)
+
+	// ------------
+	// APP
+	// ------------
+
 	// Storage
 	storageRepo := storage.NewRepository(c.DB)
 	c.StorageService = storage.NewService(storageRepo, c.Migrator, c.DB)
@@ -146,7 +157,7 @@ func (c *Container) initServices(ctx context.Context) error {
 	c.CompaniesService = companies.NewService(c.DB, c.StorageService, c.PricingService, c.Mailer)
 
 	// Accounts Service (зависит от JWT и Companies)
-	c.AccountsService = accounts.NewService(c.DB, c.JWTService, c.CompaniesService, c.Mailer)
+	c.AccountsService = accounts.NewService(c.DB, c.JWTService, c.CompaniesService, c.Mailer, c.AdminAuthService)
 
 	// Permission Service
 	c.PermissionService = permissioner.NewService(c.CompaniesService)

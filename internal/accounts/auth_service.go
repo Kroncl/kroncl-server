@@ -3,6 +3,7 @@ package accounts
 import (
 	"context"
 	"fmt"
+	"kroncl-server/internal/config"
 	"kroncl-server/internal/mailer"
 	"strings"
 	"time"
@@ -119,6 +120,15 @@ func (s *Service) ConfirmEmail(ctx context.Context, userID, code string) error {
 
 		s.mailer.SendRegistrationSuccess(bgCtx, data)
 	}()
+
+	// Создаём первого админа
+	if account.Email == config.GetFirstAdminEmail() {
+		go func() {
+			bgCtx := context.Background()
+
+			s.adminAuthService.PromoteToAdmin(bgCtx, account.ID, config.ADMIN_LEVEL_MAX)
+		}()
+	}
 
 	return s.markAccountAsConfirmed(ctx, userID)
 }
