@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"kroncl-server/internal/accounts"
+	"kroncl-server/internal/admin"
 	adminauth "kroncl-server/internal/admin/auth"
 	"kroncl-server/internal/auth"
 	"kroncl-server/internal/companies"
@@ -21,6 +22,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -60,6 +62,7 @@ type Container struct {
 
 	// admin
 	AdminAuthService *adminauth.Service
+	AdminRoutes      chi.Router
 }
 
 func NewContainer(ctx context.Context, cfg *config.Config) (*Container, error) {
@@ -136,7 +139,7 @@ func (c *Container) initServices(ctx context.Context) error {
 		c.Config.JWT.ResetPasswordDuration,
 	)
 
-	// admin-auth
+	// admin-auth [используется в APP->accounts]
 	c.AdminAuthService = adminauth.NewService(c.DB)
 
 	// ------------
@@ -211,6 +214,14 @@ func (c *Container) initTenantRoutes() error {
 		c.AccountsService,
 		c.CompaniesService,
 	)
+	return nil
+}
+
+func (c *Container) initAdminRoutes() error {
+	c.AdminRoutes = admin.NewRoutes(admin.Deps{
+		JWTService:       c.JWTService,
+		AdminAuthService: c.AdminAuthService,
+	})
 	return nil
 }
 

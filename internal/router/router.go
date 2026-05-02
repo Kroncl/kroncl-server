@@ -213,6 +213,9 @@ func New(cfg *config.Config, container *di.Container) chi.Router {
 				})
 			})
 		})
+
+		// admin
+		r.Mount("/admin", container.AdminRoutes)
 	})
 
 	return r
