@@ -40,6 +40,14 @@ func (s *Service) GetByEmail(ctx context.Context, email string) (*Account, error
 		return nil, fmt.Errorf("account not found: %w", err)
 	}
 
+	isAdmin, adminLevel, err := s.adminAuthService.GetAdminStatus(ctx, account.ID)
+	if err != nil || isAdmin == false {
+		return &account, nil
+	}
+
+	account.IsAdmin = true
+	account.AdminLevel = adminLevel
+
 	return &account, nil
 }
 
