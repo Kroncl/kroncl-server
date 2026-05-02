@@ -66,3 +66,18 @@ func (s *Service) GetAdminLevel(ctx context.Context, accountID string) (int, err
 
 	return level, nil
 }
+
+func (s *Service) GetAdminStatus(ctx context.Context, accountID string) (isAdmin bool, level int, err error) {
+	query := `SELECT level FROM admins WHERE account_id = $1`
+
+	var lvl int
+	err = s.pool.QueryRow(ctx, query, accountID).Scan(&lvl)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return false, 0, nil
+		}
+		return false, 0, fmt.Errorf("failed to get admin status: %w", err)
+	}
+
+	return true, lvl, nil
+}
