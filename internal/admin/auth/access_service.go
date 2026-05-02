@@ -16,9 +16,6 @@ func (s *Service) PromoteToAdmin(ctx context.Context, accountID string, level in
 	query := `
 		INSERT INTO admins (account_id, level)
 		VALUES ($1, $2)
-		ON CONFLICT (account_id) DO UPDATE SET
-			level = EXCLUDED.level,
-			updated_at = NOW()
 	`
 
 	_, err := s.pool.Exec(ctx, query, accountID, level)
