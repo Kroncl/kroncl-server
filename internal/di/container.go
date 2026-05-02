@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"kroncl-server/internal/accounts"
 	"kroncl-server/internal/admin"
+	adminaccounts "kroncl-server/internal/admin/accounts"
 	adminauth "kroncl-server/internal/admin/auth"
 	admindb "kroncl-server/internal/admin/db"
 	"kroncl-server/internal/auth"
@@ -62,10 +63,12 @@ type Container struct {
 	TenantRoutes *tenant.Routes
 
 	// admin
-	AdminAuthService *adminauth.Service
-	AdminDbService   *admindb.Service
-	AdminDbHandlers  *admindb.Handlers
-	AdminRoutes      chi.Router
+	AdminAuthService      *adminauth.Service
+	AdminDbService        *admindb.Service
+	AdminDbHandlers       *admindb.Handlers
+	AdminAccountsService  *adminaccounts.Service
+	AdminAccountsHandlers *adminaccounts.Handlers
+	AdminRoutes           chi.Router
 }
 
 func NewContainer(ctx context.Context, cfg *config.Config) (*Container, error) {
@@ -148,6 +151,8 @@ func (c *Container) initServices(ctx context.Context) error {
 	c.AdminAuthService = adminauth.NewService(c.DB)
 	c.AdminDbService = admindb.NewService(c.DB)
 	c.AdminDbHandlers = admindb.NewHandlers(c.AdminDbService)
+	c.AdminAccountsService = adminaccounts.NewService(c.DB)
+	c.AdminAccountsHandlers = adminaccounts.NewHandlers(c.AdminAccountsService)
 
 	// ------------
 	// APP
@@ -226,9 +231,11 @@ func (c *Container) initTenantRoutes() error {
 
 func (c *Container) initAdminRoutes() error {
 	c.AdminRoutes = admin.NewRoutes(admin.Deps{
-		JWTService:       c.JWTService,
-		AdminAuthService: c.AdminAuthService,
-		AdminDbHandlers:  c.AdminDbHandlers,
+		JWTService:            c.JWTService,
+		AdminAuthService:      c.AdminAuthService,
+		AdminDbHandlers:       c.AdminDbHandlers,
+		AdminAccountsService:  c.AdminAccountsService,
+		AdminAccountsHandlers: c.AdminAccountsHandlers,
 	})
 	return nil
 }
