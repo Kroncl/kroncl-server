@@ -2,6 +2,7 @@ package admin
 
 import (
 	adminauth "kroncl-server/internal/admin/auth"
+	admindb "kroncl-server/internal/admin/db"
 	adminhealth "kroncl-server/internal/admin/health"
 	"kroncl-server/internal/auth"
 	"kroncl-server/internal/config"
@@ -14,6 +15,7 @@ import (
 type Deps struct {
 	JWTService       *auth.JWTService
 	AdminAuthService *adminauth.Service
+	AdminDbHandlers  *admindb.Handlers
 }
 
 func NewRoutes(deps Deps) chi.Router {
@@ -25,6 +27,18 @@ func NewRoutes(deps Deps) chi.Router {
 	r.Group(func(r chi.Router) {
 		r.Use(deps.AdminAuthService.RequireAdmin)
 		r.Get("/health", adminhealth.SendResult)
+
+		// db-condition
+		r.Route("/db", func(r chi.Router) {
+			r.Use(deps.AdminAuthService.RequireAdminLevel(config.ADMIN_LEVEL_1))
+
+			r.Get("/sys", deps.AdminDbHandlers.GetSystemStats)
+
+			r.Route("/{schemaName}", func(r chi.Router) {
+				r.Get("/sys", deps.AdminDbHandlers.GetSchemaStats)
+				r.Get("/tables", deps.AdminDbHandlers.GetSchemaTables)
+			})
+		})
 	})
 
 	return r

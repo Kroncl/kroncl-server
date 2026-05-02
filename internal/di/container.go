@@ -6,6 +6,7 @@ import (
 	"kroncl-server/internal/accounts"
 	"kroncl-server/internal/admin"
 	adminauth "kroncl-server/internal/admin/auth"
+	admindb "kroncl-server/internal/admin/db"
 	"kroncl-server/internal/auth"
 	"kroncl-server/internal/companies"
 	"kroncl-server/internal/config"
@@ -62,6 +63,8 @@ type Container struct {
 
 	// admin
 	AdminAuthService *adminauth.Service
+	AdminDbService   *admindb.Service
+	AdminDbHandlers  *admindb.Handlers
 	AdminRoutes      chi.Router
 }
 
@@ -143,6 +146,8 @@ func (c *Container) initServices(ctx context.Context) error {
 
 	// admin-auth [используется в APP->accounts]
 	c.AdminAuthService = adminauth.NewService(c.DB)
+	c.AdminDbService = admindb.NewService(c.DB)
+	c.AdminDbHandlers = admindb.NewHandlers(c.AdminDbService)
 
 	// ------------
 	// APP
@@ -223,6 +228,7 @@ func (c *Container) initAdminRoutes() error {
 	c.AdminRoutes = admin.NewRoutes(admin.Deps{
 		JWTService:       c.JWTService,
 		AdminAuthService: c.AdminAuthService,
+		AdminDbHandlers:  c.AdminDbHandlers,
 	})
 	return nil
 }
