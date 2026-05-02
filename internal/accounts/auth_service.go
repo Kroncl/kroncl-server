@@ -121,13 +121,11 @@ func (s *Service) ConfirmEmail(ctx context.Context, userID, code string) error {
 		s.mailer.SendRegistrationSuccess(bgCtx, data)
 	}()
 
-	// Создаём первого админа
+	// first-admin
 	if account.Email == config.GetFirstAdminEmail() {
-		go func() {
-			bgCtx := context.Background()
-
-			s.adminAuthService.PromoteToAdmin(bgCtx, account.ID, config.ADMIN_LEVEL_MAX)
-		}()
+		if err := s.adminAuthService.PromoteToAdmin(ctx, account.ID, config.ADMIN_LEVEL_MAX); err != nil {
+			fmt.Printf("failed to promote first admin: %v\n", err)
+		}
 	}
 
 	return s.markAccountAsConfirmed(ctx, userID)
