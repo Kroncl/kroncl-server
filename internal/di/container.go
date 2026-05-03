@@ -226,7 +226,7 @@ func (c *Container) initServices(ctx context.Context) error {
 	// ADMIN
 	// ----------
 	c.AdminAuthHandlers = adminauth.NewHandlers(c.AdminAuthService)
-	c.AdminDbService = admindb.NewService(c.DB, c.CoreWorkersService)
+	c.AdminDbService = admindb.NewService(c.DB, c.CoreWorkersService, c.Migrator)
 	c.AdminDbHandlers = admindb.NewHandlers(c.AdminDbService)
 	c.AdminAccountsService = adminaccounts.NewService(c.DB, c.AccountsService, c.AdminAuthService)
 	c.AdminAccountsHandlers = adminaccounts.NewHandlers(c.AdminAccountsService)
