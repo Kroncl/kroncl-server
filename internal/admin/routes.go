@@ -39,6 +39,7 @@ func NewRoutes(deps Deps) chi.Router {
 
 			r.Get("/sys", deps.AdminDbHandlers.GetSystemStats)
 			r.Get("/history", deps.AdminDbHandlers.GetMetricsHistory)
+			r.Get("/schemas", deps.AdminDbHandlers.GetSchemas)
 
 			r.Route("/{schemaName}", func(r chi.Router) {
 				r.Get("/sys", deps.AdminDbHandlers.GetSchemaStats)

@@ -91,3 +91,22 @@ func SendCreated(w http.ResponseWriter, data interface{}, message ...string) {
 
 	json.NewEncoder(w).Encode(response)
 }
+
+func SendSuccessWithPagination(w http.ResponseWriter, data interface{}, pagination Pagination, message ...string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+
+	response := make(map[string]interface{})
+
+	if data != nil {
+		response["data"] = data
+	}
+
+	response["pagination"] = pagination
+
+	if len(message) > 0 && message[0] != "" {
+		response["message"] = message[0]
+	}
+
+	json.NewEncoder(w).Encode(response)
+}
