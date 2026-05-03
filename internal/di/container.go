@@ -11,6 +11,7 @@ import (
 	"kroncl-server/internal/auth"
 	"kroncl-server/internal/companies"
 	"kroncl-server/internal/config"
+	coreworkers "kroncl-server/internal/core/workers"
 	"kroncl-server/internal/mailer"
 	"kroncl-server/internal/media"
 	"kroncl-server/internal/migrator"
@@ -69,6 +70,10 @@ type Container struct {
 	AdminAccountsService  *adminaccounts.Service
 	AdminAccountsHandlers *adminaccounts.Handlers
 	AdminRoutes           chi.Router
+
+	// workers
+	CoreWorkersService *coreworkers.Service
+	CoreWorkers        *coreworkers.Worker
 }
 
 func NewContainer(ctx context.Context, cfg *config.Config) (*Container, error) {
@@ -147,9 +152,13 @@ func (c *Container) initServices(ctx context.Context) error {
 		c.Config.JWT.ResetPasswordDuration,
 	)
 
+	// workers
+	c.CoreWorkersService = coreworkers.NewService(c.DB)
+	c.CoreWorkers = coreworkers.NewWorker(c.CoreWorkersService, "@every 60s")
+
 	// admin-auth [используется в APP->accounts]
 	c.AdminAuthService = adminauth.NewService(c.DB)
-	c.AdminDbService = admindb.NewService(c.DB)
+	c.AdminDbService = admindb.NewService(c.DB, c.CoreWorkersService)
 	c.AdminDbHandlers = admindb.NewHandlers(c.AdminDbService)
 	c.AdminAccountsService = adminaccounts.NewService(c.DB)
 	c.AdminAccountsHandlers = adminaccounts.NewHandlers(c.AdminAccountsService)

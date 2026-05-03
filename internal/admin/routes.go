@@ -36,6 +36,7 @@ func NewRoutes(deps Deps) chi.Router {
 			r.Use(deps.AdminAuthService.RequireAdminLevel(config.ADMIN_LEVEL_1))
 
 			r.Get("/sys", deps.AdminDbHandlers.GetSystemStats)
+			r.Get("/history", deps.AdminDbHandlers.GetMetricsHistory)
 
 			r.Route("/{schemaName}", func(r chi.Router) {
 				r.Get("/sys", deps.AdminDbHandlers.GetSchemaStats)
