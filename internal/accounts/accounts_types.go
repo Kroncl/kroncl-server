@@ -27,6 +27,8 @@ type Account struct {
 	AvatarURL   string    `json:"avatar_url"`
 	Description string    `json:"description"`
 	Type        string    `json:"type"`
+	IsAdmin     bool      `json:"is_admin,omitempty"`
+	AdminLevel  int       `json:"admin_level,omitempty"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 }

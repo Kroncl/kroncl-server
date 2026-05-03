@@ -149,8 +149,7 @@ func (m *Migrator) Run(ctx context.Context, schemaName string, command string, s
 
 	// Для тенантов используем отдельную таблицу миграций
 	if schemaType == SchemaTypeTenant {
-		dsn += fmt.Sprintf("&x-migrations-table=%s.schema_migrations",
-			pgx.Identifier{schemaName}.Sanitize())
+		dsn += "&x-migrations-table=schema_migrations"
 	}
 
 	log.Printf("🚀 Running command '%s' for schema '%s'", command, schemaName)

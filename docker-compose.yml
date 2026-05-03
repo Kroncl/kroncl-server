@@ -49,6 +49,7 @@ services:
       ENV: ${ENV:-production}
       BASE_DOMAIN: ${BASE_DOMAIN:-kroncl.com}
       CLIENT_DOMAIN: ${CLIENT_DOMAIN:-kroncl.com}
+      FIRST_ADMIN_EMAIL: ${FIRST_ADMIN_EMAIL}
       HOST: 0.0.0.0
       DB_HOST: ${DB_HOST}
       DB_PORT: ${DB_PORT}

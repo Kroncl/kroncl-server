@@ -4,9 +4,14 @@ import (
 	"context"
 	"fmt"
 	"kroncl-server/internal/accounts"
+	"kroncl-server/internal/admin"
+	adminaccounts "kroncl-server/internal/admin/accounts"
+	adminauth "kroncl-server/internal/admin/auth"
+	admindb "kroncl-server/internal/admin/db"
 	"kroncl-server/internal/auth"
 	"kroncl-server/internal/companies"
 	"kroncl-server/internal/config"
+	coreworkers "kroncl-server/internal/core/workers"
 	"kroncl-server/internal/mailer"
 	"kroncl-server/internal/media"
 	"kroncl-server/internal/migrator"
@@ -20,6 +25,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -56,12 +62,24 @@ type Container struct {
 
 	// Tenant модули
 	TenantRoutes *tenant.Routes
+
+	// admin
+	AdminAuthService      *adminauth.Service
+	AdminAuthHandlers     *adminauth.Handlers
+	AdminDbService        *admindb.Service
+	AdminDbHandlers       *admindb.Handlers
+	AdminAccountsService  *adminaccounts.Service
+	AdminAccountsHandlers *adminaccounts.Handlers
+	AdminRoutes           chi.Router
+
+	// workers
+	CoreWorkersService *coreworkers.Service
+	CoreWorkers        *coreworkers.Worker
 }
 
 func NewContainer(ctx context.Context, cfg *config.Config) (*Container, error) {
 	c := &Container{Config: cfg}
 
-	// Инициализация в правильном порядке
 	if err := c.initDB(ctx); err != nil {
 		return nil, err
 	}
@@ -72,6 +90,9 @@ func NewContainer(ctx context.Context, cfg *config.Config) (*Container, error) {
 		return nil, err
 	}
 	if err := c.initTenantRoutes(); err != nil {
+		return nil, err
+	}
+	if err := c.initAdminRoutes(); err != nil {
 		return nil, err
 	}
 
@@ -132,6 +153,22 @@ func (c *Container) initServices(ctx context.Context) error {
 		c.Config.JWT.ResetPasswordDuration,
 	)
 
+	// workers
+	c.CoreWorkersService = coreworkers.NewService(c.DB)
+	c.CoreWorkers = coreworkers.NewWorker(c.CoreWorkersService, "@every 60s")
+
+	// admin-auth [используется в APP->accounts]
+	c.AdminAuthService = adminauth.NewService(c.DB)
+	c.AdminAuthHandlers = adminauth.NewHandlers(c.AdminAuthService)
+	c.AdminDbService = admindb.NewService(c.DB, c.CoreWorkersService)
+	c.AdminDbHandlers = admindb.NewHandlers(c.AdminDbService)
+	c.AdminAccountsService = adminaccounts.NewService(c.DB)
+	c.AdminAccountsHandlers = adminaccounts.NewHandlers(c.AdminAccountsService)
+
+	// ------------
+	// APP
+	// ------------
+
 	// Storage
 	storageRepo := storage.NewRepository(c.DB)
 	c.StorageService = storage.NewService(storageRepo, c.Migrator, c.DB)
@@ -146,7 +183,7 @@ func (c *Container) initServices(ctx context.Context) error {
 	c.CompaniesService = companies.NewService(c.DB, c.StorageService, c.PricingService, c.Mailer)
 
 	// Accounts Service (зависит от JWT и Companies)
-	c.AccountsService = accounts.NewService(c.DB, c.JWTService, c.CompaniesService, c.Mailer)
+	c.AccountsService = accounts.NewService(c.DB, c.JWTService, c.CompaniesService, c.Mailer, c.AdminAuthService)
 
 	// Permission Service
 	c.PermissionService = permissioner.NewService(c.CompaniesService)
@@ -200,6 +237,18 @@ func (c *Container) initTenantRoutes() error {
 		c.AccountsService,
 		c.CompaniesService,
 	)
+	return nil
+}
+
+func (c *Container) initAdminRoutes() error {
+	c.AdminRoutes = admin.NewRoutes(admin.Deps{
+		JWTService:            c.JWTService,
+		AdminAuthService:      c.AdminAuthService,
+		AdminDbHandlers:       c.AdminDbHandlers,
+		AdminAccountsService:  c.AdminAccountsService,
+		AdminAccountsHandlers: c.AdminAccountsHandlers,
+		AdminAuthHandlers:     c.AdminAuthHandlers,
+	})
 	return nil
 }
 

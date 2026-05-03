@@ -1,6 +1,7 @@
 package accounts
 
 import (
+	adminauth "kroncl-server/internal/admin/auth"
 	"kroncl-server/internal/auth"
 	"kroncl-server/internal/companies"
 	"kroncl-server/internal/mailer"
@@ -13,6 +14,7 @@ type Service struct {
 	jwtService       *auth.JWTService
 	companiesService *companies.Service
 	mailer           *mailer.Service
+	adminAuthService *adminauth.Service
 }
 
 func NewService(
@@ -20,11 +22,13 @@ func NewService(
 	jwtService *auth.JWTService,
 	companiesService *companies.Service,
 	mailer *mailer.Service,
+	adminAuthService *adminauth.Service,
 ) *Service {
 	return &Service{
 		pool:             pool,
 		jwtService:       jwtService,
 		companiesService: companiesService,
 		mailer:           mailer,
+		adminAuthService: adminAuthService,
 	}
 }
