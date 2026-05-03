@@ -3,6 +3,9 @@ package admindb
 import (
 	"context"
 	"fmt"
+	"kroncl-server/internal/core"
+	"strconv"
+	"strings"
 )
 
 func (s *Service) GetSystemStats(ctx context.Context) (*SystemStats, error) {
@@ -117,6 +120,99 @@ func (s *Service) GetSchemaTables(ctx context.Context, schemaName string) ([]Tab
 	}
 
 	return tables, nil
+}
+
+func (s *Service) GetSchemas(ctx context.Context, search string, onlyTenants bool, params core.PaginationParams) ([]SchemaListItem, core.Pagination, error) {
+	// Базовый запрос для получения списка схем
+	baseQuery := `
+		SELECT 
+			nspname as schema_name,
+			COALESCE(
+				(SELECT CAST(SUM(pg_total_relation_size(nspname || '.' || tablename)) / 1024 / 1024 AS BIGINT)
+				 FROM pg_tables 
+				 WHERE schemaname = nspname), 0
+			) as schema_size_mb,
+			COALESCE(
+				(SELECT COUNT(*) FROM pg_tables WHERE schemaname = nspname), 0
+			) as tables_count,
+			COALESCE(
+				(SELECT COUNT(*) FROM pg_indexes WHERE schemaname = nspname), 0
+			) as indexes_count
+		FROM pg_namespace
+		WHERE nspname NOT LIKE 'pg_%%' 
+		  AND nspname != 'information_schema'
+	`
+
+	countQuery := `
+		SELECT COUNT(*)
+		FROM pg_namespace
+		WHERE nspname NOT LIKE 'pg_%%' 
+		  AND nspname != 'information_schema'
+	`
+
+	var args []interface{}
+	argCounter := 1
+
+	// Фильтр по onlyTenants
+	if onlyTenants {
+		baseQuery += ` AND nspname LIKE 'company_%'`
+		countQuery += ` AND nspname LIKE 'company_%'`
+	}
+
+	// Фильтр по search
+	if search != "" {
+		baseQuery += fmt.Sprintf(` AND nspname ILIKE $%d`, argCounter)
+		countQuery += fmt.Sprintf(` AND nspname ILIKE $%d`, argCounter)
+		args = append(args, "%"+search+"%")
+		argCounter++
+	}
+
+	// Получаем общее количество
+	var total int
+	err := s.pool.QueryRow(ctx, countQuery, args...).Scan(&total)
+	if err != nil {
+		return nil, core.Pagination{}, fmt.Errorf("failed to count schemas: %w", err)
+	}
+
+	// Основной запрос с пагинацией
+	query := baseQuery + ` ORDER BY schema_name ASC LIMIT $` + strconv.Itoa(argCounter) + ` OFFSET $` + strconv.Itoa(argCounter+1)
+	args = append(args, params.Limit, params.Offset)
+
+	rows, err := s.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, core.Pagination{}, fmt.Errorf("failed to get schemas: %w", err)
+	}
+	defer rows.Close()
+
+	var schemas []SchemaListItem
+	for rows.Next() {
+		var item SchemaListItem
+		err := rows.Scan(&item.SchemaName, &item.SchemaSizeMB, &item.TablesCount, &item.IndexesCount)
+		if err != nil {
+			return nil, core.Pagination{}, fmt.Errorf("failed to scan schema: %w", err)
+		}
+
+		item.IsCompany = strings.HasPrefix(item.SchemaName, "company_")
+
+		// Получаем информацию о миграциях
+		var exists bool
+		checkQuery := `SELECT EXISTS(SELECT 1 FROM pg_tables WHERE schemaname = $1 AND tablename = 'schema_migrations')`
+		err = s.pool.QueryRow(ctx, checkQuery, item.SchemaName).Scan(&exists)
+		if err == nil && exists {
+			migQuery := fmt.Sprintf("SELECT version, dirty FROM %s.schema_migrations ORDER BY version DESC LIMIT 1", item.SchemaName)
+			err = s.pool.QueryRow(ctx, migQuery).Scan(&item.MigrationVersion, &item.MigrationDirty)
+			if err != nil {
+				item.MigrationVersion = 0
+				item.MigrationDirty = false
+			}
+		}
+
+		schemas = append(schemas, item)
+	}
+
+	pagination := core.NewPagination(total, params.Page, params.Limit)
+
+	return schemas, pagination, nil
 }
 
 // helper

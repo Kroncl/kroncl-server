@@ -100,3 +100,24 @@ func (h *Handlers) GetMetricsHistory(w http.ResponseWriter, r *http.Request) {
 
 	core.SendSuccess(w, response, "Metrics history.")
 }
+
+func (h *Handlers) GetSchemas(w http.ResponseWriter, r *http.Request) {
+	query := r.URL.Query()
+	search := query.Get("search")
+	onlyTenants := query.Get("only_tenants") == "false"
+
+	params := core.GetPaginationParams(r, 20, 100)
+
+	schemas, pagination, err := h.service.GetSchemas(r.Context(), search, onlyTenants, params)
+	if err != nil {
+		core.SendInternalError(w, fmt.Sprintf("Failed to get schemas: %v", err))
+		return
+	}
+
+	response := map[string]interface{}{
+		"schemas":    schemas,
+		"pagination": pagination,
+	}
+
+	core.SendSuccess(w, response, "Schemas list.")
+}

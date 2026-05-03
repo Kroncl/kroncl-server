@@ -22,6 +22,16 @@ type SchemaStats struct {
 	MigrationDirty   bool   `json:"migration_dirty"`
 }
 
+type SchemaListItem struct {
+	SchemaName       string `json:"schema_name"`
+	SchemaSizeMB     int64  `json:"schema_size_mb"`
+	TablesCount      int    `json:"tables_count"`
+	IndexesCount     int    `json:"indexes_count"`
+	IsCompany        bool   `json:"is_company"`
+	MigrationVersion int64  `json:"migration_version"`
+	MigrationDirty   bool   `json:"migration_dirty"`
+}
+
 type TableInfo struct {
 	TableName string `json:"table_name"`
 	SizeKB    int64  `json:"size_kb"`
