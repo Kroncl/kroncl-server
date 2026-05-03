@@ -51,7 +51,14 @@ func NewRoutes(deps Deps) chi.Router {
 		r.Route("/accounts", func(r chi.Router) {
 			r.Use(deps.AdminAuthService.RequireAdminLevel(config.ADMIN_LEVEL_2))
 
-			r.Get("/", deps.AdminDbHandlers.GetSchemaStats)
+			r.Get("/", deps.AdminAccountsHandlers.GetAllAccounts)
+			r.Get("/stats", deps.AdminAccountsHandlers.GetUserStats)
+
+			r.Route("/{accountId}", func(r chi.Router) {
+				r.Use(deps.AdminAuthService.RequireAdminKeyword)
+
+				r.Get("/", deps.AdminAccountsHandlers.GetAccountByID)
+			})
 		})
 	})
 

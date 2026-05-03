@@ -159,11 +159,6 @@ func (c *Container) initServices(ctx context.Context) error {
 
 	// admin-auth [используется в APP->accounts]
 	c.AdminAuthService = adminauth.NewService(c.DB)
-	c.AdminAuthHandlers = adminauth.NewHandlers(c.AdminAuthService)
-	c.AdminDbService = admindb.NewService(c.DB, c.CoreWorkersService)
-	c.AdminDbHandlers = admindb.NewHandlers(c.AdminDbService)
-	c.AdminAccountsService = adminaccounts.NewService(c.DB)
-	c.AdminAccountsHandlers = adminaccounts.NewHandlers(c.AdminAccountsService)
 
 	// ------------
 	// APP
@@ -226,6 +221,15 @@ func (c *Container) initServices(ctx context.Context) error {
 	c.StorageHandlers = storage.NewHandlers(c.StorageService)
 	c.PricingHandlers = pricing.NewHandlers(c.PricingService)
 	c.PublicHandlers = public.NewHandlers(c.PublicService)
+
+	// ----------
+	// ADMIN
+	// ----------
+	c.AdminAuthHandlers = adminauth.NewHandlers(c.AdminAuthService)
+	c.AdminDbService = admindb.NewService(c.DB, c.CoreWorkersService)
+	c.AdminDbHandlers = admindb.NewHandlers(c.AdminDbService)
+	c.AdminAccountsService = adminaccounts.NewService(c.DB, c.AccountsService)
+	c.AdminAccountsHandlers = adminaccounts.NewHandlers(c.AdminAccountsService)
 
 	return nil
 }
