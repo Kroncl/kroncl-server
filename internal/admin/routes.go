@@ -16,6 +16,7 @@ import (
 type Deps struct {
 	JWTService            *auth.JWTService
 	AdminAuthService      *adminauth.Service
+	AdminAuthHandlers     *adminauth.Handlers
 	AdminDbHandlers       *admindb.Handlers
 	AdminAccountsService  *adminaccounts.Service
 	AdminAccountsHandlers *adminaccounts.Handlers
@@ -30,6 +31,7 @@ func NewRoutes(deps Deps) chi.Router {
 	r.Group(func(r chi.Router) {
 		r.Use(deps.AdminAuthService.RequireAdmin)
 		r.Get("/health", adminhealth.SendResult)
+		r.Get("/check", deps.AdminAuthHandlers.CheckAdmin)
 
 		// db-condition
 		r.Route("/db", func(r chi.Router) {

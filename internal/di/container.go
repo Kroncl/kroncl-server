@@ -65,6 +65,7 @@ type Container struct {
 
 	// admin
 	AdminAuthService      *adminauth.Service
+	AdminAuthHandlers     *adminauth.Handlers
 	AdminDbService        *admindb.Service
 	AdminDbHandlers       *admindb.Handlers
 	AdminAccountsService  *adminaccounts.Service
@@ -158,6 +159,7 @@ func (c *Container) initServices(ctx context.Context) error {
 
 	// admin-auth [используется в APP->accounts]
 	c.AdminAuthService = adminauth.NewService(c.DB)
+	c.AdminAuthHandlers = adminauth.NewHandlers(c.AdminAuthService)
 	c.AdminDbService = admindb.NewService(c.DB, c.CoreWorkersService)
 	c.AdminDbHandlers = admindb.NewHandlers(c.AdminDbService)
 	c.AdminAccountsService = adminaccounts.NewService(c.DB)
@@ -245,6 +247,7 @@ func (c *Container) initAdminRoutes() error {
 		AdminDbHandlers:       c.AdminDbHandlers,
 		AdminAccountsService:  c.AdminAccountsService,
 		AdminAccountsHandlers: c.AdminAccountsHandlers,
+		AdminAuthHandlers:     c.AdminAuthHandlers,
 	})
 	return nil
 }
