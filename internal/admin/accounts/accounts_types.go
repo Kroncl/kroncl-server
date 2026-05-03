@@ -7,3 +7,7 @@ type UserStats struct {
 	AdminAccounts     int            `json:"admin_accounts"`
 	AccountsWithType  map[string]int `json:"accounts_with_type"`
 }
+
+type PromoteRequest struct {
+	Level int `json:"level"`
+}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"kroncl-server/internal/accounts"
+	"kroncl-server/internal/config"
 	"kroncl-server/internal/core"
 	"strconv"
 	"strings"
@@ -155,4 +156,80 @@ func (s *Service) GetUserStats(ctx context.Context) (*UserStats, error) {
 	}
 
 	return stats, nil
+}
+
+// adminaccounts/service.go
+
+func (s *Service) PromoteToAdmin(ctx context.Context, callerAccountID, targetAccountID string, level int) error {
+	// Проверяем, что не пытаемся назначить себя
+	if callerAccountID == targetAccountID {
+		return fmt.Errorf("cannot promote yourself")
+	}
+
+	// Получаем уровень вызвавшего админа
+	callerLevel, err := s.adminAuthService.GetAdminLevel(ctx, callerAccountID)
+	if err != nil {
+		return fmt.Errorf("failed to get caller admin level: %w", err)
+	}
+
+	if callerLevel == 0 {
+		return fmt.Errorf("caller is not an admin")
+	}
+
+	// Получаем текущий уровень целевого аккаунта (если есть)
+	targetLevel, err := s.adminAuthService.GetAdminLevel(ctx, targetAccountID)
+	if err != nil && err.Error() != "account not found" {
+		return fmt.Errorf("failed to get target admin level: %w", err)
+	}
+
+	// Уровень вызвавшего должен быть строго больше уровня целевого
+	if targetLevel > 0 && callerLevel <= targetLevel {
+		return fmt.Errorf("cannot promote account with equal or higher admin level")
+	}
+
+	// Если уровень целевого выше или равен - запрещаем
+	if callerLevel <= level {
+		return fmt.Errorf("cannot set admin level %d, your level is %d", level, callerLevel)
+	}
+
+	// Проверяем уровень в допустимых пределах
+	if level < config.ADMIN_LEVEL_MIN || level > config.ADMIN_LEVEL_MAX {
+		return fmt.Errorf("level must be between %d and %d", config.ADMIN_LEVEL_MIN, config.ADMIN_LEVEL_MAX)
+	}
+
+	return s.adminAuthService.PromoteToAdmin(ctx, targetAccountID, level)
+}
+
+func (s *Service) DemoteFromAdmin(ctx context.Context, callerAccountID, targetAccountID string) error {
+	// Проверяем, что не пытаемся разжаловать себя
+	if callerAccountID == targetAccountID {
+		return fmt.Errorf("cannot demote yourself")
+	}
+
+	// Получаем уровень вызвавшего админа
+	callerLevel, err := s.adminAuthService.GetAdminLevel(ctx, callerAccountID)
+	if err != nil {
+		return fmt.Errorf("failed to get caller admin level: %w", err)
+	}
+
+	if callerLevel == 0 {
+		return fmt.Errorf("caller is not an admin")
+	}
+
+	// Получаем уровень целевого аккаунта
+	targetLevel, err := s.adminAuthService.GetAdminLevel(ctx, targetAccountID)
+	if err != nil {
+		return fmt.Errorf("failed to get target admin level: %w", err)
+	}
+
+	if targetLevel == 0 {
+		return fmt.Errorf("target account is not an admin")
+	}
+
+	// Уровень вызвавшего должен быть строго больше уровня целевого
+	if callerLevel <= targetLevel {
+		return fmt.Errorf("cannot demote account with equal or higher admin level")
+	}
+
+	return s.adminAuthService.DemoteFromAdmin(ctx, targetAccountID)
 }

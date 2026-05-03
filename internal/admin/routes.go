@@ -55,9 +55,16 @@ func NewRoutes(deps Deps) chi.Router {
 			r.Get("/stats", deps.AdminAccountsHandlers.GetUserStats)
 
 			r.Route("/{accountId}", func(r chi.Router) {
-				r.Use(deps.AdminAuthService.RequireAdminKeyword)
-
 				r.Get("/", deps.AdminAccountsHandlers.GetAccountByID)
+
+				// критичные действия [max level + keyword]
+				r.Group(func(r chi.Router) {
+					r.Use(deps.AdminAuthService.RequireAdminLevel(config.ADMIN_LEVEL_MAX))
+					r.Use(deps.AdminAuthService.RequireAdminKeyword)
+
+					r.Post("/promote-admin", deps.AdminAccountsHandlers.PromoteToAdmin)
+					r.Post("/demote-admin", deps.AdminAccountsHandlers.DemoteFromAdmin)
+				})
 			})
 		})
 	})
