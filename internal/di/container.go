@@ -7,6 +7,7 @@ import (
 	"kroncl-server/internal/admin"
 	adminaccounts "kroncl-server/internal/admin/accounts"
 	adminauth "kroncl-server/internal/admin/auth"
+	adminclientele "kroncl-server/internal/admin/clientele"
 	admindb "kroncl-server/internal/admin/db"
 	"kroncl-server/internal/auth"
 	"kroncl-server/internal/companies"
@@ -64,13 +65,15 @@ type Container struct {
 	TenantRoutes *tenant.Routes
 
 	// admin
-	AdminAuthService      *adminauth.Service
-	AdminAuthHandlers     *adminauth.Handlers
-	AdminDbService        *admindb.Service
-	AdminDbHandlers       *admindb.Handlers
-	AdminAccountsService  *adminaccounts.Service
-	AdminAccountsHandlers *adminaccounts.Handlers
-	AdminRoutes           chi.Router
+	AdminAuthService       *adminauth.Service
+	AdminAuthHandlers      *adminauth.Handlers
+	AdminDbService         *admindb.Service
+	AdminDbHandlers        *admindb.Handlers
+	AdminAccountsService   *adminaccounts.Service
+	AdminAccountsHandlers  *adminaccounts.Handlers
+	AdminClienteleService  *adminclientele.Service
+	AdminClienteleHandlers *adminclientele.Handlers
+	AdminRoutes            chi.Router
 
 	// workers
 	CoreWorkersService         *coreworkers.Service
@@ -234,6 +237,8 @@ func (c *Container) initServices(ctx context.Context) error {
 	c.AdminDbHandlers = admindb.NewHandlers(c.AdminDbService)
 	c.AdminAccountsService = adminaccounts.NewService(c.DB, c.AccountsService, c.AdminAuthService)
 	c.AdminAccountsHandlers = adminaccounts.NewHandlers(c.AdminAccountsService)
+	c.AdminClienteleService = adminclientele.NewService(c.DB, c.CoreWorkersService)
+	c.AdminClienteleHandlers = adminclientele.NewHandlers(c.AdminClienteleService)
 
 	return nil
 }
@@ -250,12 +255,14 @@ func (c *Container) initTenantRoutes() error {
 
 func (c *Container) initAdminRoutes() error {
 	c.AdminRoutes = admin.NewRoutes(admin.Deps{
-		JWTService:            c.JWTService,
-		AdminAuthService:      c.AdminAuthService,
-		AdminDbHandlers:       c.AdminDbHandlers,
-		AdminAccountsService:  c.AdminAccountsService,
-		AdminAccountsHandlers: c.AdminAccountsHandlers,
-		AdminAuthHandlers:     c.AdminAuthHandlers,
+		JWTService:             c.JWTService,
+		AdminAuthService:       c.AdminAuthService,
+		AdminDbHandlers:        c.AdminDbHandlers,
+		AdminAccountsService:   c.AdminAccountsService,
+		AdminAccountsHandlers:  c.AdminAccountsHandlers,
+		AdminAuthHandlers:      c.AdminAuthHandlers,
+		AdminClienteleService:  c.AdminClienteleService,
+		AdminClienteleHandlers: c.AdminClienteleHandlers,
 	})
 	return nil
 }

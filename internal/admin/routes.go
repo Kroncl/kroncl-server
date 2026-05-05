@@ -3,6 +3,7 @@ package admin
 import (
 	adminaccounts "kroncl-server/internal/admin/accounts"
 	adminauth "kroncl-server/internal/admin/auth"
+	adminclientele "kroncl-server/internal/admin/clientele"
 	admindb "kroncl-server/internal/admin/db"
 	adminhealth "kroncl-server/internal/admin/health"
 	"kroncl-server/internal/auth"
@@ -14,12 +15,14 @@ import (
 )
 
 type Deps struct {
-	JWTService            *auth.JWTService
-	AdminAuthService      *adminauth.Service
-	AdminAuthHandlers     *adminauth.Handlers
-	AdminDbHandlers       *admindb.Handlers
-	AdminAccountsService  *adminaccounts.Service
-	AdminAccountsHandlers *adminaccounts.Handlers
+	JWTService             *auth.JWTService
+	AdminAuthService       *adminauth.Service
+	AdminAuthHandlers      *adminauth.Handlers
+	AdminDbHandlers        *admindb.Handlers
+	AdminAccountsService   *adminaccounts.Service
+	AdminAccountsHandlers  *adminaccounts.Handlers
+	AdminClienteleService  *adminclientele.Service
+	AdminClienteleHandlers *adminclientele.Handlers
 }
 
 func NewRoutes(deps Deps) chi.Router {
@@ -85,6 +88,18 @@ func NewRoutes(deps Deps) chi.Router {
 					r.Post("/demote-admin", deps.AdminAccountsHandlers.DemoteFromAdmin)
 				})
 			})
+		})
+
+		r.Route("/companies", func(r chi.Router) {
+			r.Use(deps.AdminAuthService.RequireAdminLevel(config.ADMIN_LEVEL_3))
+
+		})
+
+		r.Route("/clientele", func(r chi.Router) {
+			r.Use(deps.AdminAuthService.RequireAdminLevel(config.ADMIN_LEVEL_4))
+
+			r.Get("/stats", deps.AdminClienteleHandlers.GetClienteleStats)
+			r.Get("/history", deps.AdminClienteleHandlers.GetClienteleHistory)
 		})
 	})
 
