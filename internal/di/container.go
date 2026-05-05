@@ -7,6 +7,8 @@ import (
 	"kroncl-server/internal/admin"
 	adminaccounts "kroncl-server/internal/admin/accounts"
 	adminauth "kroncl-server/internal/admin/auth"
+	adminclientele "kroncl-server/internal/admin/clientele"
+	admincompanies "kroncl-server/internal/admin/companies"
 	admindb "kroncl-server/internal/admin/db"
 	"kroncl-server/internal/auth"
 	"kroncl-server/internal/companies"
@@ -64,17 +66,22 @@ type Container struct {
 	TenantRoutes *tenant.Routes
 
 	// admin
-	AdminAuthService      *adminauth.Service
-	AdminAuthHandlers     *adminauth.Handlers
-	AdminDbService        *admindb.Service
-	AdminDbHandlers       *admindb.Handlers
-	AdminAccountsService  *adminaccounts.Service
-	AdminAccountsHandlers *adminaccounts.Handlers
-	AdminRoutes           chi.Router
+	AdminAuthService       *adminauth.Service
+	AdminAuthHandlers      *adminauth.Handlers
+	AdminDbService         *admindb.Service
+	AdminDbHandlers        *admindb.Handlers
+	AdminAccountsService   *adminaccounts.Service
+	AdminAccountsHandlers  *adminaccounts.Handlers
+	AdminClienteleService  *adminclientele.Service
+	AdminClienteleHandlers *adminclientele.Handlers
+	AdminCompaniesService  *admincompanies.Service
+	AdminCompaniesHandlers *admincompanies.Handlers
+	AdminRoutes            chi.Router
 
 	// workers
-	CoreWorkersService *coreworkers.Service
-	CoreWorkers        *coreworkers.Worker
+	CoreWorkersService         *coreworkers.Service
+	CoreDbMetricsWorker        *coreworkers.Worker
+	CoreClienteleMetricsWorker *coreworkers.Worker
 }
 
 func NewContainer(ctx context.Context, cfg *config.Config) (*Container, error) {
@@ -153,10 +160,6 @@ func (c *Container) initServices(ctx context.Context) error {
 		c.Config.JWT.ResetPasswordDuration,
 	)
 
-	// workers
-	c.CoreWorkersService = coreworkers.NewService(c.DB)
-	c.CoreWorkers = coreworkers.NewWorker(c.CoreWorkersService, "@every 60s")
-
 	// admin-auth [используется в APP->accounts]
 	c.AdminAuthService = adminauth.NewService(c.DB)
 
@@ -222,6 +225,13 @@ func (c *Container) initServices(ctx context.Context) error {
 	c.PricingHandlers = pricing.NewHandlers(c.PricingService)
 	c.PublicHandlers = public.NewHandlers(c.PublicService)
 
+	// ---------
+	// WORKERS
+	// ---------
+	c.CoreWorkersService = coreworkers.NewService(c.DB, c.PricingService, c.CompaniesService, c.AccountsService)
+	c.CoreDbMetricsWorker = coreworkers.NewDbWorker(c.CoreWorkersService, "@every 60s")
+	c.CoreClienteleMetricsWorker = coreworkers.NewClienteleWorker(c.CoreWorkersService, "@every 60s")
+
 	// ----------
 	// ADMIN
 	// ----------
@@ -230,6 +240,10 @@ func (c *Container) initServices(ctx context.Context) error {
 	c.AdminDbHandlers = admindb.NewHandlers(c.AdminDbService)
 	c.AdminAccountsService = adminaccounts.NewService(c.DB, c.AccountsService, c.AdminAuthService)
 	c.AdminAccountsHandlers = adminaccounts.NewHandlers(c.AdminAccountsService)
+	c.AdminClienteleService = adminclientele.NewService(c.DB, c.CoreWorkersService)
+	c.AdminClienteleHandlers = adminclientele.NewHandlers(c.AdminClienteleService)
+	c.AdminCompaniesService = admincompanies.NewService(c.DB, c.CompaniesService, c.StorageService)
+	c.AdminCompaniesHandlers = admincompanies.NewHandlers(c.AdminCompaniesService)
 
 	return nil
 }
@@ -246,12 +260,16 @@ func (c *Container) initTenantRoutes() error {
 
 func (c *Container) initAdminRoutes() error {
 	c.AdminRoutes = admin.NewRoutes(admin.Deps{
-		JWTService:            c.JWTService,
-		AdminAuthService:      c.AdminAuthService,
-		AdminDbHandlers:       c.AdminDbHandlers,
-		AdminAccountsService:  c.AdminAccountsService,
-		AdminAccountsHandlers: c.AdminAccountsHandlers,
-		AdminAuthHandlers:     c.AdminAuthHandlers,
+		JWTService:             c.JWTService,
+		AdminAuthService:       c.AdminAuthService,
+		AdminDbHandlers:        c.AdminDbHandlers,
+		AdminAccountsService:   c.AdminAccountsService,
+		AdminAccountsHandlers:  c.AdminAccountsHandlers,
+		AdminAuthHandlers:      c.AdminAuthHandlers,
+		AdminClienteleService:  c.AdminClienteleService,
+		AdminClienteleHandlers: c.AdminClienteleHandlers,
+		AdminCompaniesService:  c.AdminCompaniesService,
+		AdminCompaniesHandlers: c.AdminCompaniesHandlers,
 	})
 	return nil
 }

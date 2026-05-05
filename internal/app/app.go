@@ -41,8 +41,11 @@ func (a *Application) Run() error {
 	defer cancel()
 
 	// start-core-workers [metrics]
-	if err := a.container.CoreWorkers.Start(); err != nil {
-		return fmt.Errorf("failed to start metrics worker: %w", err)
+	if err := a.container.CoreDbMetricsWorker.StartDbMetricsWorker(); err != nil {
+		return fmt.Errorf("failed to start db metrics worker: %w", err)
+	}
+	if err := a.container.CoreClienteleMetricsWorker.StartClienteleMetricsWorker(); err != nil {
+		return fmt.Errorf("failed to start clientele metrics worker: %w", err)
 	}
 
 	serverErrors := make(chan error, 1)
@@ -74,8 +77,12 @@ func (a *Application) shutdown() error {
 	log.Println("Shutting down...")
 
 	// stop-core-workers
-	if a.container.CoreWorkers != nil {
-		a.container.CoreWorkers.Stop()
+	if a.container.CoreDbMetricsWorker != nil {
+		a.container.CoreDbMetricsWorker.Stop()
+	}
+
+	if a.container.CoreClienteleMetricsWorker != nil {
+		a.container.CoreClienteleMetricsWorker.Stop()
 	}
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
