@@ -13,7 +13,14 @@ const (
 	ADMIN_LEVEL_MAX = 5
 )
 
+const ADMIN_KEYWORD_HEADER = "X-Admin-Keyword"
+
 func GetFirstAdminEmail() string {
 	email := os.Getenv("FIRST_ADMIN_EMAIL")
 	return email
+}
+
+func GetAdminKeyword() string {
+	keyword := os.Getenv("ADMIN_KEYWORD")
+	return keyword
 }

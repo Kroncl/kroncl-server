@@ -39,11 +39,30 @@ func NewRoutes(deps Deps) chi.Router {
 
 			r.Get("/sys", deps.AdminDbHandlers.GetSystemStats)
 			r.Get("/history", deps.AdminDbHandlers.GetMetricsHistory)
-			r.Get("/schemas", deps.AdminDbHandlers.GetSchemas)
 
-			r.Route("/{schemaName}", func(r chi.Router) {
-				r.Get("/sys", deps.AdminDbHandlers.GetSchemaStats)
-				r.Get("/tables", deps.AdminDbHandlers.GetSchemaTables)
+			r.Route("/schemas", func(r chi.Router) {
+				r.Get("/", deps.AdminDbHandlers.GetSchemas)
+
+				r.Route("/{schemaName}", func(r chi.Router) {
+					r.Get("/sys", deps.AdminDbHandlers.GetSchemaStats)
+					r.Get("/tables", deps.AdminDbHandlers.GetSchemaTables)
+
+					// критичные действия [max level + keyword]
+					r.Group(func(r chi.Router) {
+						r.Use(deps.AdminAuthService.RequireAdminLevel(config.ADMIN_LEVEL_MAX))
+						r.Use(deps.AdminAuthService.RequireAdminKeyword)
+
+						r.Post("/migrate", deps.AdminDbHandlers.MigrateTenant)
+					})
+				})
+
+				// критичные действия [max level + keyword]
+				r.Group(func(r chi.Router) {
+					r.Use(deps.AdminAuthService.RequireAdminLevel(config.ADMIN_LEVEL_MAX))
+					r.Use(deps.AdminAuthService.RequireAdminKeyword)
+
+					r.Post("/up", deps.AdminDbHandlers.MigrateAllTenants)
+				})
 			})
 		})
 
@@ -51,7 +70,21 @@ func NewRoutes(deps Deps) chi.Router {
 		r.Route("/accounts", func(r chi.Router) {
 			r.Use(deps.AdminAuthService.RequireAdminLevel(config.ADMIN_LEVEL_2))
 
-			r.Get("/", deps.AdminDbHandlers.GetSchemaStats)
+			r.Get("/", deps.AdminAccountsHandlers.GetAllAccounts)
+			r.Get("/stats", deps.AdminAccountsHandlers.GetUserStats)
+
+			r.Route("/{accountId}", func(r chi.Router) {
+				r.Get("/", deps.AdminAccountsHandlers.GetAccountByID)
+
+				// критичные действия [max level + keyword]
+				r.Group(func(r chi.Router) {
+					r.Use(deps.AdminAuthService.RequireAdminLevel(config.ADMIN_LEVEL_MAX))
+					r.Use(deps.AdminAuthService.RequireAdminKeyword)
+
+					r.Post("/promote-admin", deps.AdminAccountsHandlers.PromoteToAdmin)
+					r.Post("/demote-admin", deps.AdminAccountsHandlers.DemoteFromAdmin)
+				})
+			})
 		})
 	})
 

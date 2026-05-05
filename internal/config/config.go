@@ -124,7 +124,7 @@ func Load() (*Config, error) {
 		CORS: CORSConfig{
 			AllowedOrigins:   allowedOrigins,
 			AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
-			AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
+			AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token", "X-Admin-Keyword"},
 			ExposedHeaders:   []string{"Link", "X-Total-Count"},
 			AllowCredentials: true,
 			MaxAge:           300,
