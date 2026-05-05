@@ -8,7 +8,7 @@ import (
 	"github.com/robfig/cron/v3"
 )
 
-func NewWorker(service *Service, interval string) *Worker {
+func NewDbWorker(service *Service, interval string) *Worker {
 	return &Worker{
 		service:  service,
 		cron:     cron.New(),
@@ -16,7 +16,7 @@ func NewWorker(service *Service, interval string) *Worker {
 	}
 }
 
-func (w *Worker) Start() error {
+func (w *Worker) StartDbMetricsWorker() error {
 	_, err := w.cron.AddFunc(w.interval, func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
@@ -43,9 +43,4 @@ func (w *Worker) Start() error {
 	w.cron.Start()
 	log.Printf("✅ Metrics worker started with interval: %s", w.interval)
 	return nil
-}
-
-func (w *Worker) Stop() {
-	<-w.cron.Stop().Done()
-	log.Println("⏹️ Metrics worker stopped")
 }

@@ -73,8 +73,9 @@ type Container struct {
 	AdminRoutes           chi.Router
 
 	// workers
-	CoreWorkersService *coreworkers.Service
-	CoreWorkers        *coreworkers.Worker
+	CoreWorkersService         *coreworkers.Service
+	CoreDbMetricsWorker        *coreworkers.Worker
+	CoreClienteleMetricsWorker *coreworkers.Worker
 }
 
 func NewContainer(ctx context.Context, cfg *config.Config) (*Container, error) {
@@ -153,10 +154,6 @@ func (c *Container) initServices(ctx context.Context) error {
 		c.Config.JWT.ResetPasswordDuration,
 	)
 
-	// workers
-	c.CoreWorkersService = coreworkers.NewService(c.DB)
-	c.CoreWorkers = coreworkers.NewWorker(c.CoreWorkersService, "@every 60s")
-
 	// admin-auth [используется в APP->accounts]
 	c.AdminAuthService = adminauth.NewService(c.DB)
 
@@ -230,6 +227,11 @@ func (c *Container) initServices(ctx context.Context) error {
 	c.AdminDbHandlers = admindb.NewHandlers(c.AdminDbService)
 	c.AdminAccountsService = adminaccounts.NewService(c.DB, c.AccountsService, c.AdminAuthService)
 	c.AdminAccountsHandlers = adminaccounts.NewHandlers(c.AdminAccountsService)
+
+	// workers
+	c.CoreWorkersService = coreworkers.NewService(c.DB, c.PricingService, c.CompaniesService, c.AccountsService)
+	c.CoreDbMetricsWorker = coreworkers.NewDbWorker(c.CoreWorkersService, "@every 60s")
+	c.CoreClienteleMetricsWorker = coreworkers.NewClienteleWorker(c.CoreWorkersService, "@every 60s")
 
 	return nil
 }
