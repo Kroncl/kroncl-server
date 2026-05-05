@@ -219,6 +219,13 @@ func (c *Container) initServices(ctx context.Context) error {
 	c.PricingHandlers = pricing.NewHandlers(c.PricingService)
 	c.PublicHandlers = public.NewHandlers(c.PublicService)
 
+	// ---------
+	// WORKERS
+	// ---------
+	c.CoreWorkersService = coreworkers.NewService(c.DB, c.PricingService, c.CompaniesService, c.AccountsService)
+	c.CoreDbMetricsWorker = coreworkers.NewDbWorker(c.CoreWorkersService, "@every 60s")
+	c.CoreClienteleMetricsWorker = coreworkers.NewClienteleWorker(c.CoreWorkersService, "@every 60s")
+
 	// ----------
 	// ADMIN
 	// ----------
@@ -227,11 +234,6 @@ func (c *Container) initServices(ctx context.Context) error {
 	c.AdminDbHandlers = admindb.NewHandlers(c.AdminDbService)
 	c.AdminAccountsService = adminaccounts.NewService(c.DB, c.AccountsService, c.AdminAuthService)
 	c.AdminAccountsHandlers = adminaccounts.NewHandlers(c.AdminAccountsService)
-
-	// workers
-	c.CoreWorkersService = coreworkers.NewService(c.DB, c.PricingService, c.CompaniesService, c.AccountsService)
-	c.CoreDbMetricsWorker = coreworkers.NewDbWorker(c.CoreWorkersService, "@every 60s")
-	c.CoreClienteleMetricsWorker = coreworkers.NewClienteleWorker(c.CoreWorkersService, "@every 60s")
 
 	return nil
 }
