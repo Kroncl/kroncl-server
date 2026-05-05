@@ -41,3 +41,26 @@ func (h *Handlers) GetCompanyByID(w http.ResponseWriter, r *http.Request) {
 
 	core.SendSuccess(w, company, "Company details.")
 }
+
+func (h *Handlers) GetCompanyAccounts(w http.ResponseWriter, r *http.Request) {
+	companyID := chi.URLParam(r, "companyId")
+	if companyID == "" {
+		core.SendValidationError(w, "companyId is required")
+		return
+	}
+
+	params := core.GetDefaultPaginationParams(r)
+
+	accounts, pagination, err := h.service.GetCompanyAccounts(r.Context(), companyID, params)
+	if err != nil {
+		core.SendInternalError(w, fmt.Sprintf("Failed to get company accounts: %v", err))
+		return
+	}
+
+	response := map[string]interface{}{
+		"accounts":   accounts,
+		"pagination": pagination,
+	}
+
+	core.SendSuccess(w, response, "Company accounts list.")
+}
