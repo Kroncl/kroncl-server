@@ -101,6 +101,10 @@ func NewRoutes(deps Deps) chi.Router {
 			r.Route("/{companyId}", func(r chi.Router) {
 				r.Get("/", deps.AdminCompaniesHandlers.GetCompanyByID)
 				r.Get("/accounts", deps.AdminCompaniesHandlers.GetCompanyAccounts)
+
+				r.Route("/pricing", func(r chi.Router) {
+					r.Get("/", deps.AdminCompaniesHandlers.GetCompanyPricingPlan)
+				})
 			})
 		})
 

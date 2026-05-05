@@ -64,3 +64,19 @@ func (h *Handlers) GetCompanyAccounts(w http.ResponseWriter, r *http.Request) {
 
 	core.SendSuccess(w, response, "Company accounts list.")
 }
+
+func (h *Handlers) GetCompanyPricingPlan(w http.ResponseWriter, r *http.Request) {
+	companyID := chi.URLParam(r, "companyId")
+	if companyID == "" {
+		core.SendValidationError(w, "companyId is required")
+		return
+	}
+
+	companyPricingPlan, err := h.service.companiesService.GetCompanyPlan(r.Context(), companyID)
+	if err != nil {
+		core.SendInternalError(w, fmt.Sprintf("Failed to get company pricing plan: %v", err))
+		return
+	}
+
+	core.SendSuccess(w, companyPricingPlan, "Company accounts list.")
+}
