@@ -15,7 +15,7 @@ func (s *Service) GetAllCompanies(ctx context.Context, search string, params cor
 			COALESCE(cs.status, 'none') as storage_status,
 			cs.schema_name
 		FROM companies c
-		LEFT JOIN companies_storages cs ON c.id = cs.company_id
+		LEFT JOIN company_storage cs ON c.id = cs.company_id
 	`
 
 	countQuery := `
@@ -103,7 +103,7 @@ func (s *Service) GetCompanyByID(ctx context.Context, companyID string) (*AdminC
 			COALESCE(cs.status, 'none') as storage_status,
 			cs.schema_name
 		FROM companies c
-		LEFT JOIN companies_storages cs ON c.id = cs.company_id
+		LEFT JOIN company_storage cs ON c.id = cs.company_id
 		WHERE c.id = $1
 	`
 
