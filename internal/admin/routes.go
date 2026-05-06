@@ -7,6 +7,7 @@ import (
 	admincompanies "kroncl-server/internal/admin/companies"
 	admindb "kroncl-server/internal/admin/db"
 	adminhealth "kroncl-server/internal/admin/health"
+	adminpartners "kroncl-server/internal/admin/partners"
 	adminsupport "kroncl-server/internal/admin/support"
 	"kroncl-server/internal/auth"
 	"kroncl-server/internal/config"
@@ -25,6 +26,7 @@ type Deps struct {
 	AdminClienteleHandlers *adminclientele.Handlers
 	AdminCompaniesHandlers *admincompanies.Handlers
 	AdminSupportHandlers   *adminsupport.Handlers
+	AdminPartnersHandlers  *adminpartners.Handlers
 }
 
 func NewRoutes(deps Deps) chi.Router {
@@ -136,6 +138,19 @@ func NewRoutes(deps Deps) chi.Router {
 					})
 				})
 			})
+		})
+
+		// partners
+		r.Route("/partners", func(r chi.Router) {
+			r.Use(deps.AdminAuthService.RequireAdminLevel(config.ADMIN_LEVEL_4))
+
+			// r.Route("/apps", func(r chi.Router) {
+			// 	r.Get("/", deps.AdminSupportHandlers.GetTicketByID)
+
+			// 	r.Route("/{appId}", func(r chi.Router) {
+			// 		r.Get("/", deps.AdminSupportHandlers.UpdateAdminMessage)
+			// 	})
+			// })
 		})
 	})
 
