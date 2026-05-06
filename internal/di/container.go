@@ -10,6 +10,7 @@ import (
 	adminclientele "kroncl-server/internal/admin/clientele"
 	admincompanies "kroncl-server/internal/admin/companies"
 	admindb "kroncl-server/internal/admin/db"
+	adminsupport "kroncl-server/internal/admin/support"
 	"kroncl-server/internal/auth"
 	"kroncl-server/internal/companies"
 	"kroncl-server/internal/config"
@@ -76,6 +77,8 @@ type Container struct {
 	AdminClienteleHandlers *adminclientele.Handlers
 	AdminCompaniesService  *admincompanies.Service
 	AdminCompaniesHandlers *admincompanies.Handlers
+	AdminSupportService    *adminsupport.Service
+	AdminSupportHandlers   *adminsupport.Handlers
 	AdminRoutes            chi.Router
 
 	// workers
@@ -244,6 +247,8 @@ func (c *Container) initServices(ctx context.Context) error {
 	c.AdminClienteleHandlers = adminclientele.NewHandlers(c.AdminClienteleService)
 	c.AdminCompaniesService = admincompanies.NewService(c.DB, c.CompaniesService, c.StorageService)
 	c.AdminCompaniesHandlers = admincompanies.NewHandlers(c.AdminCompaniesService)
+	c.AdminSupportService = adminsupport.NewService(c.DB, c.CompaniesService, c.AccountsService)
+	c.AdminSupportHandlers = adminsupport.NewHandlers(c.AdminSupportService)
 
 	return nil
 }
@@ -263,13 +268,11 @@ func (c *Container) initAdminRoutes() error {
 		JWTService:             c.JWTService,
 		AdminAuthService:       c.AdminAuthService,
 		AdminDbHandlers:        c.AdminDbHandlers,
-		AdminAccountsService:   c.AdminAccountsService,
 		AdminAccountsHandlers:  c.AdminAccountsHandlers,
 		AdminAuthHandlers:      c.AdminAuthHandlers,
-		AdminClienteleService:  c.AdminClienteleService,
 		AdminClienteleHandlers: c.AdminClienteleHandlers,
-		AdminCompaniesService:  c.AdminCompaniesService,
 		AdminCompaniesHandlers: c.AdminCompaniesHandlers,
+		AdminSupportHandlers:   c.AdminSupportHandlers,
 	})
 	return nil
 }
