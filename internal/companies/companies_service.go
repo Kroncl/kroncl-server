@@ -516,3 +516,44 @@ func (s *Service) GetCompanyMembers(ctx context.Context, companyID string, req *
 		Pagination: *pagination,
 	}, nil
 }
+
+func (s *Service) GetCompaniesByIDs(ctx context.Context, companyIDs []string) (map[string]Company, error) {
+	if len(companyIDs) == 0 {
+		return make(map[string]Company), nil
+	}
+
+	placeholders := make([]string, len(companyIDs))
+	args := make([]interface{}, len(companyIDs))
+	for i, id := range companyIDs {
+		placeholders[i] = fmt.Sprintf("$%d", i+1)
+		args[i] = id
+	}
+
+	query := fmt.Sprintf(`
+		SELECT id, slug, name, description, avatar_url, is_public,
+		       email, region, site, metadata, created_at, updated_at
+		FROM companies
+		WHERE id IN (%s)
+	`, strings.Join(placeholders, ", "))
+
+	rows, err := s.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	companiesMap := make(map[string]Company)
+	for rows.Next() {
+		var c Company
+		err := rows.Scan(
+			&c.ID, &c.Slug, &c.Name, &c.Description, &c.AvatarUrl, &c.IsPublic,
+			&c.Email, &c.Region, &c.Site, &c.Metadata, &c.CreatedAt, &c.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		companiesMap[c.ID] = c
+	}
+
+	return companiesMap, nil
+}

@@ -7,6 +7,7 @@ import (
 	admincompanies "kroncl-server/internal/admin/companies"
 	admindb "kroncl-server/internal/admin/db"
 	adminhealth "kroncl-server/internal/admin/health"
+	adminsupport "kroncl-server/internal/admin/support"
 	"kroncl-server/internal/auth"
 	"kroncl-server/internal/config"
 	"time"
@@ -20,12 +21,10 @@ type Deps struct {
 	AdminAuthService       *adminauth.Service
 	AdminAuthHandlers      *adminauth.Handlers
 	AdminDbHandlers        *admindb.Handlers
-	AdminAccountsService   *adminaccounts.Service
 	AdminAccountsHandlers  *adminaccounts.Handlers
-	AdminClienteleService  *adminclientele.Service
 	AdminClienteleHandlers *adminclientele.Handlers
-	AdminCompaniesService  *admincompanies.Service
 	AdminCompaniesHandlers *admincompanies.Handlers
+	AdminSupportHandlers   *adminsupport.Handlers
 }
 
 func NewRoutes(deps Deps) chi.Router {
@@ -113,6 +112,30 @@ func NewRoutes(deps Deps) chi.Router {
 
 			r.Get("/stats", deps.AdminClienteleHandlers.GetClienteleStats)
 			r.Get("/history", deps.AdminClienteleHandlers.GetClienteleHistory)
+		})
+
+		// tickets
+		r.Route("/tickets", func(r chi.Router) {
+			r.Use(deps.AdminAuthService.RequireAdminLevel(config.ADMIN_LEVEL_4))
+
+			r.Get("/", deps.AdminSupportHandlers.GetAllTickets)
+
+			r.Route("/{ticketId}", func(r chi.Router) {
+				r.Get("/", deps.AdminSupportHandlers.GetTicketByID)
+				r.Post("/assign", deps.AdminSupportHandlers.AssignTicket)
+				r.Post("/unassign", deps.AdminSupportHandlers.UnassignTicket)
+				r.Post("/close", deps.AdminSupportHandlers.CloseTicket)
+
+				r.Route("/messages", func(r chi.Router) {
+					r.Get("/", deps.AdminSupportHandlers.GetTicketMessages)
+					r.Post("/", deps.AdminSupportHandlers.CreateAdminMessage)
+
+					r.Route("/{messageId}", func(r chi.Router) {
+						r.Patch("/", deps.AdminSupportHandlers.UpdateAdminMessage)
+						r.Delete("/", deps.AdminSupportHandlers.DeleteAdminMessage)
+					})
+				})
+			})
 		})
 	})
 
