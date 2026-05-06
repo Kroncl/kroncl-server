@@ -144,13 +144,12 @@ func NewRoutes(deps Deps) chi.Router {
 		r.Route("/partners", func(r chi.Router) {
 			r.Use(deps.AdminAuthService.RequireAdminLevel(config.ADMIN_LEVEL_4))
 
-			// r.Route("/apps", func(r chi.Router) {
-			// 	r.Get("/", deps.AdminSupportHandlers.GetTicketByID)
+			r.Get("/", deps.AdminPartnersHandlers.GetAllPartners)
 
-			// 	r.Route("/{appId}", func(r chi.Router) {
-			// 		r.Get("/", deps.AdminSupportHandlers.UpdateAdminMessage)
-			// 	})
-			// })
+			r.Route("/{partnerId}", func(r chi.Router) {
+				r.Get("/", deps.AdminPartnersHandlers.GetPartnerByID)
+				r.Patch("/", deps.AdminPartnersHandlers.UpdatePartner)
+			})
 		})
 	})
 
