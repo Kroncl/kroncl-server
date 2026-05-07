@@ -1,5 +1,3 @@
-// coreworkers/metrics_server_service.go - исправленный
-
 package coreworkers
 
 import (
@@ -15,15 +13,17 @@ func (s *Service) CollectServerMetrics(ctx context.Context) (*MetricsServerSnaps
 		RecordedAt: time.Now(),
 	}
 
-	// 1. HTTP статистика
-	stats.RequestsTotal = int(metrics.GetTotalRequests())
-	stats.Requests5xxTotal = int(metrics.GetTotal5xxRequests())
-	stats.Requests4xxTotal = int(metrics.GetTotal4xxRequests())
+	// дельты (прирост за интервал)
+	stats.RequestsTotal = int(metrics.GetRequestsDelta())
+	stats.Requests5xxTotal = int(metrics.Get5xxDelta())
+	stats.Requests4xxTotal = int(metrics.Get4xxDelta())
+
+	// gauges (текущие значения)
 	stats.ActiveConnections = int(metrics.GetActiveConnections())
 	stats.AvgResponseTimeMs = int(metrics.GetAvgResponseTime())
 	stats.P95ResponseTimeMs = int(metrics.GetP95ResponseTime())
 
-	// 2. Runtime метрики
+	// Runtime метрики
 	var memStats runtime.MemStats
 	runtime.ReadMemStats(&memStats)
 	stats.HeapAllocMB = int(memStats.HeapAlloc / 1024 / 1024)
@@ -31,11 +31,11 @@ func (s *Service) CollectServerMetrics(ctx context.Context) (*MetricsServerSnaps
 	stats.GoroutinesCount = runtime.NumGoroutine()
 	stats.GCDurationMs = int(memStats.PauseTotalNs / 1e6)
 
-	// 3. Статус воркеров
+	// Статус воркеров
 	stats.DbWorkerSuccess = metrics.GetDbWorkerLastSuccess()
 	stats.ClienteleWorkerSuccess = metrics.GetClienteleWorkerLastSuccess()
 
-	// 4. Системные метрики
+	// Системные метрики
 	stats.OpenFDsCount = getOpenFDs()
 	stats.MemoryUsageMB = getMemoryUsage()
 	stats.CPUUsagePercent = getCPUUsage()
@@ -113,7 +113,7 @@ func (s *Service) GetServerMetricsHistory(ctx context.Context, startDate, endDat
 	}
 	defer rows.Close()
 
-	var metrics []MetricsServerSnapshot
+	var serverMetrics []MetricsServerSnapshot
 	for rows.Next() {
 		var m MetricsServerSnapshot
 		err := rows.Scan(
@@ -127,8 +127,8 @@ func (s *Service) GetServerMetricsHistory(ctx context.Context, startDate, endDat
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan server metric: %w", err)
 		}
-		metrics = append(metrics, m)
+		serverMetrics = append(serverMetrics, m)
 	}
 
-	return metrics, nil
+	return serverMetrics, nil
 }

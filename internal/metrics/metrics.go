@@ -127,3 +127,29 @@ func GetP95ResponseTime() int64 {
 
 	return int64(sorted[idx] * 1000)
 }
+
+// дельты
+
+var (
+	lastRequestsTotal    int64 = 0
+	lastRequests5xxTotal int64 = 0
+	lastRequests4xxTotal int64 = 0
+)
+
+// GetRequestsDelta возвращает прирост запросов с прошлого вызова
+func GetRequestsDelta() int64 {
+	current := atomic.LoadInt64(&totalRequests)
+	return current - atomic.SwapInt64(&lastRequestsTotal, current)
+}
+
+// Get5xxDelta возвращает прирост 5xx ошибок с прошлого вызова
+func Get5xxDelta() int64 {
+	current := atomic.LoadInt64(&total5xxRequests)
+	return current - atomic.SwapInt64(&lastRequests5xxTotal, current)
+}
+
+// Get4xxDelta возвращает прирост 4xx ошибок с прошлого вызова
+func Get4xxDelta() int64 {
+	current := atomic.LoadInt64(&total4xxRequests)
+	return current - atomic.SwapInt64(&lastRequests4xxTotal, current)
+}
