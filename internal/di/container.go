@@ -88,6 +88,7 @@ type Container struct {
 	CoreWorkersService         *coreworkers.Service
 	CoreDbMetricsWorker        *coreworkers.Worker
 	CoreClienteleMetricsWorker *coreworkers.Worker
+	CoreServerMetricsWorker    *coreworkers.Worker
 }
 
 func NewContainer(ctx context.Context, cfg *config.Config) (*Container, error) {
@@ -235,8 +236,9 @@ func (c *Container) initServices(ctx context.Context) error {
 	// WORKERS
 	// ---------
 	c.CoreWorkersService = coreworkers.NewService(c.DB, c.PricingService, c.CompaniesService, c.AccountsService)
-	c.CoreDbMetricsWorker = coreworkers.NewDbWorker(c.CoreWorkersService, "@every 60s")
-	c.CoreClienteleMetricsWorker = coreworkers.NewClienteleWorker(c.CoreWorkersService, "@every 60s")
+	c.CoreDbMetricsWorker = coreworkers.NewDbWorker(c.CoreWorkersService, config.WORKER_METRICS_DB_PERIOD_CRON)
+	c.CoreClienteleMetricsWorker = coreworkers.NewClienteleWorker(c.CoreWorkersService, config.WORKER_METRICS_CLIENTELE_PERIOD_CRON)
+	c.CoreServerMetricsWorker = coreworkers.NewServerWorker(c.CoreWorkersService, config.WORKER_METRICS_SERVER_PERIOD_CRON)
 
 	// ----------
 	// ADMIN
