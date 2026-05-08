@@ -66,7 +66,7 @@ func (s *Service) GetSystemStatus(ctx context.Context, days int) (*SystemStatusR
 
 	return &SystemStatusResponse{
 		CurrentStatus:   currentStatus,
-		Dayly:           dailyStatuses,
+		Daily:           dailyStatuses,
 		ActiveIncidents: activeIncidents,
 	}, nil
 }

@@ -36,6 +36,6 @@ type DailyStatus struct {
 
 type SystemStatusResponse struct {
 	CurrentStatus   Status        `json:"current_status"`
-	Dayly           []DailyStatus `json:"dayly"`
+	Daily           []DailyStatus `json:"daily"`
 	ActiveIncidents []Incident    `json:"active_incidents"`
 }
