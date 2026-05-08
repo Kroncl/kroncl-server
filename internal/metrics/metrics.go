@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"runtime"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -152,4 +153,17 @@ func Get5xxDelta() int64 {
 func Get4xxDelta() int64 {
 	current := atomic.LoadInt64(&total4xxRequests)
 	return current - atomic.SwapInt64(&lastRequests4xxTotal, current)
+}
+
+var lastGCDurationNs uint64
+
+// GetGCDurationDelta возвращает суммарное время GC пауз за последний интервал (в миллисекундах)
+func GetGCDurationDelta() int64 {
+	var memStats runtime.MemStats
+	runtime.ReadMemStats(&memStats)
+
+	current := memStats.PauseTotalNs
+	delta := current - atomic.SwapUint64(&lastGCDurationNs, current)
+
+	return int64(delta / 1e6) // наносекунды → миллисекунды
 }

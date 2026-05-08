@@ -29,7 +29,7 @@ func (s *Service) CollectServerMetrics(ctx context.Context) (*MetricsServerSnaps
 	stats.HeapAllocMB = int(memStats.HeapAlloc / 1024 / 1024)
 	stats.HeapInuseMB = int(memStats.HeapInuse / 1024 / 1024)
 	stats.GoroutinesCount = runtime.NumGoroutine()
-	stats.GCDurationMs = int(memStats.PauseTotalNs / 1e6)
+	stats.GCDurationMs = int(metrics.GetGCDurationDelta())
 
 	// Статус воркеров
 	stats.DbWorkerSuccess = metrics.GetDbWorkerLastSuccess()
