@@ -8,6 +8,7 @@ import (
 	admindb "kroncl-server/internal/admin/db"
 	adminhealth "kroncl-server/internal/admin/health"
 	adminpartners "kroncl-server/internal/admin/partners"
+	adminserver "kroncl-server/internal/admin/server"
 	adminsupport "kroncl-server/internal/admin/support"
 	"kroncl-server/internal/auth"
 	"kroncl-server/internal/config"
@@ -27,6 +28,7 @@ type Deps struct {
 	AdminCompaniesHandlers *admincompanies.Handlers
 	AdminSupportHandlers   *adminsupport.Handlers
 	AdminPartnersHandlers  *adminpartners.Handlers
+	AdminServerHandlers    *adminserver.Handlers
 }
 
 func NewRoutes(deps Deps) chi.Router {
@@ -71,6 +73,14 @@ func NewRoutes(deps Deps) chi.Router {
 					r.Post("/up", deps.AdminDbHandlers.MigrateAllTenants)
 				})
 			})
+		})
+
+		// server-condition
+		r.Route("/server", func(r chi.Router) {
+			r.Use(deps.AdminAuthService.RequireAdminLevel(config.ADMIN_LEVEL_1))
+
+			r.Get("/sys", deps.AdminServerHandlers.GetServerStats)
+			r.Get("/history", deps.AdminServerHandlers.GetServerHistory)
 		})
 
 		// accounts-base

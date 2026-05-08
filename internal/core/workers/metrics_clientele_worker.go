@@ -2,6 +2,7 @@ package coreworkers
 
 import (
 	"context"
+	"kroncl-server/internal/metrics"
 	"log"
 	"time"
 
@@ -29,8 +30,12 @@ func (w *Worker) StartClienteleMetricsWorker() error {
 
 		if err := w.service.SaveClienteleMetricsSnapshot(ctx, stats); err != nil {
 			log.Printf("❌ Failed to save clientele metrics: %v", err)
+			metrics.SetClienteleWorkerLastSuccess(false)
 			return
 		}
+
+		// кроем счётчик
+		metrics.SetClienteleWorkerLastSuccess(true)
 
 		log.Printf("📊 Clientele metrics saved: accounts=%d, companies=%d, transactions=%d",
 			stats.TotalAccounts, stats.TotalCompanies, stats.TotalTransactions)

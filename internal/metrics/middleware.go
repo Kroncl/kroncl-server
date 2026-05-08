@@ -3,6 +3,7 @@ package metrics
 import (
 	"net"
 	"net/http"
+	"sync/atomic"
 	"time"
 )
 
@@ -18,7 +19,6 @@ func (rw *responseWriter) WriteHeader(code int) {
 
 func PrometheusIPWhitelist(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Разрешенные подсети
 		allowedNetworks := []string{
 			"127.0.0.1/32",   // localhost
 			"::1/128",        // localhost IPv6
@@ -27,14 +27,12 @@ func PrometheusIPWhitelist(next http.Handler) http.Handler {
 			"192.168.0.0/16", // локальная сеть
 		}
 
-		// Получаем IP клиента
 		host, _, err := net.SplitHostPort(r.RemoteAddr)
 		if err != nil {
 			host = r.RemoteAddr
 		}
 		clientIP := net.ParseIP(host)
 
-		// Проверяем, попадает ли IP в разрешенные подсети
 		allowed := false
 		for _, cidr := range allowedNetworks {
 			_, ipnet, err := net.ParseCIDR(cidr)
@@ -56,10 +54,14 @@ func PrometheusIPWhitelist(next http.Handler) http.Handler {
 	})
 }
 
-// MetricsMiddleware возвращает функцию-мидлвар для go-chi
 func MetricsMiddleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			atomic.AddInt64(&activeConnections, 1)
+			defer atomic.AddInt64(&activeConnections, -1)
+
+			atomic.AddInt64(&totalRequests, 1)
+
 			start := time.Now()
 			rw := &responseWriter{ResponseWriter: w, statusCode: http.StatusOK}
 
@@ -67,6 +69,7 @@ func MetricsMiddleware() func(http.Handler) http.Handler {
 
 			duration := time.Since(start)
 
+			// Prometheus метрики (уже зарегистрированы через promauto в metrics.go)
 			HttpRequestsTotal.WithLabelValues(
 				r.Method,
 				r.URL.Path,
@@ -77,6 +80,16 @@ func MetricsMiddleware() func(http.Handler) http.Handler {
 				r.Method,
 				r.URL.Path,
 			).Observe(duration.Seconds())
+
+			// Записываем длительность для p95
+			recordRequestDuration(duration.Seconds())
+
+			// Считаем 4xx и 5xx
+			if rw.statusCode >= 500 {
+				atomic.AddInt64(&total5xxRequests, 1)
+			} else if rw.statusCode >= 400 {
+				atomic.AddInt64(&total4xxRequests, 1)
+			}
 		})
 	}
 }

@@ -2,6 +2,7 @@ package coreworkers
 
 import (
 	"context"
+	"kroncl-server/internal/metrics"
 	"log"
 	"time"
 
@@ -29,8 +30,12 @@ func (w *Worker) StartDbMetricsWorker() error {
 
 		if err := w.service.SaveMetricsSnapshot(ctx, stats); err != nil {
 			log.Printf("❌ Failed to save metrics: %v", err)
+			metrics.SetDbWorkerLastSuccess(false)
 			return
 		}
+
+		// кроем счётчик
+		metrics.SetDbWorkerLastSuccess(true)
 
 		log.Printf("📊 Metrics saved: size=%dMB, schemas=%d, companies=%d",
 			stats.TotalDatabaseSizeMB, stats.TotalSchemasCount, stats.CompanySchemasCount)

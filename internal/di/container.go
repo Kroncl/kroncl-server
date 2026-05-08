@@ -11,10 +11,12 @@ import (
 	admincompanies "kroncl-server/internal/admin/companies"
 	admindb "kroncl-server/internal/admin/db"
 	adminpartners "kroncl-server/internal/admin/partners"
+	adminserver "kroncl-server/internal/admin/server"
 	adminsupport "kroncl-server/internal/admin/support"
 	"kroncl-server/internal/auth"
 	"kroncl-server/internal/companies"
 	"kroncl-server/internal/config"
+	corestatus "kroncl-server/internal/core/status"
 	coreworkers "kroncl-server/internal/core/workers"
 	"kroncl-server/internal/mailer"
 	"kroncl-server/internal/media"
@@ -33,7 +35,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// Container собирает все зависимости
 type Container struct {
 	Config *config.Config
 	DB     *pgxpool.Pool
@@ -82,12 +83,19 @@ type Container struct {
 	AdminSupportHandlers   *adminsupport.Handlers
 	AdminPartnersService   *adminpartners.Service
 	AdminPartnersHandlers  *adminpartners.Handlers
+	AdminServerService     *adminserver.Service
+	AdminServerHandlers    *adminserver.Handlers
 	AdminRoutes            chi.Router
 
 	// workers
 	CoreWorkersService         *coreworkers.Service
 	CoreDbMetricsWorker        *coreworkers.Worker
 	CoreClienteleMetricsWorker *coreworkers.Worker
+	CoreServerMetricsWorker    *coreworkers.Worker
+
+	// core-status
+	CoreStatusService  *corestatus.Service
+	CoreStatusHandlers *corestatus.Handlers
 }
 
 func NewContainer(ctx context.Context, cfg *config.Config) (*Container, error) {
@@ -235,8 +243,9 @@ func (c *Container) initServices(ctx context.Context) error {
 	// WORKERS
 	// ---------
 	c.CoreWorkersService = coreworkers.NewService(c.DB, c.PricingService, c.CompaniesService, c.AccountsService)
-	c.CoreDbMetricsWorker = coreworkers.NewDbWorker(c.CoreWorkersService, "@every 60s")
-	c.CoreClienteleMetricsWorker = coreworkers.NewClienteleWorker(c.CoreWorkersService, "@every 60s")
+	c.CoreDbMetricsWorker = coreworkers.NewDbWorker(c.CoreWorkersService, config.WORKER_METRICS_DB_PERIOD_CRON)
+	c.CoreClienteleMetricsWorker = coreworkers.NewClienteleWorker(c.CoreWorkersService, config.WORKER_METRICS_CLIENTELE_PERIOD_CRON)
+	c.CoreServerMetricsWorker = coreworkers.NewServerWorker(c.CoreWorkersService, config.WORKER_METRICS_SERVER_PERIOD_CRON)
 
 	// ----------
 	// ADMIN
@@ -254,6 +263,15 @@ func (c *Container) initServices(ctx context.Context) error {
 	c.AdminSupportHandlers = adminsupport.NewHandlers(c.AdminSupportService)
 	c.AdminPartnersService = adminpartners.NewService(c.DB, c.PublicService)
 	c.AdminPartnersHandlers = adminpartners.NewHandlers(c.AdminPartnersService)
+	c.AdminServerService = adminserver.NewService(c.DB, c.CoreWorkersService)
+	c.AdminServerHandlers = adminserver.NewHandlers(c.AdminServerService)
+
+	// -----------
+	// CORE-STATUS
+	// -----------
+
+	c.CoreStatusService = corestatus.NewService(c.DB, c.CoreWorkersService)
+	c.CoreStatusHandlers = corestatus.NewHandlers(c.CoreStatusService)
 
 	return nil
 }
@@ -279,6 +297,7 @@ func (c *Container) initAdminRoutes() error {
 		AdminCompaniesHandlers: c.AdminCompaniesHandlers,
 		AdminSupportHandlers:   c.AdminSupportHandlers,
 		AdminPartnersHandlers:  c.AdminPartnersHandlers,
+		AdminServerHandlers:    c.AdminServerHandlers,
 	})
 	return nil
 }
