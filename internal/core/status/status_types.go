@@ -18,6 +18,19 @@ const (
 	SeverityMajor IncidentSeverity = "major"
 )
 
+type ComponentType string
+
+const (
+	ComponentAll     ComponentType = "all"
+	ComponentServer  ComponentType = "server"
+	ComponentStorage ComponentType = "storage"
+)
+
+type ComponentStatus struct {
+	Type  ComponentType `json:"type"`
+	Daily []DailyStatus `json:"daily"`
+}
+
 type Incident struct {
 	ID          string           `json:"id"`
 	StartTime   time.Time        `json:"start_time"`
@@ -35,7 +48,8 @@ type DailyStatus struct {
 }
 
 type SystemStatusResponse struct {
-	CurrentStatus   Status        `json:"current_status"`
-	Daily           []DailyStatus `json:"daily"`
-	ActiveIncidents []Incident    `json:"active_incidents"`
+	CurrentStatus   Status                          `json:"current_status"`
+	Daily           []DailyStatus                   `json:"daily"`
+	ActiveIncidents []Incident                      `json:"active_incidents"`
+	Components      map[ComponentType][]DailyStatus `json:"components"`
 }

@@ -158,8 +158,6 @@ func (s *Service) GetUserStats(ctx context.Context) (*UserStats, error) {
 	return stats, nil
 }
 
-// adminaccounts/service.go
-
 func (s *Service) PromoteToAdmin(ctx context.Context, callerAccountID, targetAccountID string, level int) error {
 	// Проверяем, что не пытаемся назначить себя
 	if callerAccountID == targetAccountID {
