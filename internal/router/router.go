@@ -47,6 +47,14 @@ func New(cfg *config.Config, container *di.Container) chi.Router {
 	r.Route("/api", func(r chi.Router) {
 		r.Get("/health", core.HealthCheck)
 
+		// system-status
+		r.Route("/status", func(r chi.Router) {
+			// rate limiter
+			r.Use(httprate.LimitByIP(config.RATE_LIMIT_PUBLIC_ROUTES_PER_MINUTE, 1*time.Minute))
+
+			r.Get("/", container.CoreStatusHandlers.GetSystemStatus)
+		})
+
 		// Public routes
 		// account actions
 		r.Route("/account", func(r chi.Router) {
@@ -127,6 +135,9 @@ func New(cfg *config.Config, container *di.Container) chi.Router {
 
 		// Public companies overview
 		r.Route("/visit-cards/{slug}", func(r chi.Router) {
+			// rate limiter
+			r.Use(httprate.LimitByIP(config.RATE_LIMIT_PUBLIC_ROUTES_PER_MINUTE, 1*time.Minute))
+
 			r.Get("/", container.CompaniesHandlers.GetCompanyVisitCard)
 		})
 
