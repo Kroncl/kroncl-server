@@ -28,7 +28,7 @@ func (r *Repository) GetGroupedTransactions(ctx context.Context,
 	case GroupByEmployee:
 		selectCols = `
 			COALESCE(te.employee_id::text, 'no-employee') as group_key,
-			MIN(COALESCE(e.first_name || ' ' || e.last_name, 'Без сотрудника')) as group_name`
+			COALESCE(MIN(NULLIF(e.first_name || ' ' || e.last_name, '')), 'Без сотрудника') as group_name`
 		groupByExpr = `COALESCE(te.employee_id::text, 'no-employee')`
 		joinClause = `LEFT JOIN transaction_employee te ON t.id = te.transaction_id
 		              LEFT JOIN employees e ON te.employee_id = e.id`
