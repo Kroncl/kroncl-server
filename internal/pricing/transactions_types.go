@@ -23,6 +23,7 @@ type PricingTransaction struct {
 	PlanCode     *string           `json:"plan_code"`
 	IsTrial      bool              `json:"is_trial"`
 	NextPlanCode *string           `json:"next_plan_code"`
+	PromocodeId  *string           `json:"promocode_id"`
 	ExpiresAt    time.Time         `json:"expires_at"`
 	CreatedAt    time.Time         `json:"created_at"`
 	UpdatedAt    time.Time         `json:"updated_at"`

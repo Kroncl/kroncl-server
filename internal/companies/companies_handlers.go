@@ -215,6 +215,7 @@ func (h *Handlers) Create(w http.ResponseWriter, r *http.Request) {
 		req.IsPublic,
 		req.PlanCode,
 		req.Region,
+		req.Promocode,
 	)
 	if err != nil {
 		core.SendValidationError(w, err.Error())

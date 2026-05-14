@@ -20,6 +20,7 @@ func (s *Service) Create(
 	isPublic bool,
 	planCode string,
 	region string,
+	promocode *string,
 ) (*CreateCompanyResponse, error) {
 	if planCode == "" {
 		return nil, fmt.Errorf("plan_code is required")
@@ -141,6 +142,7 @@ func (s *Service) Create(
 		&planCode,
 		true,
 		expiresAt,
+		promocode,
 	)
 	if err != nil {
 		s.deleteCompany(ctx, company.ID)
