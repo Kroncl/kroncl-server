@@ -36,13 +36,14 @@ type Company struct {
 }
 
 type CreateRequest struct {
-	Slug        string `json:"slug"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	AvatarUrl   string `json:"avatar_url"`
-	IsPublic    bool   `json:"is_public"`
-	PlanCode    string `json:"plan_code"`
-	Region      string `json:"region"`
+	Slug        string  `json:"slug"`
+	Name        string  `json:"name"`
+	Description string  `json:"description"`
+	AvatarUrl   string  `json:"avatar_url"`
+	IsPublic    bool    `json:"is_public"`
+	PlanCode    string  `json:"plan_code"`
+	Region      string  `json:"region"`
+	Promocode   *string `json:"promocode,omitempty"`
 }
 
 type UserCompany struct {

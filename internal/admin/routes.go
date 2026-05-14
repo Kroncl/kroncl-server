@@ -8,6 +8,7 @@ import (
 	admindb "kroncl-server/internal/admin/db"
 	adminhealth "kroncl-server/internal/admin/health"
 	adminpartners "kroncl-server/internal/admin/partners"
+	adminpricing "kroncl-server/internal/admin/pricing"
 	adminserver "kroncl-server/internal/admin/server"
 	adminsupport "kroncl-server/internal/admin/support"
 	"kroncl-server/internal/auth"
@@ -29,6 +30,7 @@ type Deps struct {
 	AdminSupportHandlers   *adminsupport.Handlers
 	AdminPartnersHandlers  *adminpartners.Handlers
 	AdminServerHandlers    *adminserver.Handlers
+	AdminPricingHandlers   *adminpricing.Handlers
 }
 
 func NewRoutes(deps Deps) chi.Router {
@@ -159,6 +161,22 @@ func NewRoutes(deps Deps) chi.Router {
 			r.Route("/{partnerId}", func(r chi.Router) {
 				r.Get("/", deps.AdminPartnersHandlers.GetPartnerByID)
 				r.Patch("/", deps.AdminPartnersHandlers.UpdatePartner)
+			})
+		})
+
+		// pricing
+		r.Route("/pricing", func(r chi.Router) {
+			r.Use(deps.AdminAuthService.RequireAdminLevel(config.ADMIN_LEVEL_4))
+
+			r.Route("/promocodes", func(r chi.Router) {
+				r.Get("/", deps.AdminPricingHandlers.GetPromocodes)
+				r.Post("/", deps.AdminPricingHandlers.CreatePromocode)
+
+				r.Route("/{promocodeId}", func(r chi.Router) {
+					r.Get("/", deps.AdminPricingHandlers.GetPromocodeByID)
+					r.Patch("/", deps.AdminPricingHandlers.UpdatePromocode)
+					r.Delete("/", deps.AdminPricingHandlers.DeletePromocode)
+				})
 			})
 		})
 	})

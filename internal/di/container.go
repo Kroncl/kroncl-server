@@ -11,6 +11,7 @@ import (
 	admincompanies "kroncl-server/internal/admin/companies"
 	admindb "kroncl-server/internal/admin/db"
 	adminpartners "kroncl-server/internal/admin/partners"
+	adminpricing "kroncl-server/internal/admin/pricing"
 	adminserver "kroncl-server/internal/admin/server"
 	adminsupport "kroncl-server/internal/admin/support"
 	"kroncl-server/internal/auth"
@@ -85,6 +86,8 @@ type Container struct {
 	AdminPartnersHandlers  *adminpartners.Handlers
 	AdminServerService     *adminserver.Service
 	AdminServerHandlers    *adminserver.Handlers
+	AdminPricingService    *adminpricing.Service
+	AdminPricingHandlers   *adminpricing.Handlers
 	AdminRoutes            chi.Router
 
 	// workers
@@ -265,6 +268,8 @@ func (c *Container) initServices(ctx context.Context) error {
 	c.AdminPartnersHandlers = adminpartners.NewHandlers(c.AdminPartnersService)
 	c.AdminServerService = adminserver.NewService(c.DB, c.CoreWorkersService)
 	c.AdminServerHandlers = adminserver.NewHandlers(c.AdminServerService)
+	c.AdminPricingService = adminpricing.NewService(c.DB, c.PricingService)
+	c.AdminPricingHandlers = adminpricing.NewHandlers(c.AdminPricingService)
 
 	// -----------
 	// CORE-STATUS
@@ -298,6 +303,7 @@ func (c *Container) initAdminRoutes() error {
 		AdminSupportHandlers:   c.AdminSupportHandlers,
 		AdminPartnersHandlers:  c.AdminPartnersHandlers,
 		AdminServerHandlers:    c.AdminServerHandlers,
+		AdminPricingHandlers:   c.AdminPricingHandlers,
 	})
 	return nil
 }

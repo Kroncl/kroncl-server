@@ -238,6 +238,7 @@ func (s *Service) CreateNewTransaction(ctx context.Context, companyID, accountID
 		nextPlanCode,
 		false,
 		expiresAt,
+		nil,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create transaction: %w", err)
