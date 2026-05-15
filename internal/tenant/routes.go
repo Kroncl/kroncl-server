@@ -537,6 +537,15 @@ func (rt *Routes) Register(r chi.Router, permDeps *permissioner.PermissionDeps) 
 		r.Route("/stocks", func(r chi.Router) {
 			r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_WM_STOCKS))
 
+			// balance
+			r.Route("/balance", func(r chi.Router) {
+				r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_WM_STOCKS_BATCHES))
+
+				r.Get("/", rt.wm(func(h *wm.Handlers) http.HandlerFunc {
+					return h.GetStockBalance
+				}))
+			})
+
 			// batches
 			r.Route("/batches", func(r chi.Router) {
 				r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_WM_STOCKS_BATCHES))
