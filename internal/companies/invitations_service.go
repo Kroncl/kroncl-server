@@ -10,7 +10,6 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// GetCompanyInvitations возвращает приглашения в компанию с пагинацией и фильтрацией
 func (s *Service) GetCompanyInvitations(
 	ctx context.Context,
 	companyID string,
@@ -18,7 +17,7 @@ func (s *Service) GetCompanyInvitations(
 ) (*GetInvitationsResponse, error) {
 	baseQuery := `
         SELECT 
-            id, email, company_id, status,
+            id, email, company_id, status, role_code,
             created_at, updated_at
         FROM company_invitations
         WHERE company_id = $1
@@ -83,6 +82,7 @@ func (s *Service) GetCompanyInvitations(
 			&invitation.Email,
 			&invitation.CompanyID,
 			&invitation.Status,
+			&invitation.RoleCode,
 			&invitation.CreatedAt,
 			&invitation.UpdatedAt,
 		)
@@ -104,7 +104,6 @@ func (s *Service) GetCompanyInvitations(
 	}, nil
 }
 
-// HasPendingInvitation проверяет есть ли ожидающие приглашения для email и компании
 func (s *Service) HasPendingInvitation(
 	ctx context.Context,
 	email string,
@@ -112,7 +111,7 @@ func (s *Service) HasPendingInvitation(
 ) (bool, *CompanyInvitation, error) {
 	query := `
         SELECT 
-            id, email, company_id, status,
+            id, email, company_id, status, role_code,
             created_at, updated_at
         FROM company_invitations
         WHERE email = $1 
@@ -133,6 +132,7 @@ func (s *Service) HasPendingInvitation(
 		&invitation.Email,
 		&invitation.CompanyID,
 		&invitation.Status,
+		&invitation.RoleCode,
 		&invitation.CreatedAt,
 		&invitation.UpdatedAt,
 	)
@@ -147,7 +147,6 @@ func (s *Service) HasPendingInvitation(
 	return true, &invitation, nil
 }
 
-// CreateInvitationAtomic создает приглашение с использованием транзакции для атомарности
 func (s *Service) CreateInvitationAtomic(
 	ctx context.Context,
 	companyID string,
@@ -156,6 +155,10 @@ func (s *Service) CreateInvitationAtomic(
 ) (*InvitationResponse, error) {
 	if !isValidEmail(req.Email) {
 		return nil, fmt.Errorf("invalid email format")
+	}
+
+	if req.RoleCode != "" && req.RoleCode != RoleOwner && req.RoleCode != RoleGuest {
+		return nil, fmt.Errorf("invalid role_code. Allowed values: owner, guest")
 	}
 
 	normalizedEmail := strings.ToLower(req.Email)
@@ -227,7 +230,7 @@ func (s *Service) CreateInvitationAtomic(
 		var invitation CompanyInvitation
 		err = tx.QueryRow(
 			ctx,
-			`SELECT id, email, company_id, status, created_at, updated_at
+			`SELECT id, email, company_id, status, role_code, created_at, updated_at
              FROM company_invitations 
              WHERE id = $1`,
 			existingInvitationID,
@@ -236,6 +239,7 @@ func (s *Service) CreateInvitationAtomic(
 			&invitation.Email,
 			&invitation.CompanyID,
 			&invitation.Status,
+			&invitation.RoleCode,
 			&invitation.CreatedAt,
 			&invitation.UpdatedAt,
 		)
@@ -252,21 +256,28 @@ func (s *Service) CreateInvitationAtomic(
 		}, nil
 	}
 
+	roleCodeValue := req.RoleCode
+	if roleCodeValue == "" {
+		roleCodeValue = RoleGuest
+	}
+
 	var invitation CompanyInvitation
 	err = tx.QueryRow(
 		ctx,
 		`INSERT INTO company_invitations (
-            email, company_id, status
-        ) VALUES ($1, $2, $3)
-        RETURNING id, email, company_id, status, created_at, updated_at`,
+            email, company_id, status, role_code
+        ) VALUES ($1, $2, $3, $4)
+        RETURNING id, email, company_id, status, role_code, created_at, updated_at`,
 		normalizedEmail,
 		companyID,
 		InvitationStatusWaiting,
+		roleCodeValue,
 	).Scan(
 		&invitation.ID,
 		&invitation.Email,
 		&invitation.CompanyID,
 		&invitation.Status,
+		&invitation.RoleCode,
 		&invitation.CreatedAt,
 		&invitation.UpdatedAt,
 	)
@@ -298,7 +309,6 @@ func (s *Service) CreateInvitationAtomic(
 	}, nil
 }
 
-// UpdateInvitationStatus обновляет статус приглашения
 func (s *Service) UpdateInvitationStatus(
 	ctx context.Context,
 	invitationID string,
@@ -321,7 +331,7 @@ func (s *Service) UpdateInvitationStatus(
         UPDATE company_invitations 
         SET status = $1, updated_at = NOW()
         WHERE id = $2
-        RETURNING id, email, company_id, status, created_at, updated_at
+        RETURNING id, email, company_id, status, role_code, created_at, updated_at
     `
 
 	var invitation CompanyInvitation
@@ -335,6 +345,7 @@ func (s *Service) UpdateInvitationStatus(
 		&invitation.Email,
 		&invitation.CompanyID,
 		&invitation.Status,
+		&invitation.RoleCode,
 		&invitation.CreatedAt,
 		&invitation.UpdatedAt,
 	)
@@ -349,7 +360,6 @@ func (s *Service) UpdateInvitationStatus(
 	return &invitation, nil
 }
 
-// acceptInvitation обрабатывает принятие приглашения
 func (s *Service) acceptInvitation(ctx context.Context, invitationID string) (*CompanyInvitation, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -367,7 +377,7 @@ func (s *Service) acceptInvitation(ctx context.Context, invitationID string) (*C
 	err = tx.QueryRow(
 		ctx,
 		`SELECT 
-            ci.id, ci.email, ci.company_id, ci.status, 
+            ci.id, ci.email, ci.company_id, ci.status, ci.role_code,
             ci.created_at, ci.updated_at,
             a.id as account_id
         FROM company_invitations ci
@@ -379,6 +389,7 @@ func (s *Service) acceptInvitation(ctx context.Context, invitationID string) (*C
 		&invitation.Email,
 		&invitation.CompanyID,
 		&invitation.Status,
+		&invitation.RoleCode,
 		&invitation.CreatedAt,
 		&invitation.UpdatedAt,
 		&accountID,
@@ -432,6 +443,11 @@ func (s *Service) acceptInvitation(ctx context.Context, invitationID string) (*C
 		return nil, fmt.Errorf("failed to update invitation status: %w", err)
 	}
 
+	roleForCompany := RoleGuest
+	if invitation.RoleCode != nil && *invitation.RoleCode == RoleOwner {
+		roleForCompany = RoleOwner
+	}
+
 	_, err = tx.Exec(
 		ctx,
 		`INSERT INTO company_accounts (
@@ -441,7 +457,7 @@ func (s *Service) acceptInvitation(ctx context.Context, invitationID string) (*C
         ON CONFLICT (company_id, account_id) DO NOTHING`,
 		invitation.CompanyID,
 		accountID,
-		RoleGuest,
+		roleForCompany,
 		`{}`,
 	)
 	if err != nil {
@@ -457,7 +473,6 @@ func (s *Service) acceptInvitation(ctx context.Context, invitationID string) (*C
 	return &invitation, nil
 }
 
-// WithdrawInvitation отзывает (полностью удаляет) приглашение
 func (s *Service) WithdrawInvitation(
 	ctx context.Context,
 	invitationID string,
@@ -477,7 +492,6 @@ func (s *Service) WithdrawInvitation(
 	return nil
 }
 
-// WithdrawInvitationByEmail отзывает приглашение по email и company_id
 func (s *Service) WithdrawInvitationByEmail(
 	ctx context.Context,
 	email string,
@@ -509,14 +523,13 @@ func (s *Service) WithdrawInvitationByEmail(
 	return nil
 }
 
-// GetInvitationByID получает приглашение по ID
 func (s *Service) GetInvitationByID(
 	ctx context.Context,
 	invitationID string,
 ) (*CompanyInvitation, error) {
 	query := `
         SELECT 
-            id, email, company_id, status,
+            id, email, company_id, status, role_code,
             created_at, updated_at
         FROM company_invitations
         WHERE id = $1
@@ -528,6 +541,7 @@ func (s *Service) GetInvitationByID(
 		&invitation.Email,
 		&invitation.CompanyID,
 		&invitation.Status,
+		&invitation.RoleCode,
 		&invitation.CreatedAt,
 		&invitation.UpdatedAt,
 	)
@@ -542,7 +556,6 @@ func (s *Service) GetInvitationByID(
 	return &invitation, nil
 }
 
-// ValidateInvitationStatus валидирует статус приглашения
 func ValidateInvitationStatus(status string) error {
 	validStatuses := map[string]bool{
 		InvitationStatusWaiting:  true,
@@ -575,7 +588,6 @@ func isValidEmail(email string) bool {
 	return true
 }
 
-// GetInvitationsByEmail возвращает все приглашения для указанного email
 func (s *Service) GetInvitationsByEmail(
 	ctx context.Context,
 	email string,
@@ -585,7 +597,7 @@ func (s *Service) GetInvitationsByEmail(
 
 	baseQuery := `
         SELECT 
-            ci.id, ci.email, ci.company_id, ci.status,
+            ci.id, ci.email, ci.company_id, ci.status, ci.role_code,
             ci.created_at, ci.updated_at,
             c.name as company_name,
             c.avatar_url as company_avatar_url
@@ -644,6 +656,7 @@ func (s *Service) GetInvitationsByEmail(
 			&invitation.Email,
 			&invitation.CompanyID,
 			&invitation.Status,
+			&invitation.RoleCode,
 			&invitation.CreatedAt,
 			&invitation.UpdatedAt,
 			&invitation.CompanyName,

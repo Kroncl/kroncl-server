@@ -11,28 +11,28 @@ import (
 
 const (
 	RoleOwner = "owner" // все возможности
-	RoleGuest = "guest" // база []
+	RoleGuest = "guest" // read only
 )
 
-// Типы и константы для приглашений
 const (
 	InvitationStatusWaiting  = "waiting"
 	InvitationStatusAccepted = "accepted"
 	InvitationStatusRejected = "rejected"
 )
 
-// Структуры для приглашений
 type CompanyInvitation struct {
 	ID        string    `json:"id"`
 	Email     string    `json:"email"`
 	CompanyID string    `json:"company_id"`
 	Status    string    `json:"status"`
+	RoleCode  *string   `json:"role_code"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
 type CreateInvitationRequest struct {
-	Email string `json:"email" validate:"required,email"`
+	Email    string `json:"email" validate:"required,email"`
+	RoleCode string `json:"role_code,omitempty"`
 }
 
 type InvitationResponse struct {
@@ -51,7 +51,6 @@ type GetInvitationsResponse struct {
 	Pagination  core.Pagination     `json:"pagination"`
 }
 
-// Структуры для получения приглашений по email
 type InvitationWithCompany struct {
 	CompanyInvitation
 	CompanyName      string `json:"company_name"`
