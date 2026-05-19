@@ -86,6 +86,9 @@ func New(cfg *config.Config, container *di.Container) chi.Router {
 				r.Post("/confirm/resend", container.AccountsHandlers.ResendConfirmationCode)
 				r.Post("/log-out", container.AccountsHandlers.Logout)
 
+				// spec: account summary counts (invitations, orgs...)
+				r.Get("/summary", container.AccountsHandlers.GetSummary)
+
 				// Accounts -> companies invitations [protected]
 				r.Route("/invitations", func(r chi.Router) {
 					r.Get("/", container.AccountsHandlers.GetAccountInvitations)
