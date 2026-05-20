@@ -56,9 +56,11 @@ var PermissionCriticality = map[string]CriticalityLevel{
 	PERMISSION_FM: 2, // базовый доступ к FM
 
 	// ----- FM TRANSACTIONS (3-9) -----
-	PERMISSION_FM_TRANSACTIONS:         3, // просмотр транзакций
-	PERMISSION_FM_TRANSACTIONS_CREATE:  7, // создание транзакции
-	PERMISSION_FM_TRANSACTIONS_REVERSE: 9, // сторно транзакции
+	PERMISSION_FM_TRANSACTIONS_REPORTS:        3,
+	PERMISSION_FM_TRANSACTIONS_REPORTS_CREATE: 7,
+	PERMISSION_FM_TRANSACTIONS:                3, // просмотр транзакций
+	PERMISSION_FM_TRANSACTIONS_CREATE:         7, // создание транзакции
+	PERMISSION_FM_TRANSACTIONS_REVERSE:        9, // сторно транзакции
 
 	// ----- FM CATEGORIES (2-5) -----
 	PERMISSION_FM_TRANSACTIONS_CATEGORIES:        2, // просмотр категорий

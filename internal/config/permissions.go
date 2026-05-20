@@ -41,6 +41,8 @@ const (
 	PERMISSION_FM_TRANSACTIONS_CATEGORIES_CREATE = "fm.transactions.categories.create"
 	PERMISSION_FM_TRANSACTIONS_CATEGORIES_UPDATE = "fm.transactions.categories.update"
 	PERMISSION_FM_TRANSACTIONS_CATEGORIES_DELETE = "fm.transactions.categories.delete"
+	PERMISSION_FM_TRANSACTIONS_REPORTS           = "fm.transactions.reports"
+	PERMISSION_FM_TRANSACTIONS_REPORTS_CREATE    = "fm.transactions.reports.create"
 	PERMISSION_FM_ANALYSIS                       = "fm.analysis"
 	PERMISSION_FM_COUNTERPARTIES                 = "fm.counterparties"
 	PERMISSION_FM_COUNTERPARTIES_CREATE          = "fm.counterparties.create"
@@ -131,6 +133,8 @@ func GetAllPermissions() []string {
 		PERMISSION_HRM_ANALYSIS,
 		PERMISSION_FM,
 		PERMISSION_FM_TRANSACTIONS,
+		PERMISSION_FM_TRANSACTIONS_REPORTS,
+		PERMISSION_FM_TRANSACTIONS_REPORTS_CREATE,
 		PERMISSION_FM_TRANSACTIONS_CREATE,
 		PERMISSION_FM_TRANSACTIONS_REVERSE,
 		PERMISSION_FM_TRANSACTIONS_CATEGORIES,
@@ -205,13 +209,14 @@ func GetGuestPermissions() map[string]bool {
 		PERMISSION_ACCOUNTS_INVITATIONS:   true,
 
 		// modules
-		PERMISSION_HRM:               true,
-		PERMISSION_HRM_EMPLOYEES:     true,
-		PERMISSION_HRM_POSITIONS:     true,
-		PERMISSION_FM:                true,
-		PERMISSION_FM_TRANSACTIONS:   true,
-		PERMISSION_FM_COUNTERPARTIES: true,
-		PERMISSION_FM_CREDITS:        true,
+		PERMISSION_HRM:                     true,
+		PERMISSION_HRM_EMPLOYEES:           true,
+		PERMISSION_HRM_POSITIONS:           true,
+		PERMISSION_FM:                      true,
+		PERMISSION_FM_TRANSACTIONS:         true,
+		PERMISSION_FM_COUNTERPARTIES:       true,
+		PERMISSION_FM_CREDITS:              true,
+		PERMISSION_FM_TRANSACTIONS_REPORTS: true,
 
 		PERMISSION_CRM:         true,
 		PERMISSION_CRM_CLIENTS: true,

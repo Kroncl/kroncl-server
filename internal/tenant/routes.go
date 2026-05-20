@@ -14,8 +14,10 @@ import (
 	"kroncl-server/internal/tenant/support"
 	"kroncl-server/internal/tenant/wm"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/httprate"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -238,18 +240,25 @@ func (rt *Routes) Register(r chi.Router, permDeps *permissioner.PermissionDeps) 
 		r.Route("/transactions", func(r chi.Router) {
 			r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_FM_TRANSACTIONS))
 
+			// reports
+			r.Route("/reports", func(r chi.Router) {
+				r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_FM_TRANSACTIONS_REPORTS))
+
+				// получение отчётов
+				r.Get("/", rt.fm(func(h *fm.Handlers) http.HandlerFunc {
+					return h.GetTransactionsReports
+				}))
+
+				r.With(httprate.LimitByIP(config.RATE_LIMIT_FILES_GENERATED_PER_MINUTE, 1*time.Minute)).
+					With(permissioner.RequirePermission(permDeps, config.PERMISSION_FM_TRANSACTIONS_REPORTS_CREATE)).
+					Post("/", rt.fm(func(h *fm.Handlers) http.HandlerFunc {
+						return h.GenerateTransactionsReport
+					}))
+			})
+
 			r.Get("/", rt.fm(func(h *fm.Handlers) http.HandlerFunc {
 				return h.GetTransactions
 			}))
-
-			r.Post("/report", rt.fm(func(h *fm.Handlers) http.HandlerFunc {
-				return h.GenerateTransactionsReport
-			}))
-
-			r.With(permissioner.RequirePermission(permDeps, config.PERMISSION_FM_TRANSACTIONS_CREATE)).
-				Post("/", rt.fm(func(h *fm.Handlers) http.HandlerFunc {
-					return h.CreateTransaction
-				}))
 
 			// NO update or delete action
 			// for specific transaction
