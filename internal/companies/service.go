@@ -10,20 +10,20 @@ import (
 
 type Service struct {
 	pool           *pgxpool.Pool
-	storage        *storage.Service
+	storageService *storage.Service
 	pricingService *pricing.Service
 	mailer         *mailer.Service
 }
 
 func NewService(
 	pool *pgxpool.Pool,
-	storage *storage.Service,
+	storageService *storage.Service,
 	pricingService *pricing.Service,
 	mailer *mailer.Service,
 ) *Service {
 	return &Service{
 		pool:           pool,
-		storage:        storage,
+		storageService: storageService,
 		pricingService: pricingService,
 		mailer:         mailer,
 	}

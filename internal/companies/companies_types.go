@@ -2,7 +2,7 @@ package companies
 
 import (
 	"kroncl-server/internal/core"
-	"kroncl-server/internal/tenant/storage"
+	storagedb "kroncl-server/internal/tenant/storage/db"
 	"time"
 )
 
@@ -76,7 +76,7 @@ type UpdateRequest struct {
 
 type CreateCompanyResponse struct {
 	Company
-	Storage *storage.Storage `json:"storage"`
+	Storage *storagedb.Storage `json:"storage"`
 }
 
 type CompanyPublicMember struct {

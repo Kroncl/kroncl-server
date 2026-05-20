@@ -2,14 +2,14 @@ package permissioner
 
 import (
 	"kroncl-server/internal/core"
-	"kroncl-server/internal/tenant/storage"
+	storagedb "kroncl-server/internal/tenant/storage/db"
 	"log"
 	"net/http"
 )
 
 type PermissionDeps struct {
-	PermService    *Service
-	StorageService *storage.Service
+	PermService      *Service
+	StorageDbService *storagedb.Service
 }
 
 func RequirePermission(deps *PermissionDeps, permission string) func(http.Handler) http.Handler {
@@ -27,7 +27,7 @@ func RequirePermission(deps *PermissionDeps, permission string) func(http.Handle
 				return
 			}
 
-			tenantPool, ok := deps.StorageService.GetTenantPoolFromRequest(r)
+			tenantPool, ok := deps.StorageDbService.GetTenantPoolFromRequest(r)
 			if !ok {
 				http.Error(w, "Failed to get tenant connection", http.StatusInternalServerError)
 				return

@@ -20,7 +20,7 @@ func withPublicPoolMiddleware[H any](
 	handlerFunc func(H) http.HandlerFunc,
 ) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		tenantPool, ok := rt.storageService.GetTenantPoolFromRequest(r)
+		tenantPool, ok := rt.storageService.Db.GetTenantPoolFromRequest(r)
 		if !ok {
 			core.SendError(w, http.StatusInternalServerError, "Error getting a storage connection.")
 			return
@@ -42,7 +42,7 @@ func withTenantPoolMiddleware[H any](
 	handlerFunc func(H) http.HandlerFunc,
 ) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		tenantPool, ok := rt.storageService.GetTenantPoolFromRequest(r)
+		tenantPool, ok := rt.storageService.Db.GetTenantPoolFromRequest(r)
 		if !ok {
 			core.SendError(w, http.StatusInternalServerError, "Error getting a storage connection.")
 			return
@@ -85,7 +85,7 @@ func (rt *Routes) support(h func(*support.Handlers) http.HandlerFunc) http.Handl
 
 func (rt *Routes) supportWebsocket(h func(*support.Handlers) http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		tenantPool, ok := rt.storageService.GetTenantPoolFromRequest(r)
+		tenantPool, ok := rt.storageService.Db.GetTenantPoolFromRequest(r)
 		if !ok {
 			core.SendError(w, http.StatusInternalServerError, "Error getting a storage connection.")
 			return

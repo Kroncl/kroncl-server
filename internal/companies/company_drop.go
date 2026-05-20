@@ -14,8 +14,12 @@ func (s *Service) Drop(ctx context.Context, companyID string) error {
 		return fmt.Errorf("company not found")
 	}
 
-	if err := s.storage.DropStorage(ctx, companyID); err != nil {
+	if err := s.storageService.Db.DropStorage(ctx, companyID); err != nil {
 		return fmt.Errorf("failed to drop storage: %w", err)
+	}
+
+	if err := s.storageService.Media.DeleteTenantBucket(ctx, companyID); err != nil {
+		return fmt.Errorf("failed to delete media bucket: %w", err)
 	}
 
 	tx, err := s.pool.Begin(ctx)

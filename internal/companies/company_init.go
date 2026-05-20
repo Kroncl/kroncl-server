@@ -155,10 +155,16 @@ func (s *Service) Create(
 		return nil, fmt.Errorf("failed to update trial transaction status: %w", err)
 	}
 
-	storage, err := s.storage.InitStorage(ctx, company.ID)
+	storage, err := s.storageService.Db.InitStorage(ctx, company.ID)
 	if err != nil || storage == nil {
 		s.deleteCompany(ctx, company.ID)
 		return nil, fmt.Errorf("error init company storage: %w", err)
+	}
+
+	err = s.storageService.Media.InitTenantBucket(ctx, company.ID)
+	if err != nil {
+		s.deleteCompany(ctx, company.ID)
+		return nil, fmt.Errorf("error init company media bucket: %w", err)
 	}
 
 	companyWithStorage := CreateCompanyResponse{
