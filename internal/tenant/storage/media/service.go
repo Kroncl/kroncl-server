@@ -74,6 +74,56 @@ func (s *Service) DeleteTenantBucket(ctx context.Context, tenantID string) error
 	return s.client.RemoveBucket(ctx, bucketName)
 }
 
+func (s *Service) GetBucketStatus(ctx context.Context, tenantID string) (*BucketStatusResponse, error) {
+	bucketName := fmt.Sprintf("tenant-%s", tenantID)
+
+	exists, err := s.client.BucketExists(ctx, bucketName)
+	if err != nil {
+		return &BucketStatusResponse{
+			IsReady: false,
+			Message: fmt.Sprintf("Failed to check bucket: %v", err),
+			Exists:  false,
+		}, nil
+	}
+
+	if !exists {
+		return &BucketStatusResponse{
+			IsReady: false,
+			Message: "Bucket not created yet",
+			Exists:  false,
+		}, nil
+	}
+
+	info := &BucketInfo{
+		Name: bucketName,
+	}
+
+	objCh := s.client.ListObjects(ctx, bucketName, minio.ListObjectsOptions{})
+	var totalSize int64
+	var count int
+
+	for obj := range objCh {
+		if obj.Err != nil {
+			continue
+		}
+		count++
+		totalSize += obj.Size
+		if info.CreationDate.IsZero() || obj.LastModified.Before(info.CreationDate) {
+			info.CreationDate = obj.LastModified
+		}
+	}
+
+	info.ObjectCount = count
+	info.SizeMB = float64(totalSize) / (1024 * 1024)
+
+	return &BucketStatusResponse{
+		IsReady:    true,
+		Message:    "Bucket is ready",
+		BucketInfo: info,
+		Exists:     true,
+	}, nil
+}
+
 func (s *Service) GetBucketInfo(ctx context.Context, tenantID string) (*BucketInfo, error) {
 	bucketName := fmt.Sprintf("tenant-%s", tenantID)
 

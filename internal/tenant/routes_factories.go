@@ -27,7 +27,7 @@ func createHRMHandlers(pool *pgxpool.Pool, logsService *logs.Service, rt *Routes
 // FM factory
 func createFMHandlers(pool *pgxpool.Pool, logsService *logs.Service, rt *Routes) *fm.Handlers {
 	hrmRepo := hrm.NewRepository(pool, rt.accountsService, rt.companiesService)
-	fmRepo := fm.NewRepository(pool, hrmRepo)
+	fmRepo := fm.NewRepository(pool, hrmRepo, rt.storageService.Media)
 	return fm.NewHandlers(fmRepo, logsService)
 }
 
@@ -51,7 +51,7 @@ func createLogsHandlers(pool *pgxpool.Pool, logsService *logs.Service, rt *Route
 // DM factory
 func createDMHandlers(pool *pgxpool.Pool, logsService *logs.Service, rt *Routes) *dm.Handlers {
 	hrmRepo := hrm.NewRepository(pool, rt.accountsService, rt.companiesService)
-	fmRepo := fm.NewRepository(pool, hrmRepo)
+	fmRepo := fm.NewRepository(pool, hrmRepo, rt.storageService.Media)
 	crmRepo := crm.NewRepository(pool)
 	wmRepo := wm.NewRepository(pool)
 	dmRepo := dm.NewRepository(pool, fmRepo, hrmRepo, crmRepo, wmRepo)

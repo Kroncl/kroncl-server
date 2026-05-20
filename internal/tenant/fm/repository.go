@@ -2,6 +2,7 @@ package fm
 
 import (
 	"kroncl-server/internal/tenant/hrm"
+	storagemedia "kroncl-server/internal/tenant/storage/media"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -9,8 +10,9 @@ import (
 type Repository struct {
 	pool                *pgxpool.Pool
 	employeesRepository *hrm.Repository
+	mediaService        *storagemedia.Service
 }
 
-func NewRepository(pool *pgxpool.Pool, employeesRepository *hrm.Repository) *Repository {
-	return &Repository{pool: pool, employeesRepository: employeesRepository}
+func NewRepository(pool *pgxpool.Pool, employeesRepository *hrm.Repository, mediaService *storagemedia.Service) *Repository {
+	return &Repository{pool: pool, employeesRepository: employeesRepository, mediaService: mediaService}
 }

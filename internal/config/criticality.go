@@ -26,7 +26,11 @@ var PermissionCriticality = map[string]CriticalityLevel{
 	PERMISSION_LOGS_ACTIVITY:          7,
 
 	// ========== STORAGE (1-2) ==========
-	PERMISSION_STORAGE_SOURCES: 1, // просмотр ресурсов хранилища
+	PERMISSION_STORAGE:              1,
+	PERMISSION_STORAGE_DB:           2,
+	PERMISSION_STORAGE_DB_SOURCES:   3,
+	PERMISSION_STORAGE_MEDIA:        2,
+	PERMISSION_STORAGE_MEDIA_UPLOAD: 5,
 
 	// ========== ACCOUNTS (1-10) ==========
 	PERMISSION_ACCOUNTS:                    2,  // базовый доступ к аккаунтам

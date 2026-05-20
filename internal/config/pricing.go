@@ -24,7 +24,11 @@ var PermissionLvl = map[string]int{
 	PERMISSION_LOGS_OPTIMIZE:          PRICING_PLAN_MAX_LVL,
 
 	// ========== STORAGE ==========
-	PERMISSION_STORAGE_SOURCES: PRICING_PLAN_MAX_LVL,
+	PERMISSION_STORAGE:              PRICING_PLAN_MAX_LVL,
+	PERMISSION_STORAGE_DB:           PRICING_PLAN_MAX_LVL,
+	PERMISSION_STORAGE_DB_SOURCES:   PRICING_PLAN_MAX_LVL,
+	PERMISSION_STORAGE_MEDIA:        PRICING_PLAN_MAX_LVL,
+	PERMISSION_STORAGE_MEDIA_UPLOAD: PRICING_PLAN_MAX_LVL,
 
 	// ========== ACCOUNTS ==========
 	PERMISSION_ACCOUNTS:                    PRICING_PLAN_MAX_LVL,
@@ -130,7 +134,10 @@ func GetExpiredAllowedPermissions() map[string]bool {
 		PERMISSION_PRICING_TRANSACTIONS:        true,
 		PERMISSION_COMPANY_UPDATE:              true,
 		PERMISSION_COMPANY_DELETE:              true,
-		PERMISSION_STORAGE_SOURCES:             true,
+		PERMISSION_STORAGE:                     true,
+		PERMISSION_STORAGE_DB:                  true,
+		PERMISSION_STORAGE_DB_SOURCES:          true,
+		PERMISSION_STORAGE_MEDIA:               true,
 		PERMISSION_LOGS:                        true,
 		PERMISSION_LOGS_ACTIVITY:               true,
 		PERMISSION_ACCOUNTS:                    true,

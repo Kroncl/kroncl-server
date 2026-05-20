@@ -65,6 +65,7 @@ type Container struct {
 
 	// tenant storage ctrl [db + media]
 	StorageService       *storage.Service
+	StorageHandlers      *storage.Handlers
 	StorageDbService     *storagedb.Service
 	StorageDbHandlers    *storagedb.Handlers
 	StorageMediaService  *storagemedia.Service
@@ -205,6 +206,7 @@ func (c *Container) initServices(ctx context.Context) error {
 		c.StorageDbService,
 		c.StorageMediaService,
 	)
+	c.StorageHandlers = storage.NewHandlers(c.StorageService)
 
 	// ------------
 	// APP

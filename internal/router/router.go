@@ -194,24 +194,34 @@ func New(cfg *config.Config, container *di.Container) chi.Router {
 					r.With(permissioner.RequirePermission(container.PermissionDeps, config.PERMISSION_COMPANY_UPDATE)).Patch("/", container.CompaniesHandlers.Update)
 					r.With(permissioner.RequirePermission(container.PermissionDeps, config.PERMISSION_COMPANY_DELETE)).Post("/delete", container.CompaniesHandlers.Drop)
 
-					// Company storage
+					// Company storage ctrl [db + media]
 					r.Route("/storage", func(r chi.Router) {
+						r.Use(permissioner.RequirePermission(container.PermissionDeps, config.PERMISSION_STORAGE))
+
+						// summary
+						r.Get("/", container.StorageHandlers.GetStorageSummary)
+
 						// db
 						r.Route("/db", func(r chi.Router) {
+							r.Use(permissioner.RequirePermission(container.PermissionDeps, config.PERMISSION_STORAGE_DB))
 							r.Get("/", container.StorageDbHandlers.Get)
-							r.With(permissioner.RequirePermission(container.PermissionDeps, config.PERMISSION_STORAGE_SOURCES)).
-								Get("/sources", container.StorageDbHandlers.GetSources)
-							r.With(permissioner.RequirePermission(container.PermissionDeps, config.PERMISSION_STORAGE_SOURCES)).
-								Get("/sources/modules", container.StorageDbHandlers.GetByModules)
+							r.Route("/sources", func(r chi.Router) {
+								r.Use(permissioner.RequirePermission(container.PermissionDeps, config.PERMISSION_STORAGE_DB_SOURCES))
+								r.Get("/", container.StorageDbHandlers.GetSources)
+								r.Get("/modules", container.StorageDbHandlers.GetByModules)
+							})
 						})
 
 						// media
 						r.Route("/media", func(r chi.Router) {
+							r.Use(permissioner.RequirePermission(container.PermissionDeps, config.PERMISSION_STORAGE_MEDIA))
 							r.Get("/", container.StorageMediaHandlers.GetBucketStats)
-							r.Post("/upload", container.StorageMediaHandlers.UploadFile)
 							r.Get("/file", container.StorageMediaHandlers.GetFile)
 							r.Delete("/file", container.StorageMediaHandlers.DeleteFile)
 							r.Get("/presigned-url", container.StorageMediaHandlers.GeneratePresignedURL)
+
+							r.With(permissioner.RequirePermission(container.PermissionDeps, config.PERMISSION_STORAGE_MEDIA_UPLOAD)).
+								Post("/upload", container.StorageMediaHandlers.UploadFile)
 						})
 					})
 

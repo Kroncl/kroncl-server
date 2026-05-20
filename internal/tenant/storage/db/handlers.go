@@ -27,17 +27,17 @@ func (h *Handlers) GetSources(w http.ResponseWriter, r *http.Request) {
 
 	storage, err := h.service.repository.GetStorageByCompanyID(r.Context(), companyID)
 	if err != nil {
-		core.SendValidationError(w, "Company storage was not initialized.")
+		core.SendValidationError(w, "Company DB storage was not initialized.")
 		return
 	}
 
 	sources, err := h.service.repository.GetStorageSources(r.Context(), storage.SchemaName)
 	if err != nil {
-		core.SendValidationError(w, fmt.Sprintf("Failed get company storage sources stat: %s", err.Error()))
+		core.SendValidationError(w, fmt.Sprintf("Failed get company DB storage sources stat: %s", err.Error()))
 		return
 	}
 
-	core.SendSuccess(w, sources, "Company storage sources retrieved successfully.")
+	core.SendSuccess(w, sources, "Company DB storage sources retrieved successfully.")
 }
 
 // получение хранилища (полный объект)
@@ -51,11 +51,11 @@ func (h *Handlers) Get(w http.ResponseWriter, r *http.Request) {
 
 	storage, err := h.service.repository.GetStorageByCompanyID(r.Context(), companyID)
 	if err != nil {
-		core.SendValidationError(w, "Company storage was not initialized.")
+		core.SendValidationError(w, "Company DB storage was not initialized.")
 		return
 	}
 
-	core.SendSuccess(w, storage, "Company storage retrieved successfully.")
+	core.SendSuccess(w, storage, "Company DB storage retrieved successfully.")
 }
 
 func (h *Handlers) GetByModules(w http.ResponseWriter, r *http.Request) {
@@ -71,5 +71,5 @@ func (h *Handlers) GetByModules(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	core.SendSuccess(w, result, "Module storage statistics retrieved successfully.")
+	core.SendSuccess(w, result, "Module DB storage statistics retrieved successfully.")
 }

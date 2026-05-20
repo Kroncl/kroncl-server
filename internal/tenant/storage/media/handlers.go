@@ -88,21 +88,118 @@ func (h *Handlers) GetFile(w http.ResponseWriter, r *http.Request) {
 	}
 	defer reader.Close()
 
+	ext := strings.ToLower(filepath.Ext(objectPath))
 	contentType := r.URL.Query().Get("content_type")
+
 	if contentType == "" {
-		ext := filepath.Ext(objectPath)
 		switch ext {
+		// Документы
 		case ".pdf":
 			contentType = "application/pdf"
+		case ".doc":
+			contentType = "application/msword"
+		case ".docx":
+			contentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+		case ".odt":
+			contentType = "application/vnd.oasis.opendocument.text"
+		case ".rtf":
+			contentType = "application/rtf"
+		case ".txt":
+			contentType = "text/plain"
+		case ".md":
+			contentType = "text/markdown"
+
+		// Таблицы
+		case ".xls":
+			contentType = "application/vnd.ms-excel"
+		case ".xlsx":
+			contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+		case ".ods":
+			contentType = "application/vnd.oasis.opendocument.spreadsheet"
+		case ".csv":
+			contentType = "text/csv"
+
+		// Презентации
+		case ".ppt":
+			contentType = "application/vnd.ms-powerpoint"
+		case ".pptx":
+			contentType = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+
+		// Изображения
 		case ".jpg", ".jpeg":
 			contentType = "image/jpeg"
 		case ".png":
 			contentType = "image/png"
+		case ".gif":
+			contentType = "image/gif"
+		case ".webp":
+			contentType = "image/webp"
+		case ".svg":
+			contentType = "image/svg+xml"
+		case ".bmp":
+			contentType = "image/bmp"
+		case ".ico":
+			contentType = "image/x-icon"
+
+		// Видео
+		case ".mp4":
+			contentType = "video/mp4"
+		case ".webm":
+			contentType = "video/webm"
+		case ".avi":
+			contentType = "video/x-msvideo"
+		case ".mov":
+			contentType = "video/quicktime"
+		case ".mkv":
+			contentType = "video/x-matroska"
+
+		// Аудио
+		case ".mp3":
+			contentType = "audio/mpeg"
+		case ".wav":
+			contentType = "audio/wav"
+		case ".ogg":
+			contentType = "audio/ogg"
+		case ".flac":
+			contentType = "audio/flac"
+		case ".m4a":
+			contentType = "audio/mp4"
+
+		// Архивы
+		case ".zip":
+			contentType = "application/zip"
+		case ".rar":
+			contentType = "application/vnd.rar"
+		case ".7z":
+			contentType = "application/x-7z-compressed"
+		case ".tar":
+			contentType = "application/x-tar"
+		case ".gz":
+			contentType = "application/gzip"
+
+		// JSON/XML
+		case ".json":
+			contentType = "application/json"
+		case ".xml":
+			contentType = "application/xml"
+
 		default:
 			contentType = "application/octet-stream"
 		}
 	}
+
 	w.Header().Set("Content-Type", contentType)
+
+	inlineTypes := map[string]bool{
+		".pdf": true, ".jpg": true, ".jpeg": true, ".png": true, ".gif": true,
+		".webp": true, ".svg": true, ".mp4": true, ".webm": true, ".mp3": true,
+		".txt": true, ".md": true, ".json": true, ".xml": true, ".csv": true,
+	}
+
+	if !inlineTypes[ext] {
+		filename := filepath.Base(objectPath)
+		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
+	}
 
 	_, err = io.Copy(w, reader)
 	if err != nil {

@@ -9,6 +9,13 @@ type BucketInfo struct {
 	ObjectCount  int       `json:"object_count"`
 }
 
+type BucketStatusResponse struct {
+	IsReady    bool        `json:"is_ready"`
+	Message    string      `json:"message"`
+	BucketInfo *BucketInfo `json:"storage,omitempty"`
+	Exists     bool        `json:"exists"`
+}
+
 type FileUploadRequest struct {
 	FilePath string `json:"file_path"`
 }

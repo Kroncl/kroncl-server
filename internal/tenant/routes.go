@@ -242,6 +242,10 @@ func (rt *Routes) Register(r chi.Router, permDeps *permissioner.PermissionDeps) 
 				return h.GetTransactions
 			}))
 
+			r.Post("/report", rt.fm(func(h *fm.Handlers) http.HandlerFunc {
+				return h.GenerateTransactionsReport
+			}))
+
 			r.With(permissioner.RequirePermission(permDeps, config.PERMISSION_FM_TRANSACTIONS_CREATE)).
 				Post("/", rt.fm(func(h *fm.Handlers) http.HandlerFunc {
 					return h.CreateTransaction
