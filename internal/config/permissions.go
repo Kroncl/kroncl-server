@@ -10,7 +10,7 @@ const (
 	PERMISSION_COMPANY_DELETE                    = "company.delete"
 	PERMISSION_STORAGE                           = "storage"
 	PERMISSION_STORAGE_DB                        = "storage.db"
-	PERMISSION_STORAGE_DB_SOURCES                = "storage.sources"
+	PERMISSION_STORAGE_DB_SOURCES                = "storage.db.sources"
 	PERMISSION_STORAGE_MEDIA                     = "storage.media"
 	PERMISSION_STORAGE_MEDIA_UPLOAD              = "storage.media.upload"
 	PERMISSION_DOCS                              = "docs"

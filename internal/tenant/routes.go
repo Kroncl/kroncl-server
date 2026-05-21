@@ -265,6 +265,9 @@ func (rt *Routes) Register(r chi.Router, permDeps *permissioner.PermissionDeps) 
 			r.Get("/", rt.fm(func(h *fm.Handlers) http.HandlerFunc {
 				return h.GetTransactions
 			}))
+			r.Post("/", rt.fm(func(h *fm.Handlers) http.HandlerFunc {
+				return h.CreateTransaction
+			}))
 
 			// NO update or delete action
 			// for specific transaction

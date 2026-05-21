@@ -145,7 +145,57 @@ func (s *Service) GetBucketInfo(ctx context.Context, tenantID string) (*BucketIn
 		Name: bucketName,
 	}
 
-	objCh := s.client.ListObjects(ctx, bucketName, minio.ListObjectsOptions{})
+	opts := minio.ListObjectsOptions{
+		Recursive: true, // Включаем рекурсивный обход всех директорий
+	}
+
+	objCh := s.client.ListObjects(ctx, bucketName, opts)
+	var totalSize int64
+	var count int
+	var earliestTime time.Time
+
+	for obj := range objCh {
+		if obj.Err != nil {
+			// Логируем ошибку, но продолжаем
+			log.Printf("Error listing object: %v", obj.Err)
+			continue
+		}
+		count++
+		totalSize += obj.Size
+		// Самая ранняя дата создания (самый старый файл)
+		if earliestTime.IsZero() || obj.LastModified.Before(earliestTime) {
+			earliestTime = obj.LastModified
+		}
+	}
+
+	info.ObjectCount = count
+	info.SizeMB = float64(totalSize) / (1024 * 1024)
+	info.CreationDate = earliestTime // Самая старая дата (приблизительное время создания бакета)
+
+	return info, nil
+}
+
+func (s *Service) GetBucketStatsByPrefix(ctx context.Context, tenantID string, prefix string) (*BucketInfo, error) {
+	bucketName := fmt.Sprintf("tenant-%s", tenantID)
+
+	exists, err := s.client.BucketExists(ctx, bucketName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check bucket: %w", err)
+	}
+	if !exists {
+		return nil, fmt.Errorf("bucket not found")
+	}
+
+	info := &BucketInfo{
+		Name: bucketName,
+	}
+
+	opts := minio.ListObjectsOptions{
+		Prefix:    prefix,
+		Recursive: true,
+	}
+
+	objCh := s.client.ListObjects(ctx, bucketName, opts)
 	var totalSize int64
 	var count int
 
@@ -155,9 +205,6 @@ func (s *Service) GetBucketInfo(ctx context.Context, tenantID string) (*BucketIn
 		}
 		count++
 		totalSize += obj.Size
-		if info.CreationDate.IsZero() || obj.LastModified.Before(info.CreationDate) {
-			info.CreationDate = obj.LastModified
-		}
 	}
 
 	info.ObjectCount = count
