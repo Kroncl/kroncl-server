@@ -24,7 +24,14 @@ var PermissionLvl = map[string]int{
 	PERMISSION_LOGS_OPTIMIZE:          PRICING_PLAN_MAX_LVL,
 
 	// ========== STORAGE ==========
-	PERMISSION_STORAGE_SOURCES: PRICING_PLAN_MAX_LVL,
+	PERMISSION_STORAGE:              PRICING_PLAN_MAX_LVL,
+	PERMISSION_STORAGE_DB:           PRICING_PLAN_MAX_LVL,
+	PERMISSION_STORAGE_DB_SOURCES:   PRICING_PLAN_MAX_LVL,
+	PERMISSION_STORAGE_MEDIA:        PRICING_PLAN_MAX_LVL,
+	PERMISSION_STORAGE_MEDIA_UPLOAD: PRICING_PLAN_MAX_LVL,
+
+	// ========== DOCS ==========
+	PERMISSION_DOCS: PRICING_PLAN_MAX_LVL,
 
 	// ========== ACCOUNTS ==========
 	PERMISSION_ACCOUNTS:                    PRICING_PLAN_MAX_LVL,
@@ -48,6 +55,7 @@ var PermissionLvl = map[string]int{
 
 	// ========== FM ==========
 	PERMISSION_FM:                                PRICING_PLAN_MAX_LVL,
+	PERMISSION_FM_REPORT:                         PRICING_PLAN_MAX_LVL,
 	PERMISSION_FM_TRANSACTIONS:                   PRICING_PLAN_MAX_LVL,
 	PERMISSION_FM_TRANSACTIONS_CREATE:            PRICING_PLAN_MAX_LVL,
 	PERMISSION_FM_TRANSACTIONS_REVERSE:           PRICING_PLAN_MAX_LVL,
@@ -130,7 +138,11 @@ func GetExpiredAllowedPermissions() map[string]bool {
 		PERMISSION_PRICING_TRANSACTIONS:        true,
 		PERMISSION_COMPANY_UPDATE:              true,
 		PERMISSION_COMPANY_DELETE:              true,
-		PERMISSION_STORAGE_SOURCES:             true,
+		PERMISSION_STORAGE:                     true,
+		PERMISSION_STORAGE_DB:                  true,
+		PERMISSION_STORAGE_DB_SOURCES:          true,
+		PERMISSION_STORAGE_MEDIA:               true,
+		PERMISSION_DOCS:                        true,
 		PERMISSION_LOGS:                        true,
 		PERMISSION_LOGS_ACTIVITY:               true,
 		PERMISSION_ACCOUNTS:                    true,
@@ -146,6 +158,7 @@ func GetExpiredAllowedPermissions() map[string]bool {
 		PERMISSION_HRM_EMPLOYEES:              true,
 		PERMISSION_HRM_POSITIONS:              true,
 		PERMISSION_FM:                         true,
+		PERMISSION_FM_REPORT:                  true,
 		PERMISSION_FM_TRANSACTIONS:            true,
 		PERMISSION_FM_TRANSACTIONS_CATEGORIES: true,
 		PERMISSION_FM_COUNTERPARTIES:          true,

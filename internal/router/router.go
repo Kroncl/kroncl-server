@@ -86,6 +86,9 @@ func New(cfg *config.Config, container *di.Container) chi.Router {
 				r.Post("/confirm/resend", container.AccountsHandlers.ResendConfirmationCode)
 				r.Post("/log-out", container.AccountsHandlers.Logout)
 
+				// spec: account summary counts (invitations, orgs...)
+				r.Get("/summary", container.AccountsHandlers.GetSummary)
+
 				// Accounts -> companies invitations [protected]
 				r.Route("/invitations", func(r chi.Router) {
 					r.Get("/", container.AccountsHandlers.GetAccountInvitations)
@@ -148,10 +151,11 @@ func New(cfg *config.Config, container *di.Container) chi.Router {
 			// rate limiter
 			r.Use(httprate.LimitByIP(config.RATE_LIMIT_PRIVATE_ROUTES_PER_MINUTE, 1*time.Minute))
 
-			r.Route("/media", func(r chi.Router) {
-				r.Post("/upload", container.MediaHandlers.UploadFile)
-				r.Get("/{fileId}", container.MediaHandlers.GetFile)
-			})
+			// unused
+			// r.Route("/media", func(r chi.Router) {
+			// 	r.Post("/upload", container.MediaHandlers.UploadFile)
+			// 	r.Get("/{fileId}", container.MediaHandlers.GetFile)
+			// })
 
 			// Search for public accounts to invite to the company
 			r.Route("/accounts", func(r chi.Router) {
@@ -167,10 +171,9 @@ func New(cfg *config.Config, container *di.Container) chi.Router {
 
 				// Specific company routes
 				r.Route("/{id}", func(r chi.Router) {
-					// Company context + basic access check
 					r.Use(companies.CompanyMembership(container.DB))
-					// Tenant pool middleware
-					r.Use(container.StorageService.TenantPoolMiddleware)
+					r.Use(container.StorageDbService.TenantPoolMiddleware)
+					r.Use(container.StorageMediaService.TenantBucketMiddleware)
 
 					// Company permissions
 					r.Get("/permissions", container.CompaniesHandlers.GetCompanyPermissions)
@@ -191,13 +194,35 @@ func New(cfg *config.Config, container *di.Container) chi.Router {
 					r.With(permissioner.RequirePermission(container.PermissionDeps, config.PERMISSION_COMPANY_UPDATE)).Patch("/", container.CompaniesHandlers.Update)
 					r.With(permissioner.RequirePermission(container.PermissionDeps, config.PERMISSION_COMPANY_DELETE)).Post("/delete", container.CompaniesHandlers.Drop)
 
-					// Company storage
+					// Company storage ctrl [db + media]
 					r.Route("/storage", func(r chi.Router) {
-						r.Get("/", container.StorageHandlers.Get)
-						r.With(permissioner.RequirePermission(container.PermissionDeps, config.PERMISSION_STORAGE_SOURCES)).
-							Get("/sources", container.StorageHandlers.GetSources)
-						r.With(permissioner.RequirePermission(container.PermissionDeps, config.PERMISSION_STORAGE_SOURCES)).
-							Get("/sources/modules", container.StorageHandlers.GetByModules)
+						r.Use(permissioner.RequirePermission(container.PermissionDeps, config.PERMISSION_STORAGE))
+
+						// summary
+						r.Get("/", container.StorageHandlers.GetStorageSummary)
+
+						// db
+						r.Route("/db", func(r chi.Router) {
+							r.Use(permissioner.RequirePermission(container.PermissionDeps, config.PERMISSION_STORAGE_DB))
+							r.Get("/", container.StorageDbHandlers.Get)
+							r.Route("/sources", func(r chi.Router) {
+								r.Use(permissioner.RequirePermission(container.PermissionDeps, config.PERMISSION_STORAGE_DB_SOURCES))
+								r.Get("/", container.StorageDbHandlers.GetSources)
+								r.Get("/modules", container.StorageDbHandlers.GetByModules)
+							})
+						})
+
+						// media
+						r.Route("/media", func(r chi.Router) {
+							r.Use(permissioner.RequirePermission(container.PermissionDeps, config.PERMISSION_STORAGE_MEDIA))
+							r.Get("/", container.StorageMediaHandlers.GetBucketStats)
+							r.Get("/file", container.StorageMediaHandlers.GetFile)
+							r.Delete("/file", container.StorageMediaHandlers.DeleteFile)
+							r.Get("/presigned-url", container.StorageMediaHandlers.GeneratePresignedURL)
+
+							r.With(permissioner.RequirePermission(container.PermissionDeps, config.PERMISSION_STORAGE_MEDIA_UPLOAD)).
+								Post("/upload", container.StorageMediaHandlers.UploadFile)
+						})
 					})
 
 					// Company accounts (hrm part)

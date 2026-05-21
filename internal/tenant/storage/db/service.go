@@ -1,0 +1,243 @@
+package storagedb
+
+import (
+	"context"
+	"fmt"
+	"log"
+	"sync"
+	"time"
+
+	"kroncl-server/internal/migrator"
+
+	"github.com/jackc/pgx/v5/pgxpool"
+)
+
+type Service struct {
+	repository  *Repository
+	migrator    *migrator.Migrator
+	globalPool  *pgxpool.Pool
+	tenantPools sync.Map
+}
+
+func NewService(repository *Repository, migrator *migrator.Migrator, globalPool *pgxpool.Pool) *Service {
+	return &Service{
+		repository: repository,
+		migrator:   migrator,
+		globalPool: globalPool,
+	}
+}
+
+func (s *Service) GetTenantPool(ctx context.Context, companyID string) (*pgxpool.Pool, error) {
+	// Пытаемся получить из кэша
+	if pool, ok := s.tenantPools.Load(companyID); ok {
+		return pool.(*pgxpool.Pool), nil
+	}
+
+	// Создаём новый пул
+	storage, err := s.repository.GetStorageByCompanyID(ctx, companyID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get storage: %w", err)
+	}
+
+	dsn := s.buildTenantDSN(storage.SchemaName)
+	tenantPool, err := pgxpool.New(ctx, dsn)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create pool: %w", err)
+	}
+
+	// Сохраняем в кэш — без горутины!
+	s.tenantPools.Store(companyID, tenantPool)
+
+	return tenantPool, nil
+}
+
+// buildTenantDSN строит DSN для подключения к схеме тенанта
+func (s *Service) buildTenantDSN(schemaName string) string {
+	// Получаем конфиг из глобального пула
+	config := s.globalPool.Config()
+
+	// Создаем DSN на основе конфига
+	dsn := fmt.Sprintf("postgres://%s:%s@%s:%d/%s",
+		config.ConnConfig.User,
+		config.ConnConfig.Password,
+		config.ConnConfig.Host,
+		config.ConnConfig.Port,
+		config.ConnConfig.Database,
+	)
+
+	// Добавляем параметры
+	dsn += "?sslmode=disable"
+
+	// Добавляем search_path
+	dsn += fmt.Sprintf("&search_path=%s", schemaName)
+
+	return dsn
+}
+
+func (s *Service) InitStorage(ctx context.Context, companyID string) (*Storage, error) {
+	// создаём запись хранилища
+	storage, err := s.repository.CreateStorageRecord(ctx, companyID)
+	if err != nil {
+		return nil, fmt.Errorf("failed init storage: %w", err)
+	}
+
+	// запускаем воркер миграций в фоне
+	go s.runProvisioningWorker(storage.ID, storage.SchemaName)
+
+	return storage, nil
+}
+
+func (s *Service) runProvisioningWorker(storageID, schemaName string) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	log.Printf("Starting provisioning for storage %s, schema: %s", storageID, schemaName)
+
+	// 1. Обновляем статус
+	s.repository.UpdateStorageStatus(ctx, storageID, string(StorageStatusProvisioning))
+
+	// 2. Создаем схему
+	if err := s.migrator.CreateSchema(ctx, schemaName); err != nil {
+		log.Printf("Failed to create schema: %v", err)
+		s.repository.UpdateStorageStatus(ctx, storageID, string(StorageStatusFailed))
+		return
+	}
+
+	// 3. Применяем миграции тенантов
+	if err := s.migrator.Up(ctx, schemaName); err != nil {
+		log.Printf("Failed to apply migrations: %v", err)
+		s.repository.UpdateStorageStatus(ctx, storageID, string(StorageStatusFailed))
+		return
+	}
+
+	// 4. Обновляем статус на 'active'
+	if err := s.repository.UpdateStorageStatus(ctx, storageID, string(StorageStatusActive)); err != nil {
+		log.Printf("Failed to update status to active: %v", err)
+		return
+	}
+
+	log.Printf("✅ Provisioning completed for storage %s", storageID)
+}
+
+func (s *Service) GetStorageStatus(ctx context.Context, companyID string) (*StorageStatusResponse, error) {
+	storage, err := s.repository.GetStorageByCompanyID(ctx, companyID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get storage: %w", err)
+	}
+
+	if storage == nil {
+		return &StorageStatusResponse{
+			Status:  "not_created",
+			Message: "Storage not initialized",
+			IsReady: false,
+		}, nil
+	}
+
+	// Проверяем существует ли схема (опционально)
+	schemaExists := false
+	if storage.Status == StorageStatusActive {
+		var err error
+		schemaExists, err = s.migrator.CheckSchemaExists(ctx, storage.SchemaName)
+		if err != nil {
+			log.Printf("Failed to check schema existence: %v", err)
+		}
+	}
+
+	return &StorageStatusResponse{
+		Storage:      storage,
+		Status:       string(storage.Status),
+		Message:      s.getStatusMessage(storage.Status),
+		IsReady:      storage.Status == StorageStatusActive && schemaExists,
+		SchemaName:   storage.SchemaName,
+		SchemaExists: schemaExists,
+	}, nil
+}
+
+func (s *Service) CloseAll() {
+	s.tenantPools.Range(func(key, value interface{}) bool {
+		pool := value.(*pgxpool.Pool)
+		pool.Close()
+		return true
+	})
+}
+
+// DropStorage запускает воркер на удаление хранилища
+func (s *Service) DropStorage(ctx context.Context, companyID string) error {
+	storage, err := s.repository.GetStorageByCompanyID(ctx, companyID)
+	if err != nil {
+		return fmt.Errorf("failed to get storage: %w", err)
+	}
+
+	if storage == nil {
+		return fmt.Errorf("storage not found for company %s", companyID)
+	}
+
+	// Удаляем пул из кэша если есть
+	s.tenantPools.Delete(companyID)
+
+	// Запускаем воркер удаления в фоне
+	go s.runDropWorker(storage.ID, storage.SchemaName)
+
+	return nil
+}
+
+// runDropWorker выполняет удаление схемы и обновление статуса
+func (s *Service) runDropWorker(storageID, schemaName string) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	log.Printf("🗑️ Starting drop worker for storage %s, schema: %s", storageID, schemaName)
+
+	// 1. Удаляем схему
+	if err := s.repository.DropSchema(ctx, schemaName); err != nil {
+		log.Printf("❌ Failed to drop schema %s: %v", schemaName, err)
+		return
+	}
+	log.Printf("✅ Schema %s dropped successfully", schemaName)
+
+	// 2. Обновляем статус на 'none'
+	if err := s.repository.UpdateStorageStatus(ctx, storageID, string(StorageStatusNone)); err != nil {
+		log.Printf("❌ Failed to update storage status to none: %v", err)
+		return
+	}
+
+	log.Printf("✅ Drop worker completed for storage %s", storageID)
+}
+
+// ---------
+// UTILS
+// ---------
+
+func (s *Service) getStatusMessage(status StorageStatus) string {
+	switch status {
+	case StorageStatusProvisioning:
+		return "Creating schema and applying migrations..."
+	case StorageStatusActive:
+		return "Storage is ready"
+	case StorageStatusFailed:
+		return "Storage creation failed"
+	default:
+		return string(status)
+	}
+}
+
+// -----------------
+// MODULES ANALYSIS
+// -----------------
+
+func (s *Service) GetStorageByModules(ctx context.Context, companyID string) (*ModulesStorageResponse, error) {
+	storage, err := s.repository.GetStorageByCompanyID(ctx, companyID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get storage: %w", err)
+	}
+
+	if storage == nil {
+		return nil, fmt.Errorf("storage not found for company: %s", companyID)
+	}
+
+	if storage.Status != StorageStatusActive {
+		return nil, fmt.Errorf("storage is not active, status: %s", storage.Status)
+	}
+
+	return s.repository.GetStorageByModules(ctx, storage.SchemaName)
+}

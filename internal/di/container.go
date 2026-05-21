@@ -27,6 +27,8 @@ import (
 	"kroncl-server/internal/public"
 	"kroncl-server/internal/tenant"
 	"kroncl-server/internal/tenant/storage"
+	storagedb "kroncl-server/internal/tenant/storage/db"
+	storagemedia "kroncl-server/internal/tenant/storage/media"
 	"kroncl-server/utils"
 	"log"
 	"os"
@@ -46,12 +48,11 @@ type Container struct {
 	CompaniesService  *companies.Service
 	PricingService    *pricing.Service
 	PermissionService *permissioner.Service
-	StorageService    *storage.Service
 	Migrator          *migrator.Migrator
 	Mailer            *mailer.Service
 	PublicService     *public.Service
 
-	// Media
+	// Media [паблик бакет]
 	MediaRepo     *media.Repository
 	MediaService  *media.Service
 	MediaHandlers *media.Handlers
@@ -59,9 +60,16 @@ type Container struct {
 	// Хэндлеры
 	AccountsHandlers  *accounts.Handlers
 	CompaniesHandlers *companies.Handlers
-	StorageHandlers   *storage.Handlers
 	PricingHandlers   *pricing.Handlers
 	PublicHandlers    *public.Handlers
+
+	// tenant storage ctrl [db + media]
+	StorageService       *storage.Service
+	StorageHandlers      *storage.Handlers
+	StorageDbService     *storagedb.Service
+	StorageDbHandlers    *storagedb.Handlers
+	StorageMediaService  *storagemedia.Service
+	StorageMediaHandlers *storagemedia.Handlers
 
 	// мидлварь зависимости
 	PermissionDeps *permissioner.PermissionDeps
@@ -180,13 +188,29 @@ func (c *Container) initServices(ctx context.Context) error {
 	// admin-auth [используется в APP->accounts]
 	c.AdminAuthService = adminauth.NewService(c.DB)
 
+	// -----------
+	// TENANT STORAGE CTRL
+	// -----------
+
+	dbStorageRepo := storagedb.NewRepository(c.DB)
+	c.StorageDbService = storagedb.NewService(dbStorageRepo, c.Migrator, c.DB)
+	storageMediaService, err := storagemedia.NewService(c.Config.MinIO)
+	if err != nil {
+		return fmt.Errorf("failed to init storage media service: %w", err)
+	}
+	c.StorageMediaService = storageMediaService
+	c.StorageMediaHandlers = storagemedia.NewHandlers(c.StorageMediaService)
+
+	// -->abstract storage service for tenant
+	c.StorageService = storage.NewService(
+		c.StorageDbService,
+		c.StorageMediaService,
+	)
+	c.StorageHandlers = storage.NewHandlers(c.StorageService)
+
 	// ------------
 	// APP
 	// ------------
-
-	// Storage
-	storageRepo := storage.NewRepository(c.DB)
-	c.StorageService = storage.NewService(storageRepo, c.Migrator, c.DB)
 
 	// Pricing Service
 	c.PricingService = pricing.NewService(c.DB)
@@ -226,8 +250,8 @@ func (c *Container) initServices(ctx context.Context) error {
 	// Permission Service
 	c.PermissionService = permissioner.NewService(c.CompaniesService)
 	c.PermissionDeps = &permissioner.PermissionDeps{
-		PermService:    c.PermissionService,
-		StorageService: c.StorageService,
+		PermService:      c.PermissionService,
+		StorageDbService: c.StorageDbService,
 	}
 
 	// Сохраняем в контейнер
@@ -238,7 +262,7 @@ func (c *Container) initServices(ctx context.Context) error {
 	// Handlers
 	c.AccountsHandlers = accounts.NewHandlers(c.AccountsService)
 	c.CompaniesHandlers = companies.NewHandlers(c.CompaniesService)
-	c.StorageHandlers = storage.NewHandlers(c.StorageService)
+	c.StorageDbHandlers = storagedb.NewHandlers(c.StorageDbService)
 	c.PricingHandlers = pricing.NewHandlers(c.PricingService)
 	c.PublicHandlers = public.NewHandlers(c.PublicService)
 
@@ -313,6 +337,6 @@ func (c *Container) Close() {
 		c.DB.Close()
 	}
 	if c.StorageService != nil {
-		c.StorageService.CloseAll()
+		c.StorageDbService.CloseAll()
 	}
 }

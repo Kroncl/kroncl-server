@@ -112,7 +112,7 @@ func (a *Application) shutdown() error {
 	}
 
 	if a.container.StorageService != nil {
-		a.container.StorageService.CloseAll()
+		a.container.StorageService.Db.CloseAll()
 	}
 
 	a.container.Close()

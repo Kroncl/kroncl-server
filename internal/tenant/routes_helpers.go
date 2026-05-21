@@ -4,6 +4,7 @@ import (
 	"kroncl-server/internal/core"
 	"kroncl-server/internal/tenant/crm"
 	"kroncl-server/internal/tenant/dm"
+	"kroncl-server/internal/tenant/docs"
 	"kroncl-server/internal/tenant/fm"
 	"kroncl-server/internal/tenant/hrm"
 	"kroncl-server/internal/tenant/logs"
@@ -20,7 +21,7 @@ func withPublicPoolMiddleware[H any](
 	handlerFunc func(H) http.HandlerFunc,
 ) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		tenantPool, ok := rt.storageService.GetTenantPoolFromRequest(r)
+		tenantPool, ok := rt.storageService.Db.GetTenantPoolFromRequest(r)
 		if !ok {
 			core.SendError(w, http.StatusInternalServerError, "Error getting a storage connection.")
 			return
@@ -42,7 +43,7 @@ func withTenantPoolMiddleware[H any](
 	handlerFunc func(H) http.HandlerFunc,
 ) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		tenantPool, ok := rt.storageService.GetTenantPoolFromRequest(r)
+		tenantPool, ok := rt.storageService.Db.GetTenantPoolFromRequest(r)
 		if !ok {
 			core.SendError(w, http.StatusInternalServerError, "Error getting a storage connection.")
 			return
@@ -79,13 +80,17 @@ func (rt *Routes) dm(h func(*dm.Handlers) http.HandlerFunc) http.HandlerFunc {
 	return withTenantPoolMiddleware(rt, createDMHandlers, h)
 }
 
+func (rt *Routes) docs(h func(*docs.Handlers) http.HandlerFunc) http.HandlerFunc {
+	return withTenantPoolMiddleware(rt, createDocsHandlers, h)
+}
+
 func (rt *Routes) support(h func(*support.Handlers) http.HandlerFunc) http.HandlerFunc {
 	return withPublicPoolMiddleware(rt, createSupportHandlers, h)
 }
 
 func (rt *Routes) supportWebsocket(h func(*support.Handlers) http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		tenantPool, ok := rt.storageService.GetTenantPoolFromRequest(r)
+		tenantPool, ok := rt.storageService.Db.GetTenantPoolFromRequest(r)
 		if !ok {
 			core.SendError(w, http.StatusInternalServerError, "Error getting a storage connection.")
 			return

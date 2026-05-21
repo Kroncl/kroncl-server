@@ -8,7 +8,12 @@ const (
 	PERMISSION_PRICING_TRANSACTIONS              = "pricing.transactions"
 	PERMISSION_COMPANY_UPDATE                    = "company.update"
 	PERMISSION_COMPANY_DELETE                    = "company.delete"
-	PERMISSION_STORAGE_SOURCES                   = "storage.sources"
+	PERMISSION_STORAGE                           = "storage"
+	PERMISSION_STORAGE_DB                        = "storage.db"
+	PERMISSION_STORAGE_DB_SOURCES                = "storage.sources"
+	PERMISSION_STORAGE_MEDIA                     = "storage.media"
+	PERMISSION_STORAGE_MEDIA_UPLOAD              = "storage.media.upload"
+	PERMISSION_DOCS                              = "docs"
 	PERMISSION_LOGS                              = "logs"
 	PERMISSION_LOGS_CLEAR                        = "logs.clear"
 	PERMISSION_LOGS_OPTIMIZE                     = "logs.optimize"
@@ -30,6 +35,7 @@ const (
 	PERMISSION_HRM_POSITIONS_DELETE              = "hrm.positions.delete"
 	PERMISSION_HRM_ANALYSIS                      = "hrm.analysis"
 	PERMISSION_FM                                = "fm"
+	PERMISSION_FM_REPORT                         = "fm.report"
 	PERMISSION_FM_TRANSACTIONS                   = "fm.transactions"
 	PERMISSION_FM_TRANSACTIONS_CREATE            = "fm.transactions.create"
 	PERMISSION_FM_TRANSACTIONS_REVERSE           = "fm.transactions.reverse"
@@ -100,7 +106,12 @@ func GetAllPermissions() []string {
 		PERMISSION_PRICING_TRANSACTIONS,
 		PERMISSION_COMPANY_UPDATE,
 		PERMISSION_COMPANY_DELETE,
-		PERMISSION_STORAGE_SOURCES,
+		PERMISSION_STORAGE,
+		PERMISSION_STORAGE_DB,
+		PERMISSION_STORAGE_DB_SOURCES,
+		PERMISSION_STORAGE_MEDIA,
+		PERMISSION_STORAGE_MEDIA_UPLOAD,
+		PERMISSION_DOCS,
 		PERMISSION_LOGS,
 		PERMISSION_LOGS_CLEAR,
 		PERMISSION_LOGS_OPTIMIZE,
@@ -122,6 +133,7 @@ func GetAllPermissions() []string {
 		PERMISSION_HRM_POSITIONS_DELETE,
 		PERMISSION_HRM_ANALYSIS,
 		PERMISSION_FM,
+		PERMISSION_FM_REPORT,
 		PERMISSION_FM_TRANSACTIONS,
 		PERMISSION_FM_TRANSACTIONS_CREATE,
 		PERMISSION_FM_TRANSACTIONS_REVERSE,
@@ -187,7 +199,11 @@ func GetGuestPermissions() map[string]bool {
 		PERMISSION_SUPPORT_TICKETS_CREATE: true,
 		PERMISSION_SUPPORT_TICKETS_UPDATE: true,
 		PERMISSION_PRICING_TRANSACTIONS:   true,
-		PERMISSION_STORAGE_SOURCES:        true,
+		PERMISSION_STORAGE:                true,
+		PERMISSION_STORAGE_DB:             true,
+		PERMISSION_STORAGE_DB_SOURCES:     true,
+		PERMISSION_STORAGE_MEDIA:          true,
+		PERMISSION_DOCS:                   true,
 		PERMISSION_LOGS:                   true,
 		PERMISSION_LOGS_ACTIVITY:          true,
 		PERMISSION_ACCOUNTS:               true,

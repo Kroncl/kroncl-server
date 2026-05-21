@@ -1,4 +1,4 @@
-package storage
+package storagedb
 
 var ModuleTablesMap = map[string][]string{
 	"hrm": {
