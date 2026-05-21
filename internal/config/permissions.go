@@ -61,6 +61,7 @@ const (
 	PERMISSION_CRM_SOURCES_UPDATE                = "crm.sources.update"
 	PERMISSION_CRM_ANALYSIS                      = "crm.analysis"
 	PERMISSION_WM                                = "wm"
+	PERMISSION_WM_REPORT                         = "wm.report"
 	PERMISSION_WM_CATALOG                        = "wm.catalog"
 	PERMISSION_WM_CATALOG_CATEGORIES             = "wm.catalog.categories"
 	PERMISSION_WM_CATALOG_CATEGORIES_CREATE      = "wm.catalog.categories.create"
@@ -159,6 +160,7 @@ func GetAllPermissions() []string {
 		PERMISSION_CRM_SOURCES_UPDATE,
 		PERMISSION_CRM_ANALYSIS,
 		PERMISSION_WM,
+		PERMISSION_WM_REPORT,
 		PERMISSION_WM_CATALOG,
 		PERMISSION_WM_CATALOG_CATEGORIES,
 		PERMISSION_WM_CATALOG_CATEGORIES_CREATE,

@@ -484,6 +484,13 @@ func (rt *Routes) Register(r chi.Router, permDeps *permissioner.PermissionDeps) 
 	r.Route("/wm", func(r chi.Router) {
 		r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_WM))
 
+		// full-report
+		r.With(httprate.LimitByIP(config.RATE_LIMIT_FILES_GENERATED_PER_MINUTE, 1*time.Minute)).
+			With(permissioner.RequirePermission(permDeps, config.PERMISSION_WM_REPORT)).
+			Post("/report", rt.wm(func(h *wm.Handlers) http.HandlerFunc {
+				return h.GenerateFullReport
+			}))
+
 		// catalog
 		r.Route("/catalog", func(r chi.Router) {
 			r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_WM_CATALOG))

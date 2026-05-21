@@ -44,7 +44,9 @@ func createCRMHandlers(pool *pgxpool.Pool, logsService *logs.Service, rt *Routes
 
 // WM factory
 func createWMHandlers(pool *pgxpool.Pool, logsService *logs.Service, rt *Routes) *wm.Handlers {
-	wmRepo := wm.NewRepository(pool)
+	excelizerService := excelizer.NewService(rt.storageService.Media)
+	docsService := docs.NewService(pool)
+	wmRepo := wm.NewRepository(pool, rt.storageService.Media, excelizerService, docsService)
 	return wm.NewHandlers(wmRepo, logsService)
 }
 
@@ -67,7 +69,7 @@ func createDMHandlers(pool *pgxpool.Pool, logsService *logs.Service, rt *Routes)
 	hrmRepo := hrm.NewRepository(pool, rt.accountsService, rt.companiesService)
 	fmRepo := fm.NewRepository(pool, hrmRepo, rt.storageService.Media, excelizerService, docsService)
 	crmRepo := crm.NewRepository(pool)
-	wmRepo := wm.NewRepository(pool)
+	wmRepo := wm.NewRepository(pool, rt.storageService.Media, excelizerService, docsService)
 	dmRepo := dm.NewRepository(pool, fmRepo, hrmRepo, crmRepo, wmRepo)
 	return dm.NewHandlers(dmRepo, logsService)
 }

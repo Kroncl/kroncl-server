@@ -97,6 +97,7 @@ var PermissionCriticality = map[string]CriticalityLevel{
 
 	// ========== WM (2-8) ==========
 	PERMISSION_WM:                           2,
+	PERMISSION_WM_REPORT:                    7,
 	PERMISSION_WM_CATALOG:                   2,
 	PERMISSION_WM_CATALOG_CATEGORIES:        2,
 	PERMISSION_WM_CATALOG_CATEGORIES_CREATE: 8,
