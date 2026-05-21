@@ -4,6 +4,7 @@ import (
 	"kroncl-server/internal/core"
 	"kroncl-server/internal/tenant/crm"
 	"kroncl-server/internal/tenant/dm"
+	"kroncl-server/internal/tenant/docs"
 	"kroncl-server/internal/tenant/fm"
 	"kroncl-server/internal/tenant/hrm"
 	"kroncl-server/internal/tenant/logs"
@@ -77,6 +78,10 @@ func (rt *Routes) logs(h func(*logs.Handlers) http.HandlerFunc) http.HandlerFunc
 
 func (rt *Routes) dm(h func(*dm.Handlers) http.HandlerFunc) http.HandlerFunc {
 	return withTenantPoolMiddleware(rt, createDMHandlers, h)
+}
+
+func (rt *Routes) docs(h func(*docs.Handlers) http.HandlerFunc) http.HandlerFunc {
+	return withTenantPoolMiddleware(rt, createDocsHandlers, h)
 }
 
 func (rt *Routes) support(h func(*support.Handlers) http.HandlerFunc) http.HandlerFunc {

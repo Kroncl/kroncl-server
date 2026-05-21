@@ -32,6 +32,9 @@ var PermissionCriticality = map[string]CriticalityLevel{
 	PERMISSION_STORAGE_MEDIA:        2,
 	PERMISSION_STORAGE_MEDIA_UPLOAD: 5,
 
+	// ========== DOCS (1-3) ==========
+	PERMISSION_DOCS: 3,
+
 	// ========== ACCOUNTS (1-10) ==========
 	PERMISSION_ACCOUNTS:                    2,  // базовый доступ к аккаунтам
 	PERMISSION_ACCOUNTS_DELETE:             10, // удаление аккаунта из компании
@@ -53,14 +56,13 @@ var PermissionCriticality = map[string]CriticalityLevel{
 	PERMISSION_HRM_ANALYSIS:         7,
 
 	// ========== FM (2-9) ==========
-	PERMISSION_FM: 2, // базовый доступ к FM
+	PERMISSION_FM:        2, // базовый доступ к FM
+	PERMISSION_FM_REPORT: 7,
 
 	// ----- FM TRANSACTIONS (3-9) -----
-	PERMISSION_FM_TRANSACTIONS_REPORTS:        3,
-	PERMISSION_FM_TRANSACTIONS_REPORTS_CREATE: 7,
-	PERMISSION_FM_TRANSACTIONS:                3, // просмотр транзакций
-	PERMISSION_FM_TRANSACTIONS_CREATE:         7, // создание транзакции
-	PERMISSION_FM_TRANSACTIONS_REVERSE:        9, // сторно транзакции
+	PERMISSION_FM_TRANSACTIONS:         3, // просмотр транзакций
+	PERMISSION_FM_TRANSACTIONS_CREATE:  7, // создание транзакции
+	PERMISSION_FM_TRANSACTIONS_REVERSE: 9, // сторно транзакции
 
 	// ----- FM CATEGORIES (2-5) -----
 	PERMISSION_FM_TRANSACTIONS_CATEGORIES:        2, // просмотр категорий

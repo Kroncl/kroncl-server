@@ -7,6 +7,7 @@ import (
 	"kroncl-server/internal/permissioner"
 	"kroncl-server/internal/tenant/crm"
 	"kroncl-server/internal/tenant/dm"
+	"kroncl-server/internal/tenant/docs"
 	"kroncl-server/internal/tenant/fm"
 	"kroncl-server/internal/tenant/hrm"
 	"kroncl-server/internal/tenant/logs"
@@ -103,6 +104,20 @@ func (rt *Routes) Register(r chi.Router, permDeps *permissioner.PermissionDeps) 
 			Get("/activity", rt.logs(func(h *logs.Handlers) http.HandlerFunc {
 				return h.GetLogsActivity
 			}))
+	})
+
+	// docs [view]
+	r.Route("/docs", func(r chi.Router) {
+		r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_DOCS))
+
+		r.Get("/", rt.docs(func(h *docs.Handlers) http.HandlerFunc {
+			return h.GetDocs
+		}))
+		r.Route("/{docId}", func(r chi.Router) {
+			r.Get("/", rt.docs(func(h *docs.Handlers) http.HandlerFunc {
+				return h.GetDoc
+			}))
+		})
 	})
 
 	// support tech actions
@@ -236,25 +251,16 @@ func (rt *Routes) Register(r chi.Router, permDeps *permissioner.PermissionDeps) 
 	r.Route("/fm", func(r chi.Router) {
 		r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_FM))
 
+		// full-report
+		r.With(httprate.LimitByIP(config.RATE_LIMIT_FILES_GENERATED_PER_MINUTE, 1*time.Minute)).
+			With(permissioner.RequirePermission(permDeps, config.PERMISSION_FM_REPORT)).
+			Post("/report", rt.fm(func(h *fm.Handlers) http.HandlerFunc {
+				return h.GenerateFullReport
+			}))
+
 		// transactions
 		r.Route("/transactions", func(r chi.Router) {
 			r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_FM_TRANSACTIONS))
-
-			// reports
-			r.Route("/reports", func(r chi.Router) {
-				r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_FM_TRANSACTIONS_REPORTS))
-
-				// получение отчётов
-				r.Get("/", rt.fm(func(h *fm.Handlers) http.HandlerFunc {
-					return h.GetTransactionsReports
-				}))
-
-				r.With(httprate.LimitByIP(config.RATE_LIMIT_FILES_GENERATED_PER_MINUTE, 1*time.Minute)).
-					With(permissioner.RequirePermission(permDeps, config.PERMISSION_FM_TRANSACTIONS_REPORTS_CREATE)).
-					Post("/", rt.fm(func(h *fm.Handlers) http.HandlerFunc {
-						return h.GenerateTransactionsReport
-					}))
-			})
 
 			r.Get("/", rt.fm(func(h *fm.Handlers) http.HandlerFunc {
 				return h.GetTransactions

@@ -1,6 +1,7 @@
 package storagemedia
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -11,6 +12,11 @@ import (
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 )
+
+type MediaUploader interface {
+	UploadFileToBucket(ctx context.Context, objectPath string, reader io.Reader, size int64, contentType string) error
+	GeneratePresignedURL(ctx context.Context, objectPath string, expiry time.Duration) (string, error)
+}
 
 type Service struct {
 	client *minio.Client
@@ -213,4 +219,19 @@ func (s *Service) GeneratePresignedURL(ctx context.Context, objectPath string, e
 	}
 
 	return url.String(), nil
+}
+
+func (s *Service) UploadBufferToBucket(ctx context.Context, objectPath string, buf *bytes.Buffer, contentType string) error {
+	bucketName, ok := s.GetBucketFromContext(ctx)
+	if !ok {
+		return fmt.Errorf("tenant bucket not found in context")
+	}
+
+	_, err := s.client.PutObject(ctx, bucketName, objectPath, buf, int64(buf.Len()), minio.PutObjectOptions{
+		ContentType: contentType,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to upload file: %w", err)
+	}
+	return nil
 }

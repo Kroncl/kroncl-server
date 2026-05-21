@@ -13,6 +13,7 @@ const (
 	PERMISSION_STORAGE_DB_SOURCES                = "storage.sources"
 	PERMISSION_STORAGE_MEDIA                     = "storage.media"
 	PERMISSION_STORAGE_MEDIA_UPLOAD              = "storage.media.upload"
+	PERMISSION_DOCS                              = "docs"
 	PERMISSION_LOGS                              = "logs"
 	PERMISSION_LOGS_CLEAR                        = "logs.clear"
 	PERMISSION_LOGS_OPTIMIZE                     = "logs.optimize"
@@ -34,6 +35,7 @@ const (
 	PERMISSION_HRM_POSITIONS_DELETE              = "hrm.positions.delete"
 	PERMISSION_HRM_ANALYSIS                      = "hrm.analysis"
 	PERMISSION_FM                                = "fm"
+	PERMISSION_FM_REPORT                         = "fm.report"
 	PERMISSION_FM_TRANSACTIONS                   = "fm.transactions"
 	PERMISSION_FM_TRANSACTIONS_CREATE            = "fm.transactions.create"
 	PERMISSION_FM_TRANSACTIONS_REVERSE           = "fm.transactions.reverse"
@@ -41,8 +43,6 @@ const (
 	PERMISSION_FM_TRANSACTIONS_CATEGORIES_CREATE = "fm.transactions.categories.create"
 	PERMISSION_FM_TRANSACTIONS_CATEGORIES_UPDATE = "fm.transactions.categories.update"
 	PERMISSION_FM_TRANSACTIONS_CATEGORIES_DELETE = "fm.transactions.categories.delete"
-	PERMISSION_FM_TRANSACTIONS_REPORTS           = "fm.transactions.reports"
-	PERMISSION_FM_TRANSACTIONS_REPORTS_CREATE    = "fm.transactions.reports.create"
 	PERMISSION_FM_ANALYSIS                       = "fm.analysis"
 	PERMISSION_FM_COUNTERPARTIES                 = "fm.counterparties"
 	PERMISSION_FM_COUNTERPARTIES_CREATE          = "fm.counterparties.create"
@@ -111,6 +111,7 @@ func GetAllPermissions() []string {
 		PERMISSION_STORAGE_DB_SOURCES,
 		PERMISSION_STORAGE_MEDIA,
 		PERMISSION_STORAGE_MEDIA_UPLOAD,
+		PERMISSION_DOCS,
 		PERMISSION_LOGS,
 		PERMISSION_LOGS_CLEAR,
 		PERMISSION_LOGS_OPTIMIZE,
@@ -132,9 +133,8 @@ func GetAllPermissions() []string {
 		PERMISSION_HRM_POSITIONS_DELETE,
 		PERMISSION_HRM_ANALYSIS,
 		PERMISSION_FM,
+		PERMISSION_FM_REPORT,
 		PERMISSION_FM_TRANSACTIONS,
-		PERMISSION_FM_TRANSACTIONS_REPORTS,
-		PERMISSION_FM_TRANSACTIONS_REPORTS_CREATE,
 		PERMISSION_FM_TRANSACTIONS_CREATE,
 		PERMISSION_FM_TRANSACTIONS_REVERSE,
 		PERMISSION_FM_TRANSACTIONS_CATEGORIES,
@@ -203,20 +203,20 @@ func GetGuestPermissions() map[string]bool {
 		PERMISSION_STORAGE_DB:             true,
 		PERMISSION_STORAGE_DB_SOURCES:     true,
 		PERMISSION_STORAGE_MEDIA:          true,
+		PERMISSION_DOCS:                   true,
 		PERMISSION_LOGS:                   true,
 		PERMISSION_LOGS_ACTIVITY:          true,
 		PERMISSION_ACCOUNTS:               true,
 		PERMISSION_ACCOUNTS_INVITATIONS:   true,
 
 		// modules
-		PERMISSION_HRM:                     true,
-		PERMISSION_HRM_EMPLOYEES:           true,
-		PERMISSION_HRM_POSITIONS:           true,
-		PERMISSION_FM:                      true,
-		PERMISSION_FM_TRANSACTIONS:         true,
-		PERMISSION_FM_COUNTERPARTIES:       true,
-		PERMISSION_FM_CREDITS:              true,
-		PERMISSION_FM_TRANSACTIONS_REPORTS: true,
+		PERMISSION_HRM:               true,
+		PERMISSION_HRM_EMPLOYEES:     true,
+		PERMISSION_HRM_POSITIONS:     true,
+		PERMISSION_FM:                true,
+		PERMISSION_FM_TRANSACTIONS:   true,
+		PERMISSION_FM_COUNTERPARTIES: true,
+		PERMISSION_FM_CREDITS:        true,
 
 		PERMISSION_CRM:         true,
 		PERMISSION_CRM_CLIENTS: true,
