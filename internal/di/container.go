@@ -26,6 +26,7 @@ import (
 	"kroncl-server/internal/pricing"
 	"kroncl-server/internal/public"
 	"kroncl-server/internal/tenant"
+	"kroncl-server/internal/tenant/pdfgen"
 	"kroncl-server/internal/tenant/storage"
 	storagedb "kroncl-server/internal/tenant/storage/db"
 	storagemedia "kroncl-server/internal/tenant/storage/media"
@@ -70,6 +71,9 @@ type Container struct {
 	StorageDbHandlers    *storagedb.Handlers
 	StorageMediaService  *storagemedia.Service
 	StorageMediaHandlers *storagemedia.Handlers
+
+	// pdfgen (gotenberg)
+	Pdfgen *pdfgen.Service
 
 	// мидлварь зависимости
 	PermissionDeps *permissioner.PermissionDeps
@@ -208,6 +212,17 @@ func (c *Container) initServices(ctx context.Context) error {
 	)
 	c.StorageHandlers = storage.NewHandlers(c.StorageService)
 
+	// -----------
+	// pdfgen [gotenberg]
+	// -----------
+	pdfGenService, err := pdfgen.NewService(pdfgen.Config{
+		Endpoint: c.Config.Gotenberg.Endpoint,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to init pdfgen service: %w", err)
+	}
+	c.Pdfgen = pdfGenService
+
 	// ------------
 	// APP
 	// ------------
@@ -311,6 +326,7 @@ func (c *Container) initTenantRoutes() error {
 		c.StorageService,
 		c.AccountsService,
 		c.CompaniesService,
+		c.Pdfgen,
 	)
 	return nil
 }

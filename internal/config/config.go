@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"kroncl-server/internal/tenant/pdfgen"
 	"kroncl-server/utils"
 	"log"
 	"net/http"
@@ -28,6 +29,7 @@ type Config struct {
 	CORS       CORSConfig
 	MinIO      MinIOConfig
 	MailSender MailSenderConfig
+	Gotenberg  pdfgen.Config
 }
 
 type ServerConfig struct {
@@ -131,6 +133,10 @@ func Load() (*Config, error) {
 		},
 		MinIO:      minioConfig,
 		MailSender: mailSenderConfig,
+		Gotenberg: pdfgen.Config{
+			Endpoint:      getEnv("GOTENBERG_ENDPOINT", "http://gotenberg:3000"),
+			TemplatesPath: getEnv("GOTENBERG_TEMPLATES_PATH", "./templates"),
+		},
 	}, nil
 }
 

@@ -124,6 +124,7 @@ var PermissionCriticality = map[string]CriticalityLevel{
 	PERMISSION_DM_STATUSES_UPDATE:            5,
 	PERMISSION_DM_STATUSES_DELETE:            6,
 	PERMISSION_DM_DEALS:                      2,
+	PERMISSION_DM_DEALS_INVOICE:              7,
 	PERMISSION_DM_DEALS_CREATE:               8,
 	PERMISSION_DM_DEALS_UPDATE:               7,
 	PERMISSION_DM_DEALS_DELETE:               9,

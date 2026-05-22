@@ -97,6 +97,6 @@ func createDMHandlers(pool *pgxpool.Pool, logsService *logs.Service, rt *Routes)
 	fmRepo := fm.NewRepository(pool, hrmRepo, rt.storageService.Media, excelizerService, docsService)
 	crmRepo := crm.NewRepository(pool, rt.storageService.Media, excelizerService, docsService)
 	wmRepo := wm.NewRepository(pool, rt.storageService.Media, excelizerService, docsService)
-	dmRepo := dm.NewRepository(pool, fmRepo, hrmRepo, crmRepo, wmRepo)
+	dmRepo := dm.NewRepository(pool, fmRepo, hrmRepo, crmRepo, wmRepo, rt.pdfgen, rt.storageService.Media, docsService)
 	return dm.NewHandlers(dmRepo, logsService)
 }

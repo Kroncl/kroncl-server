@@ -69,6 +69,8 @@ services:
       MINIO_USE_SSL: ${MINIO_USE_SSL:-false}
       MINIO_PUBLIC_BUCKET: ${MINIO_PUBLIC_BUCKET:-public}
       MINIO_EXTERNAL_HOST: ${MINIO_EXTERNAL_HOST:-localhost:9000}
+      GOTENBERG_ENDPOINT: ${GOTENBERG_ENDPOINT:-http://gotenberg:3000}
+      GOTENBERG_TEMPLATES_PATH: ${GOTENBERG_TEMPLATES_PATH}
       UNISENDER_GO_API_URL: ${UNISENDER_GO_API_URL}
       UNISENDER_GO_API_KEY: ${UNISENDER_GO_API_KEY}
       UNISENDER_GO_NOTIFY_DOMAIN: ${UNISENDER_GO_NOTIFY_DOMAIN}
@@ -77,10 +79,13 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
+      gotenberg:
+        condition: service_started
     networks:
       - kroncl-network
     volumes:
       - ./migrations:/app/migrations
+      - ./templates:/app/templates
     restart: unless-stopped
 
   prometheus:
@@ -193,6 +198,21 @@ services:
     networks:
       - kroncl-network
     restart: unless-stopped
+
+    
+  gotenberg:
+    image: gotenberg/gotenberg:8
+    platform: linux/amd64
+    container_name: kroncl-gotenberg
+    restart: unless-stopped
+    command:
+      - "gotenberg"
+      - "--chromium-disable"
+      - "--api-timeout=60"
+    environment:
+      - CHROMIUM_IGNORE_CERTIFICATE_ERRORS=true
+    networks:
+      - kroncl-network
 
 volumes:
   postgres_data:

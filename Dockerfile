@@ -2,9 +2,22 @@ FROM golang:1.25-alpine AS builder
 
 WORKDIR /app
 
+# Устанавливаем git (необходим для go mod download)
+RUN apk add --no-cache git
+
+# Используем только российское зеркало или официальный прокси
+ENV GOPROXY=https://goproxy.ru,https://proxy.golang.org,direct
+ENV GOSUMDB=off
+ENV GO111MODULE=on
+
 # Копируем go.mod и go.sum
 COPY go.mod go.sum ./
-RUN go mod download
+
+# Скачиваем зависимости с повторными попытками
+RUN for i in 1 2 3 4 5; do \
+      go mod download && break || \
+      echo "Retry $i/5 failed, waiting 5 seconds..." && sleep 5; \
+    done
 
 # Копируем исходники
 COPY . .

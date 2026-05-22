@@ -11,6 +11,7 @@ import (
 	"kroncl-server/internal/tenant/fm"
 	"kroncl-server/internal/tenant/hrm"
 	"kroncl-server/internal/tenant/logs"
+	"kroncl-server/internal/tenant/pdfgen"
 	"kroncl-server/internal/tenant/storage"
 	"kroncl-server/internal/tenant/support"
 	"kroncl-server/internal/tenant/wm"
@@ -27,6 +28,7 @@ type Routes struct {
 	storageService   *storage.Service
 	accountsService  *accounts.Service
 	companiesService *companies.Service
+	pdfgen           *pdfgen.Service
 }
 
 func NewRoutes(
@@ -34,12 +36,14 @@ func NewRoutes(
 	storageService *storage.Service,
 	accountsService *accounts.Service,
 	companiesService *companies.Service,
+	pdfgen *pdfgen.Service,
 ) *Routes {
 	return &Routes{
 		publicPool:       publicPool,
 		storageService:   storageService,
 		accountsService:  accountsService,
 		companiesService: companiesService,
+		pdfgen:           pdfgen,
 	}
 }
 
@@ -704,6 +708,13 @@ func (rt *Routes) Register(r chi.Router, permDeps *permissioner.PermissionDeps) 
 				}))
 
 			r.Route("/{dealId}", func(r chi.Router) {
+				// invoice
+				r.With(httprate.LimitByIP(config.RATE_LIMIT_FILES_GENERATED_PER_MINUTE, 1*time.Minute)).
+					With(permissioner.RequirePermission(permDeps, config.PERMISSION_DM_DEALS_INVOICE)).
+					Post("/invoice", rt.dm(func(h *dm.Handlers) http.HandlerFunc {
+						return h.GenerateDealInvoice
+					}))
+
 				r.Get("/", rt.dm(func(h *dm.Handlers) http.HandlerFunc {
 					return h.GetDeal
 				}))

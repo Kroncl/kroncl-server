@@ -86,6 +86,7 @@ const (
 	PERMISSION_DM_STATUSES_UPDATE                = "dm.statuses.update"
 	PERMISSION_DM_STATUSES_DELETE                = "dm.statuses.delete"
 	PERMISSION_DM_DEALS                          = "dm.deals"
+	PERMISSION_DM_DEALS_INVOICE                  = "dm.deals.invoice"
 	PERMISSION_DM_DEALS_CREATE                   = "dm.deals.create"
 	PERMISSION_DM_DEALS_UPDATE                   = "dm.deals.update"
 	PERMISSION_DM_DEALS_DELETE                   = "dm.deals.delete"
@@ -187,6 +188,7 @@ func GetAllPermissions() []string {
 		PERMISSION_DM_STATUSES_UPDATE,
 		PERMISSION_DM_STATUSES_DELETE,
 		PERMISSION_DM_DEALS,
+		PERMISSION_DM_DEALS_INVOICE,
 		PERMISSION_DM_DEALS_CREATE,
 		PERMISSION_DM_DEALS_UPDATE,
 		PERMISSION_DM_DEALS_DELETE,
