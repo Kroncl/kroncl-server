@@ -22,7 +22,17 @@ func createSupportHandlers(pool *pgxpool.Pool, logsService *logs.Service, rt *Ro
 
 // HRM factory
 func createHRMHandlers(pool *pgxpool.Pool, logsService *logs.Service, rt *Routes) *hrm.Handlers {
-	hrmRepo := hrm.NewRepository(pool, rt.accountsService, rt.companiesService)
+	excelizerService := excelizer.NewService(rt.storageService.Media)
+	docsService := docs.NewService(pool)
+
+	hrmRepo := hrm.NewRepository(
+		pool,
+		rt.accountsService,
+		rt.companiesService,
+		rt.storageService.Media,
+		excelizerService,
+		docsService,
+	)
 	return hrm.NewHandlers(hrmRepo, logsService)
 }
 
@@ -31,20 +41,32 @@ func createFMHandlers(pool *pgxpool.Pool, logsService *logs.Service, rt *Routes)
 	excelizerService := excelizer.NewService(rt.storageService.Media)
 	docsService := docs.NewService(pool)
 
-	hrmRepo := hrm.NewRepository(pool, rt.accountsService, rt.companiesService)
+	hrmRepo := hrm.NewRepository(
+		pool,
+		rt.accountsService,
+		rt.companiesService,
+		rt.storageService.Media,
+		excelizerService,
+		docsService,
+	)
 	fmRepo := fm.NewRepository(pool, hrmRepo, rt.storageService.Media, excelizerService, docsService)
 	return fm.NewHandlers(fmRepo, logsService)
 }
 
 // CRM factory
 func createCRMHandlers(pool *pgxpool.Pool, logsService *logs.Service, rt *Routes) *crm.Handlers {
-	crmRepo := crm.NewRepository(pool)
+	excelizerService := excelizer.NewService(rt.storageService.Media)
+	docsService := docs.NewService(pool)
+
+	crmRepo := crm.NewRepository(pool, rt.storageService.Media, excelizerService, docsService)
 	return crm.NewHandlers(crmRepo, logsService)
 }
 
 // WM factory
 func createWMHandlers(pool *pgxpool.Pool, logsService *logs.Service, rt *Routes) *wm.Handlers {
-	wmRepo := wm.NewRepository(pool)
+	excelizerService := excelizer.NewService(rt.storageService.Media)
+	docsService := docs.NewService(pool)
+	wmRepo := wm.NewRepository(pool, rt.storageService.Media, excelizerService, docsService)
 	return wm.NewHandlers(wmRepo, logsService)
 }
 
@@ -64,10 +86,17 @@ func createDMHandlers(pool *pgxpool.Pool, logsService *logs.Service, rt *Routes)
 	excelizerService := excelizer.NewService(rt.storageService.Media)
 	docsService := docs.NewService(pool)
 
-	hrmRepo := hrm.NewRepository(pool, rt.accountsService, rt.companiesService)
+	hrmRepo := hrm.NewRepository(
+		pool,
+		rt.accountsService,
+		rt.companiesService,
+		rt.storageService.Media,
+		excelizerService,
+		docsService,
+	)
 	fmRepo := fm.NewRepository(pool, hrmRepo, rt.storageService.Media, excelizerService, docsService)
-	crmRepo := crm.NewRepository(pool)
-	wmRepo := wm.NewRepository(pool)
-	dmRepo := dm.NewRepository(pool, fmRepo, hrmRepo, crmRepo, wmRepo)
+	crmRepo := crm.NewRepository(pool, rt.storageService.Media, excelizerService, docsService)
+	wmRepo := wm.NewRepository(pool, rt.storageService.Media, excelizerService, docsService)
+	dmRepo := dm.NewRepository(pool, fmRepo, hrmRepo, crmRepo, wmRepo, rt.pdfgen, rt.storageService.Media, docsService)
 	return dm.NewHandlers(dmRepo, logsService)
 }

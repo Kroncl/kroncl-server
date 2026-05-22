@@ -46,6 +46,7 @@ var PermissionCriticality = map[string]CriticalityLevel{
 
 	// ========== HRM (2-9) ==========
 	PERMISSION_HRM:                  2, // базовый доступ к HRM
+	PERMISSION_HRM_REPORT:           7,
 	PERMISSION_HRM_EMPLOYEES:        3, // просмотр сотрудников
 	PERMISSION_HRM_EMPLOYEES_CREATE: 8, // создание сотрудника
 	PERMISSION_HRM_EMPLOYEES_UPDATE: 7, // обновление сотрудника
@@ -87,6 +88,7 @@ var PermissionCriticality = map[string]CriticalityLevel{
 
 	// ========== CRM (2-8) ==========
 	PERMISSION_CRM:                2,
+	PERMISSION_CRM_REPORT:         7,
 	PERMISSION_CRM_CLIENTS:        3,
 	PERMISSION_CRM_CLIENTS_CREATE: 8,
 	PERMISSION_CRM_CLIENTS_UPDATE: 7,
@@ -97,6 +99,7 @@ var PermissionCriticality = map[string]CriticalityLevel{
 
 	// ========== WM (2-8) ==========
 	PERMISSION_WM:                           2,
+	PERMISSION_WM_REPORT:                    7,
 	PERMISSION_WM_CATALOG:                   2,
 	PERMISSION_WM_CATALOG_CATEGORIES:        2,
 	PERMISSION_WM_CATALOG_CATEGORIES_CREATE: 8,
@@ -121,6 +124,7 @@ var PermissionCriticality = map[string]CriticalityLevel{
 	PERMISSION_DM_STATUSES_UPDATE:            5,
 	PERMISSION_DM_STATUSES_DELETE:            6,
 	PERMISSION_DM_DEALS:                      2,
+	PERMISSION_DM_DEALS_INVOICE:              7,
 	PERMISSION_DM_DEALS_CREATE:               8,
 	PERMISSION_DM_DEALS_UPDATE:               7,
 	PERMISSION_DM_DEALS_DELETE:               9,

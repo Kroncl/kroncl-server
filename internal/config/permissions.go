@@ -26,6 +26,7 @@ const (
 	PERMISSION_ACCOUNTS_INVITATIONS_CREATE       = "accounts.invitations.create"
 	PERMISSION_ACCOUNTS_INVITATIONS_REVOKE       = "accounts.invitations.revoke"
 	PERMISSION_HRM                               = "hrm"
+	PERMISSION_HRM_REPORT                        = "hrm.report"
 	PERMISSION_HRM_EMPLOYEES                     = "hrm.employees"
 	PERMISSION_HRM_EMPLOYEES_CREATE              = "hrm.employees.create"
 	PERMISSION_HRM_EMPLOYEES_UPDATE              = "hrm.employees.update"
@@ -53,6 +54,7 @@ const (
 	PERMISSION_FM_CREDITS_TRANSACTIONS           = "fm.credits.transactions"
 	PERMISSION_FM_CREDITS_PAY                    = "fm.credits.pay"
 	PERMISSION_CRM                               = "crm"
+	PERMISSION_CRM_REPORT                        = "crm.report"
 	PERMISSION_CRM_CLIENTS                       = "crm.clients"
 	PERMISSION_CRM_CLIENTS_CREATE                = "crm.clients.create"
 	PERMISSION_CRM_CLIENTS_UPDATE                = "crm.clients.update"
@@ -61,6 +63,7 @@ const (
 	PERMISSION_CRM_SOURCES_UPDATE                = "crm.sources.update"
 	PERMISSION_CRM_ANALYSIS                      = "crm.analysis"
 	PERMISSION_WM                                = "wm"
+	PERMISSION_WM_REPORT                         = "wm.report"
 	PERMISSION_WM_CATALOG                        = "wm.catalog"
 	PERMISSION_WM_CATALOG_CATEGORIES             = "wm.catalog.categories"
 	PERMISSION_WM_CATALOG_CATEGORIES_CREATE      = "wm.catalog.categories.create"
@@ -83,6 +86,7 @@ const (
 	PERMISSION_DM_STATUSES_UPDATE                = "dm.statuses.update"
 	PERMISSION_DM_STATUSES_DELETE                = "dm.statuses.delete"
 	PERMISSION_DM_DEALS                          = "dm.deals"
+	PERMISSION_DM_DEALS_INVOICE                  = "dm.deals.invoice"
 	PERMISSION_DM_DEALS_CREATE                   = "dm.deals.create"
 	PERMISSION_DM_DEALS_UPDATE                   = "dm.deals.update"
 	PERMISSION_DM_DEALS_DELETE                   = "dm.deals.delete"
@@ -124,6 +128,7 @@ func GetAllPermissions() []string {
 		PERMISSION_ACCOUNTS_SETTINGS,
 		PERMISSION_ACCOUNTS_SETTINGS_UPDATE,
 		PERMISSION_HRM,
+		PERMISSION_HRM_REPORT,
 		PERMISSION_HRM_EMPLOYEES,
 		PERMISSION_HRM_EMPLOYEES_CREATE,
 		PERMISSION_HRM_EMPLOYEES_UPDATE,
@@ -151,6 +156,7 @@ func GetAllPermissions() []string {
 		PERMISSION_FM_CREDITS_TRANSACTIONS,
 		PERMISSION_FM_CREDITS_PAY,
 		PERMISSION_CRM,
+		PERMISSION_CRM_REPORT,
 		PERMISSION_CRM_CLIENTS,
 		PERMISSION_CRM_CLIENTS_CREATE,
 		PERMISSION_CRM_CLIENTS_UPDATE,
@@ -159,6 +165,7 @@ func GetAllPermissions() []string {
 		PERMISSION_CRM_SOURCES_UPDATE,
 		PERMISSION_CRM_ANALYSIS,
 		PERMISSION_WM,
+		PERMISSION_WM_REPORT,
 		PERMISSION_WM_CATALOG,
 		PERMISSION_WM_CATALOG_CATEGORIES,
 		PERMISSION_WM_CATALOG_CATEGORIES_CREATE,
@@ -181,6 +188,7 @@ func GetAllPermissions() []string {
 		PERMISSION_DM_STATUSES_UPDATE,
 		PERMISSION_DM_STATUSES_DELETE,
 		PERMISSION_DM_DEALS,
+		PERMISSION_DM_DEALS_INVOICE,
 		PERMISSION_DM_DEALS_CREATE,
 		PERMISSION_DM_DEALS_UPDATE,
 		PERMISSION_DM_DEALS_DELETE,
