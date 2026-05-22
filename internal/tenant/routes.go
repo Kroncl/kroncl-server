@@ -122,6 +122,18 @@ func (rt *Routes) Register(r chi.Router, permDeps *permissioner.PermissionDeps) 
 				return h.GetDoc
 			}))
 		})
+
+		r.Route("/settings", func(r chi.Router) {
+			r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_DOCS_SETTINGS))
+
+			r.Get("/", rt.docs(func(h *docs.Handlers) http.HandlerFunc {
+				return h.GetSettings
+			}))
+			r.With(permissioner.RequirePermission(permDeps, config.PERMISSION_DOCS_SETTINGS_UPDATE)).
+				Patch("/", rt.docs(func(h *docs.Handlers) http.HandlerFunc {
+					return h.UpdateSettings
+				}))
+		})
 	})
 
 	// support tech actions

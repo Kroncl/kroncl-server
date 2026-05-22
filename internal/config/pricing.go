@@ -31,7 +31,9 @@ var PermissionLvl = map[string]int{
 	PERMISSION_STORAGE_MEDIA_UPLOAD: PRICING_PLAN_MAX_LVL,
 
 	// ========== DOCS ==========
-	PERMISSION_DOCS: PRICING_PLAN_MAX_LVL,
+	PERMISSION_DOCS:                 PRICING_PLAN_MAX_LVL,
+	PERMISSION_DOCS_SETTINGS:        PRICING_PLAN_MAX_LVL,
+	PERMISSION_DOCS_SETTINGS_UPDATE: PRICING_PLAN_MAX_LVL,
 
 	// ========== ACCOUNTS ==========
 	PERMISSION_ACCOUNTS:                    PRICING_PLAN_MAX_LVL,
@@ -147,6 +149,7 @@ func GetExpiredAllowedPermissions() map[string]bool {
 		PERMISSION_STORAGE_DB_SOURCES:          true,
 		PERMISSION_STORAGE_MEDIA:               true,
 		PERMISSION_DOCS:                        true,
+		PERMISSION_DOCS_SETTINGS:               true,
 		PERMISSION_LOGS:                        true,
 		PERMISSION_LOGS_ACTIVITY:               true,
 		PERMISSION_ACCOUNTS:                    true,
