@@ -46,6 +46,7 @@ var PermissionCriticality = map[string]CriticalityLevel{
 
 	// ========== HRM (2-9) ==========
 	PERMISSION_HRM:                  2, // базовый доступ к HRM
+	PERMISSION_HRM_REPORT:           7,
 	PERMISSION_HRM_EMPLOYEES:        3, // просмотр сотрудников
 	PERMISSION_HRM_EMPLOYEES_CREATE: 8, // создание сотрудника
 	PERMISSION_HRM_EMPLOYEES_UPDATE: 7, // обновление сотрудника
@@ -87,6 +88,7 @@ var PermissionCriticality = map[string]CriticalityLevel{
 
 	// ========== CRM (2-8) ==========
 	PERMISSION_CRM:                2,
+	PERMISSION_CRM_REPORT:         7,
 	PERMISSION_CRM_CLIENTS:        3,
 	PERMISSION_CRM_CLIENTS_CREATE: 8,
 	PERMISSION_CRM_CLIENTS_UPDATE: 7,

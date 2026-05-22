@@ -26,6 +26,7 @@ const (
 	PERMISSION_ACCOUNTS_INVITATIONS_CREATE       = "accounts.invitations.create"
 	PERMISSION_ACCOUNTS_INVITATIONS_REVOKE       = "accounts.invitations.revoke"
 	PERMISSION_HRM                               = "hrm"
+	PERMISSION_HRM_REPORT                        = "hrm.report"
 	PERMISSION_HRM_EMPLOYEES                     = "hrm.employees"
 	PERMISSION_HRM_EMPLOYEES_CREATE              = "hrm.employees.create"
 	PERMISSION_HRM_EMPLOYEES_UPDATE              = "hrm.employees.update"
@@ -53,6 +54,7 @@ const (
 	PERMISSION_FM_CREDITS_TRANSACTIONS           = "fm.credits.transactions"
 	PERMISSION_FM_CREDITS_PAY                    = "fm.credits.pay"
 	PERMISSION_CRM                               = "crm"
+	PERMISSION_CRM_REPORT                        = "crm.report"
 	PERMISSION_CRM_CLIENTS                       = "crm.clients"
 	PERMISSION_CRM_CLIENTS_CREATE                = "crm.clients.create"
 	PERMISSION_CRM_CLIENTS_UPDATE                = "crm.clients.update"
@@ -125,6 +127,7 @@ func GetAllPermissions() []string {
 		PERMISSION_ACCOUNTS_SETTINGS,
 		PERMISSION_ACCOUNTS_SETTINGS_UPDATE,
 		PERMISSION_HRM,
+		PERMISSION_HRM_REPORT,
 		PERMISSION_HRM_EMPLOYEES,
 		PERMISSION_HRM_EMPLOYEES_CREATE,
 		PERMISSION_HRM_EMPLOYEES_UPDATE,
@@ -152,6 +155,7 @@ func GetAllPermissions() []string {
 		PERMISSION_FM_CREDITS_TRANSACTIONS,
 		PERMISSION_FM_CREDITS_PAY,
 		PERMISSION_CRM,
+		PERMISSION_CRM_REPORT,
 		PERMISSION_CRM_CLIENTS,
 		PERMISSION_CRM_CLIENTS_CREATE,
 		PERMISSION_CRM_CLIENTS_UPDATE,

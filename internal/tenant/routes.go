@@ -163,6 +163,13 @@ func (rt *Routes) Register(r chi.Router, permDeps *permissioner.PermissionDeps) 
 	r.Route("/hrm", func(r chi.Router) {
 		r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_HRM))
 
+		// full-report
+		r.With(httprate.LimitByIP(config.RATE_LIMIT_FILES_GENERATED_PER_MINUTE, 1*time.Minute)).
+			With(permissioner.RequirePermission(permDeps, config.PERMISSION_HRM_REPORT)).
+			Post("/report", rt.hrm(func(h *hrm.Handlers) http.HandlerFunc {
+				return h.GenerateFullReport
+			}))
+
 		// employees
 		r.Route("/employees", func(r chi.Router) {
 			r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_HRM_EMPLOYEES))
@@ -400,6 +407,13 @@ func (rt *Routes) Register(r chi.Router, permDeps *permissioner.PermissionDeps) 
 	// CRM module
 	r.Route("/crm", func(r chi.Router) {
 		r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_CRM))
+
+		// full-report
+		r.With(httprate.LimitByIP(config.RATE_LIMIT_FILES_GENERATED_PER_MINUTE, 1*time.Minute)).
+			With(permissioner.RequirePermission(permDeps, config.PERMISSION_CRM_REPORT)).
+			Post("/report", rt.crm(func(h *crm.Handlers) http.HandlerFunc {
+				return h.GenerateFullReport
+			}))
 
 		// sources
 		r.Route("/sources", func(r chi.Router) {
