@@ -24,12 +24,12 @@ func (w *Worker) StartDbMetricsWorker() error {
 
 		stats, err := w.service.CollectMetrics(ctx)
 		if err != nil {
-			log.Printf("❌ Failed to collect metrics: %v", err)
+			log.Printf("❌ Failed to collect db metrics: %v", err)
 			return
 		}
 
 		if err := w.service.SaveMetricsSnapshot(ctx, stats); err != nil {
-			log.Printf("❌ Failed to save metrics: %v", err)
+			log.Printf("❌ Failed to save db metrics: %v", err)
 			metrics.SetDbWorkerLastSuccess(false)
 			return
 		}
@@ -37,7 +37,7 @@ func (w *Worker) StartDbMetricsWorker() error {
 		// кроем счётчик
 		metrics.SetDbWorkerLastSuccess(true)
 
-		log.Printf("📊 Metrics saved: size=%dMB, schemas=%d, companies=%d",
+		log.Printf("📊 DB Metrics saved: size=%dMB, schemas=%d, companies=%d",
 			stats.TotalDatabaseSizeMB, stats.TotalSchemasCount, stats.CompanySchemasCount)
 	})
 
@@ -46,6 +46,6 @@ func (w *Worker) StartDbMetricsWorker() error {
 	}
 
 	w.cron.Start()
-	log.Printf("✅ Metrics worker started with interval: %s", w.interval)
+	log.Printf("✅ DB Metrics worker started with interval: %s", w.interval)
 	return nil
 }

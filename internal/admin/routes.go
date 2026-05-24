@@ -7,6 +7,7 @@ import (
 	admincompanies "kroncl-server/internal/admin/companies"
 	admindb "kroncl-server/internal/admin/db"
 	adminhealth "kroncl-server/internal/admin/health"
+	adminmedia "kroncl-server/internal/admin/media"
 	adminpartners "kroncl-server/internal/admin/partners"
 	adminpricing "kroncl-server/internal/admin/pricing"
 	adminserver "kroncl-server/internal/admin/server"
@@ -31,6 +32,7 @@ type Deps struct {
 	AdminPartnersHandlers  *adminpartners.Handlers
 	AdminServerHandlers    *adminserver.Handlers
 	AdminPricingHandlers   *adminpricing.Handlers
+	AdminMediaHandlers     *adminmedia.Handlers
 }
 
 func NewRoutes(deps Deps) chi.Router {
@@ -84,6 +86,22 @@ func NewRoutes(deps Deps) chi.Router {
 			r.Get("/sys", deps.AdminServerHandlers.GetServerStats)
 			r.Get("/history", deps.AdminServerHandlers.GetServerHistory)
 		})
+
+		// object-storage [media]
+		// r.Route("/media", func(r chi.Router) {
+		// 	r.Use(deps.AdminAuthService.RequireAdminLevel(config.ADMIN_LEVEL_1))
+
+		// 	r.Get("/sys", deps.AdminMediaHandlers.GetSystemStats)
+		// 	r.Get("/history", deps.AdminMediaHandlers.GetMetricsHistory)
+
+		// 	r.Route("/backets", func(r chi.Router) {
+		// 		r.Get("/", deps.AdminMediaHandlers.GetBackets)
+
+		// 		r.Route("/{backetId}", func(r chi.Router) {
+		// 			r.Get("/sys", deps.AdminMediaHandlers.GetBacket)
+		// 		})
+		// 	})
+		// })
 
 		// accounts-base
 		r.Route("/accounts", func(r chi.Router) {
@@ -166,9 +184,9 @@ func NewRoutes(deps Deps) chi.Router {
 
 		// pricing
 		r.Route("/pricing", func(r chi.Router) {
-			r.Use(deps.AdminAuthService.RequireAdminLevel(config.ADMIN_LEVEL_4))
-
 			r.Route("/promocodes", func(r chi.Router) {
+				r.Use(deps.AdminAuthService.RequireAdminLevel(config.ADMIN_LEVEL_4))
+
 				r.Get("/", deps.AdminPricingHandlers.GetPromocodes)
 				r.Post("/", deps.AdminPricingHandlers.CreatePromocode)
 
@@ -178,6 +196,17 @@ func NewRoutes(deps Deps) chi.Router {
 					r.Delete("/", deps.AdminPricingHandlers.DeletePromocode)
 				})
 			})
+
+			// r.Route("/tariffs", func(r chi.Router) {
+
+			// 	r.Use(deps.AdminAuthService.RequireAdminLevel(config.ADMIN_LEVEL_5))
+			// 	r.Get("/", deps.AdminPricingHandlers.GetTariffs)
+
+			// 	r.Route("/{tariffCode}", func(r chi.Router) {
+			// 		r.Get("/", deps.AdminPricingHandlers.GetTariff)
+			// 		r.Patch("/", deps.AdminPricingHandlers.UpdateTariff)
+			// 	})
+			// })
 		})
 	})
 

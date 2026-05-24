@@ -50,6 +50,9 @@ func (a *Application) Run() error {
 	if err := a.container.CoreServerMetricsWorker.StartServerMetricsWorker(); err != nil {
 		return fmt.Errorf("failed to start server metrics worker: %w", err)
 	}
+	if err := a.container.CoreMediaMetricsWorker.StartMediaMetricsWorker(); err != nil {
+		return fmt.Errorf("failed to start media metrics worker")
+	}
 
 	serverErrors := make(chan error, 1)
 	signals := make(chan os.Signal, 1)
@@ -88,6 +91,9 @@ func (a *Application) shutdown() error {
 	}
 	if a.container.CoreServerMetricsWorker != nil {
 		a.container.CoreServerMetricsWorker.Stop()
+	}
+	if a.container.CoreMediaMetricsWorker != nil {
+		a.container.CoreMediaMetricsWorker.Stop()
 	}
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)

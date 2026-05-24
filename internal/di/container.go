@@ -10,6 +10,7 @@ import (
 	adminclientele "kroncl-server/internal/admin/clientele"
 	admincompanies "kroncl-server/internal/admin/companies"
 	admindb "kroncl-server/internal/admin/db"
+	adminmedia "kroncl-server/internal/admin/media"
 	adminpartners "kroncl-server/internal/admin/partners"
 	adminpricing "kroncl-server/internal/admin/pricing"
 	adminserver "kroncl-server/internal/admin/server"
@@ -100,6 +101,8 @@ type Container struct {
 	AdminServerHandlers    *adminserver.Handlers
 	AdminPricingService    *adminpricing.Service
 	AdminPricingHandlers   *adminpricing.Handlers
+	AdminMediaService      *adminmedia.Service
+	AdminMediaHandlers     *adminmedia.Handlers
 	AdminRoutes            chi.Router
 
 	// workers
@@ -107,6 +110,7 @@ type Container struct {
 	CoreDbMetricsWorker        *coreworkers.Worker
 	CoreClienteleMetricsWorker *coreworkers.Worker
 	CoreServerMetricsWorker    *coreworkers.Worker
+	CoreMediaMetricsWorker     *coreworkers.Worker
 
 	// core-status
 	CoreStatusService  *corestatus.Service
@@ -284,10 +288,11 @@ func (c *Container) initServices(ctx context.Context) error {
 	// ---------
 	// WORKERS
 	// ---------
-	c.CoreWorkersService = coreworkers.NewService(c.DB, c.PricingService, c.CompaniesService, c.AccountsService)
+	c.CoreWorkersService = coreworkers.NewService(c.DB, c.PricingService, c.CompaniesService, c.AccountsService, c.StorageMediaService)
 	c.CoreDbMetricsWorker = coreworkers.NewDbWorker(c.CoreWorkersService, config.WORKER_METRICS_DB_PERIOD_CRON)
 	c.CoreClienteleMetricsWorker = coreworkers.NewClienteleWorker(c.CoreWorkersService, config.WORKER_METRICS_CLIENTELE_PERIOD_CRON)
 	c.CoreServerMetricsWorker = coreworkers.NewServerWorker(c.CoreWorkersService, config.WORKER_METRICS_SERVER_PERIOD_CRON)
+	c.CoreMediaMetricsWorker = coreworkers.NewMediaWorker(c.CoreWorkersService, config.WORKER_METRICS_MEDIA_PERIOD_CRON)
 
 	// ----------
 	// ADMIN
@@ -309,6 +314,8 @@ func (c *Container) initServices(ctx context.Context) error {
 	c.AdminServerHandlers = adminserver.NewHandlers(c.AdminServerService)
 	c.AdminPricingService = adminpricing.NewService(c.DB, c.PricingService)
 	c.AdminPricingHandlers = adminpricing.NewHandlers(c.AdminPricingService)
+	c.AdminMediaService = adminmedia.NewService(c.DB, c.CoreWorkersService, c.StorageMediaService)
+	c.AdminMediaHandlers = adminmedia.NewHandlers(c.AdminMediaService)
 
 	// -----------
 	// CORE-STATUS
@@ -344,6 +351,7 @@ func (c *Container) initAdminRoutes() error {
 		AdminPartnersHandlers:  c.AdminPartnersHandlers,
 		AdminServerHandlers:    c.AdminServerHandlers,
 		AdminPricingHandlers:   c.AdminPricingHandlers,
+		AdminMediaHandlers:     c.AdminMediaHandlers,
 	})
 	return nil
 }
