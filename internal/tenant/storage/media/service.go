@@ -75,9 +75,52 @@ func (s *Service) runProvisioningWorker(bucketName string) {
 	log.Printf("✅ Bucket %s created successfully", bucketName)
 }
 
+// исправлено:
+// перед дропом бакета очищаем содержимое
 func (s *Service) DeleteTenantBucket(ctx context.Context, tenantID string) error {
 	bucketName := fmt.Sprintf("tenant-%s", tenantID)
-	return s.client.RemoveBucket(ctx, bucketName)
+
+	exists, err := s.client.BucketExists(ctx, bucketName)
+	if err != nil {
+		return fmt.Errorf("failed to check bucket existence: %w", err)
+	}
+	if !exists {
+		return nil
+	}
+
+	objectsCh := make(chan minio.ObjectInfo)
+
+	go func() {
+		defer close(objectsCh)
+
+		opts := minio.ListObjectsOptions{
+			Recursive: true,
+		}
+
+		for obj := range s.client.ListObjects(ctx, bucketName, opts) {
+			if obj.Err != nil {
+				log.Printf("failed to list object in bucket %s: %v", bucketName, obj.Err)
+				continue
+			}
+			objectsCh <- obj
+		}
+	}()
+
+	removeOpts := minio.RemoveObjectsOptions{
+		GovernanceBypass: false,
+	}
+
+	for err := range s.client.RemoveObjects(ctx, bucketName, objectsCh, removeOpts) {
+		if err.Err != nil {
+			return fmt.Errorf("failed to remove object %s: %w", err.ObjectName, err.Err)
+		}
+	}
+
+	if err := s.client.RemoveBucket(ctx, bucketName); err != nil {
+		return fmt.Errorf("failed to remove bucket: %w", err)
+	}
+
+	return nil
 }
 
 func (s *Service) GetBucketStatus(ctx context.Context, tenantID string) (*BucketStatusResponse, error) {
