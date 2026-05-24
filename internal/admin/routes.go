@@ -197,16 +197,22 @@ func NewRoutes(deps Deps) chi.Router {
 				})
 			})
 
-			// r.Route("/tariffs", func(r chi.Router) {
+			r.Route("/plans", func(r chi.Router) {
+				r.Use(deps.AdminAuthService.RequireAdminLevel(config.ADMIN_LEVEL_5))
+				r.Get("/", deps.AdminPricingHandlers.GetPlans)
 
-			// 	r.Use(deps.AdminAuthService.RequireAdminLevel(config.ADMIN_LEVEL_5))
-			// 	r.Get("/", deps.AdminPricingHandlers.GetTariffs)
+				r.Route("/{planCode}", func(r chi.Router) {
+					r.Get("/", deps.AdminPricingHandlers.GetPlan)
 
-			// 	r.Route("/{tariffCode}", func(r chi.Router) {
-			// 		r.Get("/", deps.AdminPricingHandlers.GetTariff)
-			// 		r.Patch("/", deps.AdminPricingHandlers.UpdateTariff)
-			// 	})
-			// })
+					// критичные действия [max level + keyword]
+					r.Group(func(r chi.Router) {
+						r.Use(deps.AdminAuthService.RequireAdminLevel(config.ADMIN_LEVEL_MAX))
+						r.Use(deps.AdminAuthService.RequireAdminKeyword)
+
+						r.Patch("/", deps.AdminPricingHandlers.UpdatePlan)
+					})
+				})
+			})
 		})
 	})
 
