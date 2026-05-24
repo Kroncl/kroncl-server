@@ -88,20 +88,20 @@ func NewRoutes(deps Deps) chi.Router {
 		})
 
 		// object-storage [media]
-		// r.Route("/media", func(r chi.Router) {
-		// 	r.Use(deps.AdminAuthService.RequireAdminLevel(config.ADMIN_LEVEL_1))
+		r.Route("/media", func(r chi.Router) {
+			r.Use(deps.AdminAuthService.RequireAdminLevel(config.ADMIN_LEVEL_1))
 
-		// 	r.Get("/sys", deps.AdminMediaHandlers.GetSystemStats)
-		// 	r.Get("/history", deps.AdminMediaHandlers.GetMetricsHistory)
+			r.Get("/sys", deps.AdminMediaHandlers.GetSystemStats)
+			r.Get("/history", deps.AdminMediaHandlers.GetMetricsHistory)
 
-		// 	r.Route("/backets", func(r chi.Router) {
-		// 		r.Get("/", deps.AdminMediaHandlers.GetBackets)
+			r.Route("/buckets", func(r chi.Router) {
+				r.Get("/", deps.AdminMediaHandlers.GetBuckets)
 
-		// 		r.Route("/{backetId}", func(r chi.Router) {
-		// 			r.Get("/sys", deps.AdminMediaHandlers.GetBacket)
-		// 		})
-		// 	})
-		// })
+				r.Route("/{bucketId}", func(r chi.Router) {
+					r.Get("/sys", deps.AdminMediaHandlers.GetBucket)
+				})
+			})
+		})
 
 		// accounts-base
 		r.Route("/accounts", func(r chi.Router) {
