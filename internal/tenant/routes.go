@@ -4,6 +4,7 @@ import (
 	"kroncl-server/internal/accounts"
 	"kroncl-server/internal/companies"
 	"kroncl-server/internal/config"
+	"kroncl-server/internal/mailer"
 	"kroncl-server/internal/permissioner"
 	"kroncl-server/internal/tenant/crm"
 	"kroncl-server/internal/tenant/dm"
@@ -29,6 +30,7 @@ type Routes struct {
 	accountsService  *accounts.Service
 	companiesService *companies.Service
 	pdfgen           *pdfgen.Service
+	mailer           *mailer.Service
 }
 
 func NewRoutes(
@@ -37,6 +39,7 @@ func NewRoutes(
 	accountsService *accounts.Service,
 	companiesService *companies.Service,
 	pdfgen *pdfgen.Service,
+	mailer *mailer.Service,
 ) *Routes {
 	return &Routes{
 		publicPool:       publicPool,
@@ -44,6 +47,7 @@ func NewRoutes(
 		accountsService:  accountsService,
 		companiesService: companiesService,
 		pdfgen:           pdfgen,
+		mailer:           mailer,
 	}
 }
 

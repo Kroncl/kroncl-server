@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"kroncl-server/internal/config"
+	"kroncl-server/internal/mailer"
 	"time"
 
 	"github.com/google/uuid"
@@ -12,10 +13,16 @@ import (
 
 // CreateTicket создаёт новый тикет с первым сообщением
 func (s *Service) CreateTicket(ctx context.Context, companyID, accountID string, req *CreateTicketRequest) (*Ticket, error) {
-	// Проверяем, что компания существует
-	_, err := s.companiesService.GetCompanyByID(ctx, companyID)
+	// Получаем компанию
+	company, err := s.companiesService.GetCompanyByID(ctx, companyID)
 	if err != nil {
 		return nil, fmt.Errorf("company not found: %w", err)
+	}
+
+	// Получаем аккаунт инициатора
+	account, err := s.accountsService.GetPublicByID(ctx, accountID)
+	if err != nil {
+		return nil, fmt.Errorf("account not found: %w", err)
 	}
 
 	// Проверяем количество активных тикетов
@@ -94,12 +101,33 @@ func (s *Service) CreateTicket(ctx context.Context, companyID, accountID string,
 		return nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
+	// Асинхронно отправляем уведомление админам
+	go func() {
+		level := config.ADMIN_LEVEL_4
+		adminEmails, err := s.accountsService.GetAdminEmails(context.Background(), &level)
+		if err != nil {
+			fmt.Printf("❌ Failed to get admin emails: %v\n", err)
+			return
+		}
+
+		if len(adminEmails) == 0 {
+			fmt.Printf("⚠️ No admin emails found for ticket notification\n")
+			return
+		}
+
+		// Отправляем письмо
+		s.mailer.SendAdminSupportNewMessage(context.Background(), &mailer.AdminSupportMessageData{
+			AdminEmails:  adminEmails,
+			Message:      req.Text,
+			CompanyName:  company.Name,
+			AccountName:  account.Name,
+			AccountEmail: account.Email,
+			TicketID:     ticketID,
+		})
+	}()
+
 	// Загружаем инициатора
-	initiator, err := s.accountsService.GetPublicByID(ctx, ticket.InitiatorID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get initiator: %w", err)
-	}
-	ticket.Initiator = *initiator
+	ticket.Initiator = *account
 
 	// Загружаем последнее сообщение
 	lastMessage, err := s.getLastMessage(ctx, ticket.ID)

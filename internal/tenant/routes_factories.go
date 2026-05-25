@@ -16,7 +16,7 @@ import (
 
 // Support tickets factory
 func createSupportHandlers(pool *pgxpool.Pool, logsService *logs.Service, rt *Routes) *support.Handlers {
-	supportService := support.NewService(pool, rt.accountsService, rt.companiesService)
+	supportService := support.NewService(pool, rt.accountsService, rt.companiesService, rt.mailer)
 	return support.NewHandlers(supportService, logsService)
 }
 

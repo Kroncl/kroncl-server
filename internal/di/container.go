@@ -306,7 +306,7 @@ func (c *Container) initServices(ctx context.Context) error {
 	c.AdminClienteleHandlers = adminclientele.NewHandlers(c.AdminClienteleService)
 	c.AdminCompaniesService = admincompanies.NewService(c.DB, c.CompaniesService, c.StorageService)
 	c.AdminCompaniesHandlers = admincompanies.NewHandlers(c.AdminCompaniesService)
-	c.AdminSupportService = adminsupport.NewService(c.DB, c.CompaniesService, c.AccountsService)
+	c.AdminSupportService = adminsupport.NewService(c.DB, c.CompaniesService, c.AccountsService, c.Mailer)
 	c.AdminSupportHandlers = adminsupport.NewHandlers(c.AdminSupportService)
 	c.AdminPartnersService = adminpartners.NewService(c.DB, c.PublicService)
 	c.AdminPartnersHandlers = adminpartners.NewHandlers(c.AdminPartnersService)
@@ -334,6 +334,7 @@ func (c *Container) initTenantRoutes() error {
 		c.AccountsService,
 		c.CompaniesService,
 		c.Pdfgen,
+		c.Mailer,
 	)
 	return nil
 }
