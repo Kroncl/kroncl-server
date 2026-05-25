@@ -16,6 +16,7 @@ import (
 	adminserver "kroncl-server/internal/admin/server"
 	adminsupport "kroncl-server/internal/admin/support"
 	"kroncl-server/internal/auth"
+	"kroncl-server/internal/billing"
 	"kroncl-server/internal/companies"
 	"kroncl-server/internal/config"
 	corestatus "kroncl-server/internal/core/status"
@@ -41,29 +42,29 @@ import (
 )
 
 type Container struct {
-	Config *config.Config
-	DB     *pgxpool.Pool
-
-	// Сервисы
+	// system-core
+	Config            *config.Config
+	DB                *pgxpool.Pool
 	JWTService        *auth.JWTService
-	AccountsService   *accounts.Service
-	CompaniesService  *companies.Service
-	PricingService    *pricing.Service
 	PermissionService *permissioner.Service
 	Migrator          *migrator.Migrator
 	Mailer            *mailer.Service
+	MediaRepo         *media.Repository
+	MediaService      *media.Service
+	MediaHandlers     *media.Handlers
+	Pdfgen            *pdfgen.Service // pdfgen (gotenberg)
+
+	// business-core
+	AccountsService   *accounts.Service
+	CompaniesService  *companies.Service
+	PricingService    *pricing.Service
 	PublicService     *public.Service
-
-	// Media [паблик бакет]
-	MediaRepo     *media.Repository
-	MediaService  *media.Service
-	MediaHandlers *media.Handlers
-
-	// Хэндлеры
+	BillingService    *billing.Service
 	AccountsHandlers  *accounts.Handlers
 	CompaniesHandlers *companies.Handlers
 	PricingHandlers   *pricing.Handlers
 	PublicHandlers    *public.Handlers
+	BillingHandlers   *billing.Handlers
 
 	// tenant storage ctrl [db + media]
 	StorageService       *storage.Service
@@ -72,9 +73,6 @@ type Container struct {
 	StorageDbHandlers    *storagedb.Handlers
 	StorageMediaService  *storagemedia.Service
 	StorageMediaHandlers *storagemedia.Handlers
-
-	// pdfgen (gotenberg)
-	Pdfgen *pdfgen.Service
 
 	// мидлварь зависимости
 	PermissionDeps *permissioner.PermissionDeps
@@ -231,8 +229,9 @@ func (c *Container) initServices(ctx context.Context) error {
 	// APP
 	// ------------
 
-	// Pricing Service
+	// Pricing+billing Service
 	c.PricingService = pricing.NewService(c.DB)
+	c.BillingService = billing.NewService(c.DB)
 
 	// Mailer Service
 	c.Mailer = mailer.NewService(&c.Config.MailSender)
@@ -284,6 +283,7 @@ func (c *Container) initServices(ctx context.Context) error {
 	c.StorageDbHandlers = storagedb.NewHandlers(c.StorageDbService)
 	c.PricingHandlers = pricing.NewHandlers(c.PricingService)
 	c.PublicHandlers = public.NewHandlers(c.PublicService)
+	c.BillingHandlers = billing.NewHandlers(c.BillingService)
 
 	// ---------
 	// WORKERS
