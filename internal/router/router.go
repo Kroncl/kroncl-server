@@ -184,16 +184,14 @@ func New(cfg *config.Config, container *di.Container) chi.Router {
 					r.Route("/pricing", func(r chi.Router) {
 						r.Get("/", container.CompaniesHandlers.GetCompanyPricingPlan) // текущий план+остаток
 
-						r.Group(func(r chi.Router) {
-							r.Use(billing.BillingRequired)
+						r.With(permissioner.RequirePermission(container.PermissionDeps, config.PERMISSION_PRICING_TRANSACTIONS)).
+							Get("/transactions", container.CompaniesHandlers.GetCompanyPricingTransactions) // получение операций
+						r.With(permissioner.RequirePermission(container.PermissionDeps, config.PERMISSION_PRICING_MIGRATE)).
+							Post("/transactions/{transactionId}/revoke", container.CompaniesHandlers.RevokePricingTransaction) // отмена транзакции
 
-							r.With(permissioner.RequirePermission(container.PermissionDeps, config.PERMISSION_PRICING_MIGRATE)).
-								Post("/migrate", container.CompaniesHandlers.MigratePricingPlan) // смена плана
-							r.With(permissioner.RequirePermission(container.PermissionDeps, config.PERMISSION_PRICING_TRANSACTIONS)).
-								Get("/transactions", container.CompaniesHandlers.GetCompanyPricingTransactions) // получение операций
-							r.With(permissioner.RequirePermission(container.PermissionDeps, config.PERMISSION_PRICING_MIGRATE)).
-								Post("/transactions/{transactionId}/revoke", container.CompaniesHandlers.RevokePricingTransaction) // отмена транзакции
-						})
+						r.With(billing.BillingRequired).
+							With(permissioner.RequirePermission(container.PermissionDeps, config.PERMISSION_PRICING_MIGRATE)).
+							Post("/migrate", container.CompaniesHandlers.MigratePricingPlan) // смена плана
 					})
 
 					// Company basics
