@@ -21,9 +21,10 @@ const (
 type ComponentType string
 
 const (
-	ComponentAll     ComponentType = "all"
-	ComponentServer  ComponentType = "server"
-	ComponentStorage ComponentType = "storage"
+	ComponentAll    ComponentType = "all"
+	ComponentServer ComponentType = "server"
+	ComponentDb     ComponentType = "db"
+	ComponentMedia  ComponentType = "media"
 )
 
 type ComponentStatus struct {

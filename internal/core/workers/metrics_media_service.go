@@ -140,3 +140,74 @@ func (s *Service) SaveMediaMetricsSnapshot(ctx context.Context, stats *MetricsMe
 
 	return nil
 }
+
+func (s *Service) GetMediaMetricsHistory(ctx context.Context, startDate, endDate *time.Time, limit int) ([]MetricsMediaSnapshot, error) {
+	query := `
+        SELECT 
+            recorded_at, total_buckets, total_objects, total_size_mb,
+            public_bucket_objects, public_bucket_size_mb,
+            temp_bucket_objects, temp_bucket_size_mb,
+            tenant_buckets_count, tenant_total_objects, tenant_total_size_mb,
+            avg_tenant_objects, avg_tenant_size_mb,
+            largest_bucket_name, largest_bucket_objects, largest_bucket_size_mb
+        FROM metrics_media_history
+        WHERE 1=1
+    `
+
+	args := []interface{}{}
+	argCounter := 1
+
+	if startDate != nil {
+		query += fmt.Sprintf(" AND recorded_at >= $%d", argCounter)
+		args = append(args, *startDate)
+		argCounter++
+	}
+
+	if endDate != nil {
+		query += fmt.Sprintf(" AND recorded_at <= $%d", argCounter)
+		args = append(args, *endDate)
+		argCounter++
+	}
+
+	query += " ORDER BY recorded_at DESC"
+
+	if limit > 0 {
+		query += fmt.Sprintf(" LIMIT $%d", argCounter)
+		args = append(args, limit)
+	}
+
+	rows, err := s.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get media metrics history: %w", err)
+	}
+	defer rows.Close()
+
+	var metrics []MetricsMediaSnapshot
+	for rows.Next() {
+		var m MetricsMediaSnapshot
+		err := rows.Scan(
+			&m.RecordedAt,
+			&m.TotalBuckets,
+			&m.TotalObjects,
+			&m.TotalSizeMB,
+			&m.PublicBucketObjects,
+			&m.PublicBucketSizeMB,
+			&m.TempBucketObjects,
+			&m.TempBucketSizeMB,
+			&m.TenantBucketsCount,
+			&m.TenantTotalObjects,
+			&m.TenantTotalSizeMB,
+			&m.AvgTenantObjects,
+			&m.AvgTenantSizeMB,
+			&m.LargestBucketName,
+			&m.LargestBucketObjects,
+			&m.LargestBucketSizeMB,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan media metric: %w", err)
+		}
+		metrics = append(metrics, m)
+	}
+
+	return metrics, nil
+}

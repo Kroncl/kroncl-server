@@ -23,13 +23,20 @@ func (s *Service) GetComponentStatus(ctx context.Context, compType ComponentType
 		return nil, fmt.Errorf("failed to get db metrics: %w", err)
 	}
 
+	mediaMetrics, err := s.coreWorkers.GetMediaMetricsHistory(ctx, &startDate, &endDate, 10000)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get media metrics: %w", err)
+	}
+
 	// определяем инциденты
 	serverIncidents := s.detectServerIncidents(serverMetrics)
 	dbIncidents := s.detectDBIncidents(dbMetrics)
+	mediaIncidents := s.detectMediaIncidents(mediaMetrics)
 
 	// группируем по дням
 	serverIncidentsByDay := s.groupIncidentsByDay(serverIncidents)
 	dbIncidentsByDay := s.groupIncidentsByDay(dbIncidents)
+	mediaIncidentsByDay := s.groupIncidentsByDay(mediaIncidents)
 
 	// строим статусы по дням
 	var dailyStatuses []DailyStatus
@@ -42,13 +49,18 @@ func (s *Service) GetComponentStatus(ctx context.Context, compType ComponentType
 
 		switch compType {
 		case ComponentAll:
-			incidents = append(serverIncidentsByDay[dayStr], dbIncidentsByDay[dayStr]...)
-			status = s.calculateOverallStatus(serverIncidentsByDay[dayStr], dbIncidentsByDay[dayStr])
+			allIncidents := append(serverIncidentsByDay[dayStr], dbIncidentsByDay[dayStr]...)
+			allIncidents = append(allIncidents, mediaIncidentsByDay[dayStr]...)
+			incidents = allIncidents
+			status = s.calculateStatusFromIncidents(incidents)
 		case ComponentServer:
 			incidents = serverIncidentsByDay[dayStr]
 			status = s.calculateStatusFromIncidents(incidents)
-		case ComponentStorage:
+		case ComponentDb:
 			incidents = dbIncidentsByDay[dayStr]
+			status = s.calculateStatusFromIncidents(incidents)
+		case ComponentMedia:
+			incidents = mediaIncidentsByDay[dayStr]
 			status = s.calculateStatusFromIncidents(incidents)
 		}
 
@@ -74,7 +86,12 @@ func (s *Service) GetFullSystemStatus(ctx context.Context, days int) (*SystemSta
 		return nil, err
 	}
 
-	storageDaily, err := s.GetComponentStatus(ctx, ComponentStorage, days)
+	dbDaily, err := s.GetComponentStatus(ctx, ComponentDb, days)
+	if err != nil {
+		return nil, err
+	}
+
+	mediaDaily, err := s.GetComponentStatus(ctx, ComponentMedia, days)
 	if err != nil {
 		return nil, err
 	}
@@ -100,12 +117,14 @@ func (s *Service) GetFullSystemStatus(ctx context.Context, days int) (*SystemSta
 		Daily:           allDaily,
 		ActiveIncidents: activeIncidents,
 		Components: map[ComponentType][]DailyStatus{
-			ComponentAll:     allDaily,
-			ComponentServer:  serverDaily,
-			ComponentStorage: storageDaily,
+			ComponentAll:    allDaily,
+			ComponentServer: serverDaily,
+			ComponentDb:     dbDaily,
+			ComponentMedia:  mediaDaily,
 		},
 	}, nil
 }
+
 func (s *Service) groupIncidentsByDay(incidents []Incident) map[string][]Incident {
 	result := make(map[string][]Incident)
 	for _, inc := range incidents {
@@ -365,6 +384,83 @@ func (s *Service) detectDBIncidents(metrics []coreworkers.MetricsDBSnapshot) []I
 			})
 		}
 	}
+	return s.mergeAdjacentIncidents(incidents, 5*time.Minute)
+}
+
+func (s *Service) detectMediaIncidents(metrics []coreworkers.MetricsMediaSnapshot) []Incident {
+	var incidents []Incident
+
+	for i := 1; i < len(metrics); i++ {
+		current := metrics[i]
+		previous := metrics[i-1]
+
+		// Объекты: резкий рост за час
+		objectsGrowth := current.TotalObjects - previous.TotalObjects
+		if objectsGrowth > config.STATUS_MEDIA_OBJECTS_GROWTH_THRESHOLD {
+			severity := SeverityMinor
+			if objectsGrowth > config.STATUS_MEDIA_OBJECTS_GROWTH_CRITICAL {
+				severity = SeverityMajor
+			}
+			incidents = append(incidents, Incident{
+				ID:          fmt.Sprintf("media-objects-growth-%d", current.RecordedAt.Unix()),
+				StartTime:   current.RecordedAt,
+				Severity:    severity,
+				Title:       "Резкий рост количества объектов в хранилище",
+				Description: fmt.Sprintf("За час добавлено %d объектов", objectsGrowth),
+				MetricsType: "media",
+			})
+		}
+
+		// Размер: резкий рост за час
+		sizeGrowth := current.TotalSizeMB - previous.TotalSizeMB
+		if sizeGrowth > config.STATUS_MEDIA_SIZE_GROWTH_THRESHOLD {
+			severity := SeverityMinor
+			if sizeGrowth > config.STATUS_MEDIA_SIZE_GROWTH_CRITICAL {
+				severity = SeverityMajor
+			}
+			incidents = append(incidents, Incident{
+				ID:          fmt.Sprintf("media-size-growth-%d", current.RecordedAt.Unix()),
+				StartTime:   current.RecordedAt,
+				Severity:    severity,
+				Title:       "Резкий рост объёма хранилища",
+				Description: fmt.Sprintf("За час добавлено %d MB", sizeGrowth),
+				MetricsType: "media",
+			})
+		}
+
+		// Среднее количество объектов на тенант
+		if current.AvgTenantObjects > float64(config.STATUS_MEDIA_TENANT_OBJECTS_THRESHOLD) {
+			severity := SeverityMinor
+			if current.AvgTenantObjects > float64(config.STATUS_MEDIA_TENANT_OBJECTS_CRITICAL) {
+				severity = SeverityMajor
+			}
+			incidents = append(incidents, Incident{
+				ID:          fmt.Sprintf("media-tenant-objects-%d", current.RecordedAt.Unix()),
+				StartTime:   current.RecordedAt,
+				Severity:    severity,
+				Title:       "Превышение среднего количества объектов на тенанта",
+				Description: fmt.Sprintf("Среднее: %.1f объектов на тенант", current.AvgTenantObjects),
+				MetricsType: "media",
+			})
+		}
+
+		// Средний размер на тенант
+		if current.AvgTenantSizeMB > float64(config.STATUS_MEDIA_TENANT_SIZE_THRESHOLD) {
+			severity := SeverityMinor
+			if current.AvgTenantSizeMB > float64(config.STATUS_MEDIA_TENANT_SIZE_CRITICAL) {
+				severity = SeverityMajor
+			}
+			incidents = append(incidents, Incident{
+				ID:          fmt.Sprintf("media-tenant-size-%d", current.RecordedAt.Unix()),
+				StartTime:   current.RecordedAt,
+				Severity:    severity,
+				Title:       "Превышение среднего объёма на тенанта",
+				Description: fmt.Sprintf("Средний объём: %.1f MB на тенант", current.AvgTenantSizeMB),
+				MetricsType: "media",
+			})
+		}
+	}
+
 	return s.mergeAdjacentIncidents(incidents, 5*time.Minute)
 }
 
