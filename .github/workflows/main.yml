@@ -31,8 +31,13 @@ jobs:
             cat > /opt/kroncl/.env << 'EOF'
             # production / development
             ENV=production
-            BASE_DOMAIN=kroncl.com
-            CLIENT_DOMAIN=kroncl-client.vercel.app
+            BASE_DOMAIN=${{ secrets.BASE_DOMAIN }}
+            CLIENT_DOMAIN=${{ secrets.CLIENT_DOMAIN }}
+            FIRST_ADMIN_EMAIL=${{ secrets.FIRST_ADMIN_EMAIL }}
+            ADMIN_KEYWORD=${{ secrets.ADMIN_KEYWORD }}
+
+            # Billing
+            BILLING_MODE=${{ secrets.BILLING_MODE }}
 
             # Api
             HOST=0.0.0.0
@@ -66,12 +71,16 @@ jobs:
             MINIO_ENDPOINT=minio:9000
             MINIO_USE_SSL=false
             MINIO_PUBLIC_BUCKET=public
-            MINIO_EXTERNAL_HOST=localhost:9000
+            MINIO_EXTERNAL_HOST=${{ secrets.MINIO_EXTERNAL_HOST }}
 
             # Unisender Go
             UNISENDER_GO_API_URL=https://goapi.unisender.ru/ru/transactional/api/v1
             UNISENDER_GO_API_KEY=${{ secrets.UNISENDER_GO_API_KEY }}
             UNISENDER_GO_NOTIFY_DOMAIN=notify@kroncl.com
+
+            # Gotenberg
+            GOTENBERG_ENDPOINT=http://gotenberg:3000
+            GOTENBERG_TEMPLATES_PATH=./templates
             EOF
 
             chmod 600 /opt/kroncl/.env
