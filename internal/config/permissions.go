@@ -14,6 +14,8 @@ const (
 	PERMISSION_STORAGE_MEDIA                     = "storage.media"
 	PERMISSION_STORAGE_MEDIA_UPLOAD              = "storage.media.upload"
 	PERMISSION_DOCS                              = "docs"
+	PERMISSION_DOCS_SETTINGS                     = "docs.settings"
+	PERMISSION_DOCS_SETTINGS_UPDATE              = "docs.settings.update"
 	PERMISSION_LOGS                              = "logs"
 	PERMISSION_LOGS_CLEAR                        = "logs.clear"
 	PERMISSION_LOGS_OPTIMIZE                     = "logs.optimize"
@@ -116,6 +118,8 @@ func GetAllPermissions() []string {
 		PERMISSION_STORAGE_MEDIA,
 		PERMISSION_STORAGE_MEDIA_UPLOAD,
 		PERMISSION_DOCS,
+		PERMISSION_DOCS_SETTINGS,
+		PERMISSION_DOCS_SETTINGS_UPDATE,
 		PERMISSION_LOGS,
 		PERMISSION_LOGS_CLEAR,
 		PERMISSION_LOGS_OPTIMIZE,
@@ -212,6 +216,7 @@ func GetGuestPermissions() map[string]bool {
 		PERMISSION_STORAGE_DB_SOURCES:     true,
 		PERMISSION_STORAGE_MEDIA:          true,
 		PERMISSION_DOCS:                   true,
+		PERMISSION_DOCS_SETTINGS:          true,
 		PERMISSION_LOGS:                   true,
 		PERMISSION_LOGS_ACTIVITY:          true,
 		PERMISSION_ACCOUNTS:               true,

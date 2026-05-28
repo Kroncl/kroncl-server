@@ -33,7 +33,9 @@ var PermissionCriticality = map[string]CriticalityLevel{
 	PERMISSION_STORAGE_MEDIA_UPLOAD: 5,
 
 	// ========== DOCS (1-3) ==========
-	PERMISSION_DOCS: 3,
+	PERMISSION_DOCS:                 3,
+	PERMISSION_DOCS_SETTINGS:        3,
+	PERMISSION_DOCS_SETTINGS_UPDATE: 9,
 
 	// ========== ACCOUNTS (1-10) ==========
 	PERMISSION_ACCOUNTS:                    2,  // базовый доступ к аккаунтам

@@ -44,6 +44,7 @@ var (
 var (
 	dbWorkerLastSuccess        int32 = 1
 	clienteleWorkerLastSuccess int32 = 1
+	mediaWorkerLastSuccess     int32 = 1
 )
 
 func SetDbWorkerLastSuccess(success bool) {
@@ -68,6 +69,18 @@ func SetClienteleWorkerLastSuccess(success bool) {
 
 func GetClienteleWorkerLastSuccess() bool {
 	return atomic.LoadInt32(&clienteleWorkerLastSuccess) == 1
+}
+
+func SetMediaWorkerLastSuccess(success bool) {
+	if success {
+		atomic.StoreInt32(&mediaWorkerLastSuccess, 1)
+	} else {
+		atomic.StoreInt32(&mediaWorkerLastSuccess, 0)
+	}
+}
+
+func GetMediaWorkerLastSuccess() bool {
+	return atomic.LoadInt32(&mediaWorkerLastSuccess) == 1
 }
 
 var (

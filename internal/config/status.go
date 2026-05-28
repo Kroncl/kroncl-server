@@ -38,4 +38,14 @@ const (
 
 	STATUS_DB_TUPLE_RATE_THRESHOLD = 50000  // tuples/sec, превышение -> minor
 	STATUS_DB_TUPLE_RATE_CRITICAL  = 100000 // tuples/sec, превышение -> major
+
+	// media-limits (объектное хранилище)
+	STATUS_MEDIA_OBJECTS_GROWTH_THRESHOLD = 1000   // объектов за час, превышение -> minor
+	STATUS_MEDIA_OBJECTS_GROWTH_CRITICAL  = 5000   // объектов за час, превышение -> major
+	STATUS_MEDIA_SIZE_GROWTH_THRESHOLD    = 1024   // MB за час, превышение -> minor
+	STATUS_MEDIA_SIZE_GROWTH_CRITICAL     = 5120   // MB за час, превышение -> major
+	STATUS_MEDIA_TENANT_OBJECTS_THRESHOLD = 50000  // объектов на тенант, превышение -> minor
+	STATUS_MEDIA_TENANT_OBJECTS_CRITICAL  = 200000 // объектов на тенант, превышение -> major
+	STATUS_MEDIA_TENANT_SIZE_THRESHOLD    = 10240  // MB на тенант, превышение -> minor
+	STATUS_MEDIA_TENANT_SIZE_CRITICAL     = 51200  // MB на тенант, превышение -> major
 )

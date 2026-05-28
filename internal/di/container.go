@@ -10,11 +10,13 @@ import (
 	adminclientele "kroncl-server/internal/admin/clientele"
 	admincompanies "kroncl-server/internal/admin/companies"
 	admindb "kroncl-server/internal/admin/db"
+	adminmedia "kroncl-server/internal/admin/media"
 	adminpartners "kroncl-server/internal/admin/partners"
 	adminpricing "kroncl-server/internal/admin/pricing"
 	adminserver "kroncl-server/internal/admin/server"
 	adminsupport "kroncl-server/internal/admin/support"
 	"kroncl-server/internal/auth"
+	"kroncl-server/internal/billing"
 	"kroncl-server/internal/companies"
 	"kroncl-server/internal/config"
 	corestatus "kroncl-server/internal/core/status"
@@ -40,29 +42,29 @@ import (
 )
 
 type Container struct {
-	Config *config.Config
-	DB     *pgxpool.Pool
-
-	// Сервисы
+	// system-core
+	Config            *config.Config
+	DB                *pgxpool.Pool
 	JWTService        *auth.JWTService
-	AccountsService   *accounts.Service
-	CompaniesService  *companies.Service
-	PricingService    *pricing.Service
 	PermissionService *permissioner.Service
 	Migrator          *migrator.Migrator
 	Mailer            *mailer.Service
+	MediaRepo         *media.Repository
+	MediaService      *media.Service
+	MediaHandlers     *media.Handlers
+	Pdfgen            *pdfgen.Service // pdfgen (gotenberg)
+
+	// business-core
+	AccountsService   *accounts.Service
+	CompaniesService  *companies.Service
+	PricingService    *pricing.Service
 	PublicService     *public.Service
-
-	// Media [паблик бакет]
-	MediaRepo     *media.Repository
-	MediaService  *media.Service
-	MediaHandlers *media.Handlers
-
-	// Хэндлеры
+	BillingService    *billing.Service
 	AccountsHandlers  *accounts.Handlers
 	CompaniesHandlers *companies.Handlers
 	PricingHandlers   *pricing.Handlers
 	PublicHandlers    *public.Handlers
+	BillingHandlers   *billing.Handlers
 
 	// tenant storage ctrl [db + media]
 	StorageService       *storage.Service
@@ -71,9 +73,6 @@ type Container struct {
 	StorageDbHandlers    *storagedb.Handlers
 	StorageMediaService  *storagemedia.Service
 	StorageMediaHandlers *storagemedia.Handlers
-
-	// pdfgen (gotenberg)
-	Pdfgen *pdfgen.Service
 
 	// мидлварь зависимости
 	PermissionDeps *permissioner.PermissionDeps
@@ -100,6 +99,8 @@ type Container struct {
 	AdminServerHandlers    *adminserver.Handlers
 	AdminPricingService    *adminpricing.Service
 	AdminPricingHandlers   *adminpricing.Handlers
+	AdminMediaService      *adminmedia.Service
+	AdminMediaHandlers     *adminmedia.Handlers
 	AdminRoutes            chi.Router
 
 	// workers
@@ -107,6 +108,7 @@ type Container struct {
 	CoreDbMetricsWorker        *coreworkers.Worker
 	CoreClienteleMetricsWorker *coreworkers.Worker
 	CoreServerMetricsWorker    *coreworkers.Worker
+	CoreMediaMetricsWorker     *coreworkers.Worker
 
 	// core-status
 	CoreStatusService  *corestatus.Service
@@ -227,8 +229,9 @@ func (c *Container) initServices(ctx context.Context) error {
 	// APP
 	// ------------
 
-	// Pricing Service
+	// Pricing+billing Service
 	c.PricingService = pricing.NewService(c.DB)
+	c.BillingService = billing.NewService(c.DB)
 
 	// Mailer Service
 	c.Mailer = mailer.NewService(&c.Config.MailSender)
@@ -280,14 +283,16 @@ func (c *Container) initServices(ctx context.Context) error {
 	c.StorageDbHandlers = storagedb.NewHandlers(c.StorageDbService)
 	c.PricingHandlers = pricing.NewHandlers(c.PricingService)
 	c.PublicHandlers = public.NewHandlers(c.PublicService)
+	c.BillingHandlers = billing.NewHandlers(c.BillingService)
 
 	// ---------
 	// WORKERS
 	// ---------
-	c.CoreWorkersService = coreworkers.NewService(c.DB, c.PricingService, c.CompaniesService, c.AccountsService)
+	c.CoreWorkersService = coreworkers.NewService(c.DB, c.PricingService, c.CompaniesService, c.AccountsService, c.StorageMediaService)
 	c.CoreDbMetricsWorker = coreworkers.NewDbWorker(c.CoreWorkersService, config.WORKER_METRICS_DB_PERIOD_CRON)
 	c.CoreClienteleMetricsWorker = coreworkers.NewClienteleWorker(c.CoreWorkersService, config.WORKER_METRICS_CLIENTELE_PERIOD_CRON)
 	c.CoreServerMetricsWorker = coreworkers.NewServerWorker(c.CoreWorkersService, config.WORKER_METRICS_SERVER_PERIOD_CRON)
+	c.CoreMediaMetricsWorker = coreworkers.NewMediaWorker(c.CoreWorkersService, config.WORKER_METRICS_MEDIA_PERIOD_CRON)
 
 	// ----------
 	// ADMIN
@@ -301,7 +306,7 @@ func (c *Container) initServices(ctx context.Context) error {
 	c.AdminClienteleHandlers = adminclientele.NewHandlers(c.AdminClienteleService)
 	c.AdminCompaniesService = admincompanies.NewService(c.DB, c.CompaniesService, c.StorageService)
 	c.AdminCompaniesHandlers = admincompanies.NewHandlers(c.AdminCompaniesService)
-	c.AdminSupportService = adminsupport.NewService(c.DB, c.CompaniesService, c.AccountsService)
+	c.AdminSupportService = adminsupport.NewService(c.DB, c.CompaniesService, c.AccountsService, c.Mailer)
 	c.AdminSupportHandlers = adminsupport.NewHandlers(c.AdminSupportService)
 	c.AdminPartnersService = adminpartners.NewService(c.DB, c.PublicService)
 	c.AdminPartnersHandlers = adminpartners.NewHandlers(c.AdminPartnersService)
@@ -309,6 +314,8 @@ func (c *Container) initServices(ctx context.Context) error {
 	c.AdminServerHandlers = adminserver.NewHandlers(c.AdminServerService)
 	c.AdminPricingService = adminpricing.NewService(c.DB, c.PricingService)
 	c.AdminPricingHandlers = adminpricing.NewHandlers(c.AdminPricingService)
+	c.AdminMediaService = adminmedia.NewService(c.DB, c.CoreWorkersService, c.StorageMediaService)
+	c.AdminMediaHandlers = adminmedia.NewHandlers(c.AdminMediaService)
 
 	// -----------
 	// CORE-STATUS
@@ -327,6 +334,7 @@ func (c *Container) initTenantRoutes() error {
 		c.AccountsService,
 		c.CompaniesService,
 		c.Pdfgen,
+		c.Mailer,
 	)
 	return nil
 }
@@ -344,6 +352,7 @@ func (c *Container) initAdminRoutes() error {
 		AdminPartnersHandlers:  c.AdminPartnersHandlers,
 		AdminServerHandlers:    c.AdminServerHandlers,
 		AdminPricingHandlers:   c.AdminPricingHandlers,
+		AdminMediaHandlers:     c.AdminMediaHandlers,
 	})
 	return nil
 }

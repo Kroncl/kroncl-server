@@ -49,6 +49,7 @@ services:
       CLIENT_DOMAIN: localhost:3000
       FIRST_ADMIN_EMAIL: ${FIRST_ADMIN_EMAIL}
       ADMIN_KEYWORD: ${ADMIN_KEYWORD}
+      BILLING_MODE: ${BILLING_MODE:-on}
       HOST: 0.0.0.0
       DB_HOST: ${DB_HOST}
       DB_PORT: ${DB_PORT}

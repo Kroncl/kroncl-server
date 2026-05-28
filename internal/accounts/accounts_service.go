@@ -302,3 +302,45 @@ func scanAccountPublic(row pgx.Row) (*AccountPublic, error) {
 	}
 	return &account, nil
 }
+
+// GetAdminEmails возвращает почты администраторов с опциональным минимальным уровнем
+func (s *Service) GetAdminEmails(ctx context.Context, requiredLevel *int) ([]string, error) {
+	query := `
+		SELECT a.email
+		FROM accounts a
+		INNER JOIN admins ad ON a.id = ad.account_id
+		WHERE a.status = 'confirmed'
+	`
+
+	args := []interface{}{}
+	argCounter := 1
+
+	if requiredLevel != nil {
+		query += fmt.Sprintf(" AND ad.level >= $%d", argCounter)
+		args = append(args, *requiredLevel)
+		argCounter++
+	}
+
+	query += " ORDER BY a.email ASC"
+
+	rows, err := s.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get admin emails: %w", err)
+	}
+	defer rows.Close()
+
+	var emails []string
+	for rows.Next() {
+		var email string
+		if err := rows.Scan(&email); err != nil {
+			return nil, fmt.Errorf("failed to scan admin email: %w", err)
+		}
+		emails = append(emails, email)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration error: %w", err)
+	}
+
+	return emails, nil
+}

@@ -4,6 +4,7 @@ import (
 	"kroncl-server/internal/accounts"
 	"kroncl-server/internal/companies"
 	"kroncl-server/internal/config"
+	"kroncl-server/internal/mailer"
 	"kroncl-server/internal/permissioner"
 	"kroncl-server/internal/tenant/crm"
 	"kroncl-server/internal/tenant/dm"
@@ -29,6 +30,7 @@ type Routes struct {
 	accountsService  *accounts.Service
 	companiesService *companies.Service
 	pdfgen           *pdfgen.Service
+	mailer           *mailer.Service
 }
 
 func NewRoutes(
@@ -37,6 +39,7 @@ func NewRoutes(
 	accountsService *accounts.Service,
 	companiesService *companies.Service,
 	pdfgen *pdfgen.Service,
+	mailer *mailer.Service,
 ) *Routes {
 	return &Routes{
 		publicPool:       publicPool,
@@ -44,6 +47,7 @@ func NewRoutes(
 		accountsService:  accountsService,
 		companiesService: companiesService,
 		pdfgen:           pdfgen,
+		mailer:           mailer,
 	}
 }
 
@@ -121,6 +125,18 @@ func (rt *Routes) Register(r chi.Router, permDeps *permissioner.PermissionDeps) 
 			r.Get("/", rt.docs(func(h *docs.Handlers) http.HandlerFunc {
 				return h.GetDoc
 			}))
+		})
+
+		r.Route("/settings", func(r chi.Router) {
+			r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_DOCS_SETTINGS))
+
+			r.Get("/", rt.docs(func(h *docs.Handlers) http.HandlerFunc {
+				return h.GetSettings
+			}))
+			r.With(permissioner.RequirePermission(permDeps, config.PERMISSION_DOCS_SETTINGS_UPDATE)).
+				Patch("/", rt.docs(func(h *docs.Handlers) http.HandlerFunc {
+					return h.UpdateSettings
+				}))
 		})
 	})
 

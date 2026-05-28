@@ -3,6 +3,7 @@ package adminsupport
 import (
 	"context"
 	"fmt"
+	"kroncl-server/internal/mailer"
 	"kroncl-server/internal/tenant/support"
 	"time"
 
@@ -103,6 +104,27 @@ func (s *Service) CreateAdminMessage(ctx context.Context, ticketID, adminID, tex
 		return nil, fmt.Errorf("cannot add message to closed or revoked ticket")
 	}
 
+	// Получаем информацию о тикете и компании
+	var companyID string
+	var initiatorID string
+	ticketQuery := `SELECT company_id, initiator_id FROM support_tickets WHERE id = $1`
+	err = s.pool.QueryRow(ctx, ticketQuery, ticketID).Scan(&companyID, &initiatorID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get ticket info: %w", err)
+	}
+
+	// Получаем компанию
+	_, err = s.companiesService.GetCompanyByID(ctx, companyID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get company: %w", err)
+	}
+
+	// Получаем аккаунт инициатора (клиента)
+	initiatorAccount, err := s.accountsService.GetPublicByID(ctx, initiatorID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get initiator account: %w", err)
+	}
+
 	// Создаём сообщение
 	messageID := uuid.New().String()
 	now := time.Now()
@@ -137,7 +159,7 @@ func (s *Service) CreateAdminMessage(ctx context.Context, ticketID, adminID, tex
 		return nil, fmt.Errorf("failed to create message: %w", err)
 	}
 
-	// Загружаем аккаунт
+	// Загружаем аккаунт админа
 	account, err := s.accountsService.GetPublicByID(ctx, msg.AccountID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get account: %w", err)
@@ -151,6 +173,16 @@ func (s *Service) CreateAdminMessage(ctx context.Context, ticketID, adminID, tex
 		// не критично, логируем
 		fmt.Printf("failed to update ticket updated_at: %v\n", err)
 	}
+
+	// Асинхронно отправляем уведомление клиенту
+	go func() {
+		s.mailer.SendSupportAnswer(context.Background(), &mailer.ClientSupportMessageData{
+			ClientEmail: initiatorAccount.Email,
+			ClientName:  initiatorAccount.Name,
+			Message:     text,
+			TicketID:    ticketID,
+		})
+	}()
 
 	return &msg, nil
 }

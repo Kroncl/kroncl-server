@@ -1,6 +1,7 @@
 package router
 
 import (
+	"kroncl-server/internal/billing"
 	"kroncl-server/internal/companies"
 	"kroncl-server/internal/config"
 	"kroncl-server/internal/core"
@@ -53,6 +54,7 @@ func New(cfg *config.Config, container *di.Container) chi.Router {
 			r.Use(httprate.LimitByIP(config.RATE_LIMIT_PUBLIC_ROUTES_PER_MINUTE, 1*time.Minute))
 
 			r.Get("/", container.CoreStatusHandlers.GetSystemStatus)
+			r.Get("/billing", container.BillingHandlers.GetBillingMode)
 		})
 
 		// Public routes
@@ -181,12 +183,15 @@ func New(cfg *config.Config, container *di.Container) chi.Router {
 					// Company pricing
 					r.Route("/pricing", func(r chi.Router) {
 						r.Get("/", container.CompaniesHandlers.GetCompanyPricingPlan) // текущий план+остаток
-						r.With(permissioner.RequirePermission(container.PermissionDeps, config.PERMISSION_PRICING_MIGRATE)).
-							Post("/migrate", container.CompaniesHandlers.MigratePricingPlan) // смена плана
+
 						r.With(permissioner.RequirePermission(container.PermissionDeps, config.PERMISSION_PRICING_TRANSACTIONS)).
 							Get("/transactions", container.CompaniesHandlers.GetCompanyPricingTransactions) // получение операций
 						r.With(permissioner.RequirePermission(container.PermissionDeps, config.PERMISSION_PRICING_MIGRATE)).
 							Post("/transactions/{transactionId}/revoke", container.CompaniesHandlers.RevokePricingTransaction) // отмена транзакции
+
+						r.With(billing.BillingRequired).
+							With(permissioner.RequirePermission(container.PermissionDeps, config.PERMISSION_PRICING_MIGRATE)).
+							Post("/migrate", container.CompaniesHandlers.MigratePricingPlan) // смена плана
 					})
 
 					// Company basics

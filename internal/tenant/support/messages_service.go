@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"kroncl-server/internal/config"
+	"kroncl-server/internal/mailer"
 	"strings"
 	"time"
 
@@ -81,6 +82,48 @@ func (s *Service) CreateMessage(ctx context.Context, ticketID, accountID, text s
 		return nil, fmt.Errorf("failed to get account: %w", err)
 	}
 	msg.Account = *account
+
+	// Асинхронно отправляем уведомление админам
+	go func() {
+		// Получаем тикет
+		var companyID string
+		getCompanyQuery := `SELECT company_id FROM support_tickets WHERE id = $1`
+		err := s.pool.QueryRow(context.Background(), getCompanyQuery, ticketID).Scan(&companyID)
+		if err != nil {
+			fmt.Printf("❌ Failed to get company for message %s: %v\n", messageID, err)
+			return
+		}
+
+		// Получаем компанию
+		company, err := s.companiesService.GetCompanyByID(context.Background(), companyID)
+		if err != nil {
+			fmt.Printf("❌ Failed to get company for message %s: %v\n", messageID, err)
+			return
+		}
+
+		// Получаем почты всех админов
+		level := config.ADMIN_LEVEL_4
+		adminEmails, err := s.accountsService.GetAdminEmails(context.Background(), &level)
+		if err != nil {
+			fmt.Printf("❌ Failed to get admin emails for message %s: %v\n", messageID, err)
+			return
+		}
+
+		if len(adminEmails) == 0 {
+			fmt.Printf("⚠️ No admin emails found for message %s\n", messageID)
+			return
+		}
+
+		// Отправляем письмо
+		s.mailer.SendAdminSupportNewMessage(context.Background(), &mailer.AdminSupportMessageData{
+			AdminEmails:  adminEmails,
+			Message:      text,
+			CompanyName:  company.Name,
+			AccountName:  account.Name,
+			AccountEmail: account.Email,
+			TicketID:     ticketID,
+		})
+	}()
 
 	return &msg, nil
 }
