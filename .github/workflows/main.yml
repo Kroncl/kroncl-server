@@ -18,6 +18,24 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
+      - name: Check server
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            echo "=== 1. Кто мы и где мы? ==="
+            whoami
+            pwd
+            echo "=== 2. Ищем файл docker-compose.yml ==="
+            find / -name "docker-compose.yml" 2>/dev/null | head -5
+            echo "=== 3. Все контейнеры ==="
+            docker ps -a
+            echo "=== 4. Папка /opt/kroncl и ее владелец ==="
+            ls -ld /opt/kroncl || echo "Папка /opt/kroncl не найдена!"
+            ls -la /opt/kroncl/ || echo "Папка пуста или недоступна"
+
       - name: Copy files via scp
         uses: appleboy/scp-action@v0.1.7
         with:
