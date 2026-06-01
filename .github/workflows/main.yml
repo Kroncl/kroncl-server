@@ -12,29 +12,30 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Log in to Docker Hub
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache: true
+
+      - name: Build Go binary for Linux
+        run: |
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o main cmd/api/main.go
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o migrate cmd/migrate/main.go
+
+      - name: Build Docker image
+        run: |
+          docker build -f Dockerfile.runtime -t kroncl-api:latest .
+
+      - name: Save Docker image to file
+        run: |
+          docker save kroncl-api:latest | gzip > kroncl-api.tar.gz
+
+      - name: Log in to Docker Hub (опционально)
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
-
-      - name: Check server
-        uses: appleboy/ssh-action@v1.2.2
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
-            echo "=== 1. Кто мы и где мы? ==="
-            whoami
-            pwd
-            echo "=== 2. Ищем файл docker-compose.yml ==="
-            find / -name "docker-compose.yml" 2>/dev/null | head -5
-            echo "=== 3. Все контейнеры ==="
-            docker ps -a
-            echo "=== 4. Папка /opt/kroncl и ее владелец ==="
-            ls -ld /opt/kroncl || echo "Папка /opt/kroncl не найдена!"
-            ls -la /opt/kroncl/ || echo "Папка пуста или недоступна"
 
       - name: Copy files via scp
         uses: appleboy/scp-action@v0.1.7
@@ -45,18 +46,16 @@ jobs:
           source: "."
           target: "/opt/kroncl"
 
-      - name: Check if files copied successfully
-        uses: appleboy/ssh-action@v1.2.2
+      - name: Copy Docker image to server
+        uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
-            ls -la /opt/kroncl || echo "Directory /opt/kroncl not found"
-            pwd
-            whoami
+          source: "kroncl-api.tar.gz"
+          target: "/opt/kroncl/"
 
-      - name: Create .env file on server
+      - name: Create .env file and deploy
         uses: appleboy/ssh-action@v1.2.2
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -120,14 +119,8 @@ jobs:
 
             chmod 600 /opt/kroncl/.env
 
-      - name: Deploy with Docker Compose
-        uses: appleboy/ssh-action@v1.2.2
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
             cd /opt/kroncl
-            docker compose pull
-            docker compose up -d --build
+            docker load < kroncl-api.tar.gz
+            docker compose up -d
             docker image prune -f
+            rm kroncl-api.tar.gz

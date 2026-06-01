@@ -1,0 +1,19 @@
+# Финальный образ — только для запуска
+FROM alpine:latest
+
+WORKDIR /app
+
+# Копируем готовый бинарник (уже собран на GitHub)
+COPY main .
+COPY migrate .
+
+# Копируем статику
+COPY migrations ./migrations
+COPY templates ./templates
+COPY docker-entrypoint.sh .
+
+RUN chmod +x docker-entrypoint.sh
+
+EXPOSE 8080
+
+ENTRYPOINT ["./docker-entrypoint.sh"]
