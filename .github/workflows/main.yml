@@ -118,3 +118,9 @@ jobs:
             EOF
 
             chmod 600 /opt/kroncl/.env
+
+            cd /opt/kroncl
+            docker load < kroncl-api.tar.gz
+            docker compose up -d
+            docker image prune -f
+            rm kroncl-api.tar.gz
