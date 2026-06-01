@@ -39,9 +39,7 @@ services:
       - pgadmin_data:/var/lib/pgadmin
 
   api:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: kroncl-api:latest
     container_name: kroncl-api
     expose:
       - "8080"
