@@ -120,7 +120,21 @@ jobs:
             chmod 600 /opt/kroncl/.env
 
             cd /opt/kroncl
+
+            # Останавливаем старые контейнеры
+            docker compose down
+
+            # Удаляем старый образ API
+            docker rmi kroncl-api:latest 2>/dev/null || true
+
+            # Загружаем новый
             docker load < kroncl-api.tar.gz
+
+            # Запускаем всё заново
             docker compose up -d
-            docker image prune -f
+
+            # Чистим мусор (старые образы, кэш)
+            docker system prune -f
+
+            # Удаляем архив
             rm kroncl-api.tar.gz
