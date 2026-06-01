@@ -61,6 +61,8 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          timeout: 30m
+          command_timeout: 30m
           script: |
             cat > /opt/kroncl/.env << 'EOF'
             # production / development
@@ -131,10 +133,10 @@ jobs:
             docker load < kroncl-api.tar.gz
 
             # Запускаем всё заново
-            docker compose up -d
-
-            # Чистим мусор (старые образы, кэш)
-            docker system prune -f
+            docker compose up -d --force-recreate
 
             # Удаляем архив
             rm kroncl-api.tar.gz
+
+            # Чистим мусор
+            docker image prune -f
