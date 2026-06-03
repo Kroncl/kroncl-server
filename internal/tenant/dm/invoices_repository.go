@@ -10,26 +10,38 @@ import (
 	"kroncl-server/internal/tenant/pdfgen"
 )
 
-// GenerateDealInvoice генерирует накладную для сделки
-func (r *Repository) GenerateDealInvoice(ctx context.Context, dealID string, comment *string) (*docs.Doc, error) {
-	deal, err := r.GetDealWithDetails(ctx, dealID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get deal: %w", err)
+func (r *Repository) GenerateDealInvoice(ctx context.Context, req GenerateInvoiceRequest) (*docs.Doc, error) {
+	// Валидация
+	if len(req.Positions) == 0 {
+		return nil, fmt.Errorf("at least one position is required")
 	}
 
-	// Подсчитываем общую сумму
-	var totalAmount float64
-	for _, pos := range deal.Positions {
-		totalAmount += pos.Price * pos.Quantity
+	if req.TotalAmount <= 0 {
+		return nil, fmt.Errorf("total_amount must be greater than 0")
 	}
 
-	// Передаём данные вместе с суммой
-	invoiceData := struct {
-		*DealWithPositions
-		TotalAmount float64
-	}{
-		DealWithPositions: deal,
-		TotalAmount:       totalAmount,
+	if req.DealID != "" {
+		exists, err := r.DealExists(ctx, req.DealID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to check deal existence: %w", err)
+		}
+		if !exists {
+			return nil, fmt.Errorf("deal not found: %s", req.DealID)
+		}
+	}
+
+	invoiceData := InvoiceData{
+		DealID:          req.DealID,
+		LegalName:       req.LegalName,
+		Inn:             req.Inn,
+		Ogrn:            req.Ogrn,
+		BankName:        req.BankName,
+		WarrantyTerms:   req.WarrantyTerms,
+		AdditionalTerms: req.AdditionalTerms,
+		Positions:       req.Positions,
+		TotalAmount:     req.TotalAmount,
+		CreatedAt:       time.Now(),
+		Comment:         req.Comment,
 	}
 
 	pdfBuf, err := r.pdfgen.GenerateFromTemplate(ctx, pdfgen.GenerateFromTemplateRequest{
@@ -43,14 +55,16 @@ func (r *Repository) GenerateDealInvoice(ctx context.Context, dealID string, com
 		return nil, fmt.Errorf("failed to generate PDF: %w", err)
 	}
 
-	// Сохраняем PDF в MinIO
-	objectPath := fmt.Sprintf("invoices/kroncl_deal_%s_%s.pdf", dealID, time.Now().Format("20060102_150405"))
+	objectPath := fmt.Sprintf("invoices/kroncl_deal_%s_%s.pdf", req.DealID, time.Now().Format("20060102_150405"))
+	if req.DealID == "" {
+		objectPath = fmt.Sprintf("invoices/kroncl_invoice_%s.pdf", time.Now().Format("20060102_150405"))
+	}
+
 	err = r.mediaService.UploadBufferToBucket(ctx, objectPath, pdfBuf, "application/pdf")
 	if err != nil {
 		return nil, fmt.Errorf("failed to upload invoice: %w", err)
 	}
 
-	// Сохраняем запись в docs
 	module := "dm"
 	docType := "invoice"
 
@@ -58,7 +72,7 @@ func (r *Repository) GenerateDealInvoice(ctx context.Context, dealID string, com
 		ObjectPath: objectPath,
 		Module:     &module,
 		Type:       &docType,
-		Comment:    comment,
+		Comment:    req.Comment,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to save document: %w", err)
