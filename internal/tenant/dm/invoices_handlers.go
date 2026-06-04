@@ -1,6 +1,7 @@
 package dm
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
@@ -23,33 +24,51 @@ func (h *Handlers) GenerateDealInvoice(w http.ResponseWriter, r *http.Request) {
 			logs.WithStatus(logs.LogStatusError),
 			logs.WithUserAgent(r.UserAgent()),
 			logs.WithMetadata("error", "Deal ID is required"),
+			logs.WithMetadata("path", r.URL.Path),
 		)
-		core.SendError(w, http.StatusBadRequest, "Deal ID is required")
+		core.SendError(w, http.StatusBadRequest, "Deal ID is required.")
 		return
 	}
 
-	// var req struct {
-	// 	Comment *string `json:"comment,omitempty"`
-	// }
-
-	// Парсим тело запроса (опционально)
-	if r.Body != http.NoBody {
-		// можно распарсить, если нужно
+	var req GenerateInvoiceRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.logsService.Log(r.Context(), config.PERMISSION_DM_DEALS_INVOICE, accountID,
+			logs.WithStatus(logs.LogStatusError),
+			logs.WithUserAgent(r.UserAgent()),
+			logs.WithMetadata("error", "Invalid request body"),
+		)
+		core.SendError(w, http.StatusBadRequest, "Invalid request body")
+		return
 	}
 
-	comment := r.URL.Query().Get("comment")
-	var commentPtr *string
-	if comment != "" {
-		commentPtr = &comment
+	// Валидация
+	if len(req.Positions) == 0 {
+		h.logsService.Log(r.Context(), config.PERMISSION_DM_DEALS_INVOICE, accountID,
+			logs.WithStatus(logs.LogStatusError),
+			logs.WithUserAgent(r.UserAgent()),
+			logs.WithMetadata("error", "At least one position is required"),
+		)
+		core.SendError(w, http.StatusBadRequest, "At least one position is required")
+		return
 	}
 
-	doc, err := h.repository.GenerateDealInvoice(r.Context(), dealID, commentPtr)
+	if req.TotalAmount <= 0 {
+		h.logsService.Log(r.Context(), config.PERMISSION_DM_DEALS_INVOICE, accountID,
+			logs.WithStatus(logs.LogStatusError),
+			logs.WithUserAgent(r.UserAgent()),
+			logs.WithMetadata("error", "Total amount must be greater than 0"),
+		)
+		core.SendError(w, http.StatusBadRequest, "Total amount must be greater than 0")
+		return
+	}
+
+	doc, err := h.repository.GenerateDealInvoice(r.Context(), dealID, req)
 	if err != nil {
 		h.logsService.Log(r.Context(), config.PERMISSION_DM_DEALS_INVOICE, accountID,
 			logs.WithStatus(logs.LogStatusError),
 			logs.WithUserAgent(r.UserAgent()),
 			logs.WithMetadata("error", err.Error()),
-			logs.WithMetadata("deal_id", dealID),
+			logs.WithMetadata("deal_id", req.DealID),
 		)
 		core.SendInternalError(w, fmt.Sprintf("Failed to generate invoice: %s", err.Error()))
 		return
@@ -70,7 +89,7 @@ func (h *Handlers) GenerateDealInvoice(w http.ResponseWriter, r *http.Request) {
 		logs.WithStatus(logs.LogStatusSuccess),
 		logs.WithUserAgent(r.UserAgent()),
 		logs.WithMetadata("doc_id", doc.ID),
-		logs.WithMetadata("deal_id", dealID),
+		logs.WithMetadata("deal_id", req.DealID),
 	)
 
 	core.SendSuccess(w, map[string]interface{}{
