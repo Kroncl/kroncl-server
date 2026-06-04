@@ -10,7 +10,7 @@ import (
 	"kroncl-server/internal/tenant/pdfgen"
 )
 
-func (r *Repository) GenerateDealInvoice(ctx context.Context, req GenerateInvoiceRequest) (*docs.Doc, error) {
+func (r *Repository) GenerateDealInvoice(ctx context.Context, id string, req GenerateInvoiceRequest) (*docs.Doc, error) {
 	// Валидация
 	if len(req.Positions) == 0 {
 		return nil, fmt.Errorf("at least one position is required")
@@ -20,14 +20,12 @@ func (r *Repository) GenerateDealInvoice(ctx context.Context, req GenerateInvoic
 		return nil, fmt.Errorf("total_amount must be greater than 0")
 	}
 
-	if req.DealID != "" {
-		exists, err := r.DealExists(ctx, req.DealID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to check deal existence: %w", err)
-		}
-		if !exists {
-			return nil, fmt.Errorf("deal not found: %s", req.DealID)
-		}
+	exists, err := r.DealExists(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check deal existence: %w", err)
+	}
+	if !exists {
+		return nil, fmt.Errorf("deal not found: %s", id)
 	}
 
 	invoiceData := InvoiceData{
@@ -55,10 +53,7 @@ func (r *Repository) GenerateDealInvoice(ctx context.Context, req GenerateInvoic
 		return nil, fmt.Errorf("failed to generate PDF: %w", err)
 	}
 
-	objectPath := fmt.Sprintf("invoices/kroncl_deal_%s_%s.pdf", req.DealID, time.Now().Format("20060102_150405"))
-	if req.DealID == "" {
-		objectPath = fmt.Sprintf("invoices/kroncl_invoice_%s.pdf", time.Now().Format("20060102_150405"))
-	}
+	objectPath := fmt.Sprintf("invoices/kroncl_deal_%s_%s.pdf", id, time.Now().Format("20060102_150405"))
 
 	err = r.mediaService.UploadBufferToBucket(ctx, objectPath, pdfBuf, "application/pdf")
 	if err != nil {

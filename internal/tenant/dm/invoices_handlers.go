@@ -18,6 +18,18 @@ func (h *Handlers) GenerateDealInvoice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	dealID := r.PathValue("dealId")
+	if dealID == "" {
+		h.logsService.Log(r.Context(), config.PERMISSION_DM_DEALS_INVOICE, accountID,
+			logs.WithStatus(logs.LogStatusError),
+			logs.WithUserAgent(r.UserAgent()),
+			logs.WithMetadata("error", "Deal ID is required"),
+			logs.WithMetadata("path", r.URL.Path),
+		)
+		core.SendError(w, http.StatusBadRequest, "Deal ID is required.")
+		return
+	}
+
 	var req GenerateInvoiceRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.logsService.Log(r.Context(), config.PERMISSION_DM_DEALS_INVOICE, accountID,
@@ -50,7 +62,7 @@ func (h *Handlers) GenerateDealInvoice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	doc, err := h.repository.GenerateDealInvoice(r.Context(), req)
+	doc, err := h.repository.GenerateDealInvoice(r.Context(), dealID, req)
 	if err != nil {
 		h.logsService.Log(r.Context(), config.PERMISSION_DM_DEALS_INVOICE, accountID,
 			logs.WithStatus(logs.LogStatusError),
