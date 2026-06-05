@@ -745,6 +745,7 @@ func (rt *Routes) Register(r chi.Router, permDeps *permissioner.PermissionDeps) 
 						return h.DeleteDeal
 					}))
 
+				// fm
 				r.Route("/transactions", func(r chi.Router) {
 					r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_DM_DEALS_TRANSACTIONS))
 
@@ -762,6 +763,20 @@ func (rt *Routes) Register(r chi.Router, permDeps *permissioner.PermissionDeps) 
 							return h.GetDealTransactionsSummary
 						}))
 				})
+
+				// wm
+				// r.Route("/batches", func(r chi.Router) {
+				// 	r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_DM_DEALS_BATCHES))
+
+				// 	r.Get("/", rt.dm(func(h *dm.Handlers) http.HandlerFunc {
+				// 		return h.GetDealBatches
+				// 	}))
+
+				// 	r.With(permissioner.RequirePermission(permDeps, config.PERMISSION_DM_DEALS_BATCHES_CREATE)).
+				// 		Post("/", rt.dm(func(h *dm.Handlers) http.HandlerFunc {
+				// 			return h.CreateDealBatch
+				// 		}))
+				// })
 			})
 		})
 

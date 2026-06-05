@@ -95,6 +95,8 @@ const (
 	PERMISSION_DM_DEALS_TRANSACTIONS             = "dm.deals.transactions"
 	PERMISSION_DM_DEALS_TRANSACTIONS_CREATE      = "dm.deals.transactions.create"
 	PERMISSION_DM_DEALS_TRANSACTIONS_SUMMARY     = "dm.deals.transactions.summary"
+	PERMISSION_DM_DEALS_BATCHES                  = "dm.deals.batches"
+	PERMISSION_DM_DEALS_BATCHES_CREATE           = "dm.deals.batches.create"
 	PERMISSION_DM_ANALYSIS                       = "dm.analysis"
 )
 
@@ -199,6 +201,8 @@ func GetAllPermissions() []string {
 		PERMISSION_DM_DEALS_TRANSACTIONS,
 		PERMISSION_DM_DEALS_TRANSACTIONS_CREATE,
 		PERMISSION_DM_DEALS_TRANSACTIONS_SUMMARY,
+		PERMISSION_DM_DEALS_BATCHES,
+		PERMISSION_DM_DEALS_BATCHES_CREATE,
 		PERMISSION_DM_ANALYSIS,
 	}
 }
@@ -247,6 +251,7 @@ func GetGuestPermissions() map[string]bool {
 		PERMISSION_DM_STATUSES:           true,
 		PERMISSION_DM_DEALS:              true,
 		PERMISSION_DM_DEALS_TRANSACTIONS: true,
+		PERMISSION_DM_DEALS_BATCHES:      true,
 	}
 }
 

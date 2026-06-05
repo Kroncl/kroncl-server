@@ -122,6 +122,8 @@ var PermissionLvl = map[string]int{
 	PERMISSION_DM_DEALS_TRANSACTIONS:         PRICING_PLAN_MIN_LVL,
 	PERMISSION_DM_DEALS_TRANSACTIONS_CREATE:  PRICING_PLAN_MIN_LVL,
 	PERMISSION_DM_DEALS_TRANSACTIONS_SUMMARY: PRICING_PLAN_MIN_LVL,
+	PERMISSION_DM_DEALS_BATCHES:              PRICING_PLAN_MIN_LVL,
+	PERMISSION_DM_DEALS_BATCHES_CREATE:       PRICING_PLAN_MIN_LVL,
 }
 
 // GetPermissionLvl returns required tariff level for a permission
@@ -186,6 +188,7 @@ func GetExpiredAllowedPermissions() map[string]bool {
 		PERMISSION_DM_STATUSES:           true,
 		PERMISSION_DM_DEALS:              true,
 		PERMISSION_DM_DEALS_TRANSACTIONS: true,
+		PERMISSION_DM_DEALS_BATCHES:      true,
 	}
 }
 

@@ -134,6 +134,8 @@ var PermissionCriticality = map[string]CriticalityLevel{
 	PERMISSION_DM_DEALS_TRANSACTIONS:         3,
 	PERMISSION_DM_DEALS_TRANSACTIONS_CREATE:  9,
 	PERMISSION_DM_DEALS_TRANSACTIONS_SUMMARY: 2,
+	PERMISSION_DM_DEALS_BATCHES:              3,
+	PERMISSION_DM_DEALS_BATCHES_CREATE:       7,
 }
 
 // GetCriticality returns criticality level for a permission
