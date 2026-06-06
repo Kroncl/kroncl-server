@@ -88,6 +88,11 @@ var PermissionCriticality = map[string]CriticalityLevel{
 	PERMISSION_FM_CREDITS_TRANSACTIONS: 4, // просмотр платежей по кредиту
 	PERMISSION_FM_CREDITS_PAY:          8, // платёж по кредиту
 
+	// ========= FM FORECAST ==========
+	PERMISSION_FM_FORECAST:          5,
+	PERMISSION_FM_FORECAST_TIMELINE: 8,
+	PERMISSION_FM_FORECAST_SUMMARY:  5,
+
 	// ========== CRM (2-8) ==========
 	PERMISSION_CRM:                2,
 	PERMISSION_CRM_REPORT:         7,
