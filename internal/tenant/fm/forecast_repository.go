@@ -69,11 +69,6 @@ func (r *Repository) ThetaForecast(ctx context.Context, req ForecastRequest) (*F
 		endDate = now
 	}
 
-	horizon := 30
-	if req.Horizon > 0 {
-		horizon = req.Horizon
-	}
-
 	balances, dates, err := r.GetDailyBalances(ctx, startDate, endDate)
 	if err != nil {
 		return nil, err
@@ -83,8 +78,34 @@ func (r *Repository) ThetaForecast(ctx context.Context, req ForecastRequest) (*F
 		return nil, fmt.Errorf("need at least 2 data points for forecasting, got %d", len(balances))
 	}
 
+	// Ограничение горизонта: не больше 2x от исторических точек
+	maxHorizon := len(balances) * 2
+	horizon := 30
+	if req.Horizon > 0 {
+		horizon = req.Horizon
+	}
+	if horizon > maxHorizon {
+		horizon = maxHorizon
+	}
+	if horizon < 1 {
+		horizon = 1
+	}
+
+	// Вычисляем среднее абсолютное значение для ограничения тренда
+	var avgAbs float64
+	for _, b := range balances {
+		avgAbs += math.Abs(b)
+	}
+	avgAbs /= float64(len(balances))
+	if avgAbs == 0 {
+		avgAbs = 1 // защита от нуля
+	}
+
+	// Максимальное дневное изменение: 20% от среднего абсолютного
+	maxDailyChange := avgAbs * 0.2
+
 	// Theta method: разлагаем на две линии и усредняем
-	theta := 2.0 // стандартный параметр
+	theta := 2.0
 
 	// Линия 1: простое экспоненциальное сглаживание (SES) с дрифтом
 	alpha := 0.3
@@ -94,13 +115,21 @@ func (r *Repository) ThetaForecast(ctx context.Context, req ForecastRequest) (*F
 		ses[i] = alpha*balances[i] + (1-alpha)*ses[i-1]
 	}
 
-	// Определяем тренд по последним точкам SES
+	// Тренд по SES с ограничением
 	var trend float64
 	if len(ses) >= 2 {
 		trend = (ses[len(ses)-1] - ses[0]) / float64(len(ses))
 	}
+	// Ограничение тренда
+	if math.Abs(trend) > maxDailyChange {
+		if trend > 0 {
+			trend = maxDailyChange
+		} else {
+			trend = -maxDailyChange
+		}
+	}
 
-	// Линия 2: линейная регрессия
+	// Линия 2: линейная регрессия с защитой от деления на ноль
 	n := float64(len(balances))
 	var sumX, sumY, sumXY, sumX2 float64
 	for i, y := range balances {
@@ -110,8 +139,28 @@ func (r *Repository) ThetaForecast(ctx context.Context, req ForecastRequest) (*F
 		sumXY += x * y
 		sumX2 += x * x
 	}
-	slope := (n*sumXY - sumX*sumY) / (n*sumX2 - sumX*sumX)
-	intercept := (sumY - slope*sumX) / n
+
+	denominator := n*sumX2 - sumX*sumX
+	var slope, intercept float64
+	if math.Abs(denominator) < 1e-10 {
+		// Все точки в один день или вырожденный случай — только среднее
+		slope = 0
+		intercept = sumY / n
+	} else {
+		slope = (n*sumXY - sumX*sumY) / denominator
+		intercept = (sumY - slope*sumX) / n
+	}
+
+	// Ограничение slope
+	if math.Abs(slope) > maxDailyChange {
+		if slope > 0 {
+			slope = maxDailyChange
+		} else {
+			slope = -maxDailyChange
+		}
+		// Пересчитываем intercept с ограниченным slope
+		intercept = (sumY - slope*sumX) / n
+	}
 
 	// Прогноз Theta: усредняем SES с дрифтом и линейную регрессию
 	forecast := make([]float64, horizon)
@@ -119,6 +168,12 @@ func (r *Repository) ThetaForecast(ctx context.Context, req ForecastRequest) (*F
 		sesForecast := ses[len(ses)-1] + trend*float64(i+1)
 		regForecast := slope*(n+float64(i)) + intercept
 		forecast[i] = (sesForecast + (theta-1)*regForecast) / theta
+
+		// Защита от NaN/Inf
+		if math.IsNaN(forecast[i]) || math.IsInf(forecast[i], 0) {
+			// fallback: последнее известное значение
+			forecast[i] = balances[len(balances)-1]
+		}
 	}
 
 	// Собираем ответ
