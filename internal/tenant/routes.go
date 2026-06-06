@@ -278,6 +278,21 @@ func (rt *Routes) Register(r chi.Router, permDeps *permissioner.PermissionDeps) 
 	r.Route("/fm", func(r chi.Router) {
 		r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_FM))
 
+		// forecast
+		r.Route("/forecast", func(r chi.Router) {
+			r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_FM_FORECAST))
+
+			r.With(permissioner.RequirePermission(permDeps, config.PERMISSION_FM_FORECAST_TIMELINE)).
+				Get("/timeline", rt.fm(func(h *fm.Handlers) http.HandlerFunc {
+					return h.GetForecastTimeline
+				}))
+
+			r.With(permissioner.RequirePermission(permDeps, config.PERMISSION_FM_FORECAST_SUMMARY)).
+				Get("/summary", rt.fm(func(h *fm.Handlers) http.HandlerFunc {
+					return h.GetForecastSummary
+				}))
+		})
+
 		// full-report
 		r.With(httprate.LimitByIP(config.RATE_LIMIT_FILES_GENERATED_PER_MINUTE, 1*time.Minute)).
 			With(permissioner.RequirePermission(permDeps, config.PERMISSION_FM_REPORT)).
@@ -745,6 +760,7 @@ func (rt *Routes) Register(r chi.Router, permDeps *permissioner.PermissionDeps) 
 						return h.DeleteDeal
 					}))
 
+				// fm
 				r.Route("/transactions", func(r chi.Router) {
 					r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_DM_DEALS_TRANSACTIONS))
 
@@ -762,6 +778,20 @@ func (rt *Routes) Register(r chi.Router, permDeps *permissioner.PermissionDeps) 
 							return h.GetDealTransactionsSummary
 						}))
 				})
+
+				// wm
+				// r.Route("/batches", func(r chi.Router) {
+				// 	r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_DM_DEALS_BATCHES))
+
+				// 	r.Get("/", rt.dm(func(h *dm.Handlers) http.HandlerFunc {
+				// 		return h.GetDealBatches
+				// 	}))
+
+				// 	r.With(permissioner.RequirePermission(permDeps, config.PERMISSION_DM_DEALS_BATCHES_CREATE)).
+				// 		Post("/", rt.dm(func(h *dm.Handlers) http.HandlerFunc {
+				// 			return h.CreateDealBatch
+				// 		}))
+				// })
 			})
 		})
 

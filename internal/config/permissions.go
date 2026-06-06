@@ -55,6 +55,9 @@ const (
 	PERMISSION_FM_CREDITS_UPDATE                 = "fm.credits.update"
 	PERMISSION_FM_CREDITS_TRANSACTIONS           = "fm.credits.transactions"
 	PERMISSION_FM_CREDITS_PAY                    = "fm.credits.pay"
+	PERMISSION_FM_FORECAST                       = "fm.forecast"
+	PERMISSION_FM_FORECAST_TIMELINE              = "fm.forecast.timeline"
+	PERMISSION_FM_FORECAST_SUMMARY               = "fm.forecast.summary"
 	PERMISSION_CRM                               = "crm"
 	PERMISSION_CRM_REPORT                        = "crm.report"
 	PERMISSION_CRM_CLIENTS                       = "crm.clients"
@@ -95,6 +98,8 @@ const (
 	PERMISSION_DM_DEALS_TRANSACTIONS             = "dm.deals.transactions"
 	PERMISSION_DM_DEALS_TRANSACTIONS_CREATE      = "dm.deals.transactions.create"
 	PERMISSION_DM_DEALS_TRANSACTIONS_SUMMARY     = "dm.deals.transactions.summary"
+	PERMISSION_DM_DEALS_BATCHES                  = "dm.deals.batches"
+	PERMISSION_DM_DEALS_BATCHES_CREATE           = "dm.deals.batches.create"
 	PERMISSION_DM_ANALYSIS                       = "dm.analysis"
 )
 
@@ -159,6 +164,9 @@ func GetAllPermissions() []string {
 		PERMISSION_FM_CREDITS_UPDATE,
 		PERMISSION_FM_CREDITS_TRANSACTIONS,
 		PERMISSION_FM_CREDITS_PAY,
+		PERMISSION_FM_FORECAST,
+		PERMISSION_FM_FORECAST_TIMELINE,
+		PERMISSION_FM_FORECAST_SUMMARY,
 		PERMISSION_CRM,
 		PERMISSION_CRM_REPORT,
 		PERMISSION_CRM_CLIENTS,
@@ -199,6 +207,8 @@ func GetAllPermissions() []string {
 		PERMISSION_DM_DEALS_TRANSACTIONS,
 		PERMISSION_DM_DEALS_TRANSACTIONS_CREATE,
 		PERMISSION_DM_DEALS_TRANSACTIONS_SUMMARY,
+		PERMISSION_DM_DEALS_BATCHES,
+		PERMISSION_DM_DEALS_BATCHES_CREATE,
 		PERMISSION_DM_ANALYSIS,
 	}
 }
@@ -247,6 +257,7 @@ func GetGuestPermissions() map[string]bool {
 		PERMISSION_DM_STATUSES:           true,
 		PERMISSION_DM_DEALS:              true,
 		PERMISSION_DM_DEALS_TRANSACTIONS: true,
+		PERMISSION_DM_DEALS_BATCHES:      true,
 	}
 }
 
