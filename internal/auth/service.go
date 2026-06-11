@@ -14,6 +14,7 @@ type JWTService struct {
 	refreshDuration        time.Duration
 	resetPasswordSecretKey []byte
 	resetPasswordDuration  time.Duration
+	apiKeyValidator        ApiKeyValidator
 }
 
 type AccessClaims struct {
@@ -184,6 +185,11 @@ func (s *JWTService) GenerateApiAccessToken(accountID, apiKeyID string) (string,
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString(s.secretKey)
+}
+
+// SetApiKeyValidator устанавливает валидатор API-ключей
+func (s *JWTService) SetApiKeyValidator(validator ApiKeyValidator) {
+	s.apiKeyValidator = validator
 }
 
 // ----------

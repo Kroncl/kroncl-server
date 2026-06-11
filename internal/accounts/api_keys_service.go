@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
+	"kroncl-server/internal/auth"
 	"kroncl-server/internal/config"
 	"kroncl-server/internal/core"
 	"strconv"
@@ -50,7 +51,7 @@ func (s *Service) CreateApiKey(ctx context.Context, accountID string, req Create
 		dailyRequests = *req.DailyRequests
 	}
 
-	keyPrefix := config.API_KEY_PREFIX + rawKey[4:12]
+	keyPrefix := rawKey[:12]
 
 	var key ApiKey
 	query := `
@@ -208,7 +209,38 @@ func (s *Service) RevokeApiKey(ctx context.Context, accountID, keyID string) err
 	return nil
 }
 
-func (s *Service) ValidateApiKey(ctx context.Context, rawKey string) (*ApiKey, error) {
+// --------
+// UTILS
+// --------
+
+func generateApiKey() (string, error) {
+	bytes := make([]byte, 32)
+	_, err := rand.Read(bytes)
+	if err != nil {
+		return "", err
+	}
+	return config.API_KEY_PREFIX + base64.RawURLEncoding.EncodeToString(bytes), nil
+}
+
+func (s *Service) hashApiKey(key string) (string, error) {
+	hashedBytes, err := bcrypt.GenerateFromPassword([]byte(key), bcrypt.DefaultCost)
+	if err != nil {
+		return "", err
+	}
+	return string(hashedBytes), nil
+}
+
+func (s *Service) verifyApiKey(hash, key string) bool {
+	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(key))
+	return err == nil
+}
+
+// ---------
+// -> AUTH pack
+// ---------
+
+// validateApiKey — внутренний метод, возвращает полный ApiKey
+func (s *Service) validateApiKey(ctx context.Context, rawKey string) (*ApiKey, error) {
 	query := `
 		SELECT id, account_id, key_hash, revoked_at, expires_at, daily_requests
 		FROM api_keys
@@ -243,36 +275,27 @@ func (s *Service) ValidateApiKey(ctx context.Context, rawKey string) (*ApiKey, e
 	return nil, fmt.Errorf("invalid api key")
 }
 
+// ValidateApiKey — для интерфейса auth.ApiKeyValidator
+func (s *Service) ValidateApiKey(ctx context.Context, rawKey string) (*auth.ApiKeyInfo, error) {
+	key, err := s.validateApiKey(ctx, rawKey)
+	if err != nil {
+		return nil, err
+	}
+
+	return &auth.ApiKeyInfo{
+		ID:            key.ID,
+		AccountID:     key.AccountID,
+		DailyRequests: key.DailyRequests,
+		ExpiresAt:     key.ExpiresAt,
+		RevokedAt:     key.RevokedAt,
+	}, nil
+}
+
+// UpdateApiKeyLastUsed — для интерфейса auth.ApiKeyValidator
 func (s *Service) UpdateApiKeyLastUsed(ctx context.Context, keyID string) error {
 	_, err := s.pool.Exec(ctx, `
 		UPDATE api_keys SET last_used_at = NOW(), updated_at = NOW()
 		WHERE id = $1
 	`, keyID)
 	return err
-}
-
-// --------
-// UTILS
-// --------
-
-func generateApiKey() (string, error) {
-	bytes := make([]byte, 32)
-	_, err := rand.Read(bytes)
-	if err != nil {
-		return "", err
-	}
-	return config.API_KEY_PREFIX + base64.RawURLEncoding.EncodeToString(bytes), nil
-}
-
-func (s *Service) hashApiKey(key string) (string, error) {
-	hashedBytes, err := bcrypt.GenerateFromPassword([]byte(key), bcrypt.DefaultCost)
-	if err != nil {
-		return "", err
-	}
-	return string(hashedBytes), nil
-}
-
-func (s *Service) verifyApiKey(hash, key string) bool {
-	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(key))
-	return err == nil
 }
