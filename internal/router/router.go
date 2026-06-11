@@ -110,6 +110,17 @@ func New(cfg *config.Config, container *di.Container) chi.Router {
 						r.Post("/revoke", container.AccountsHandlers.RevokeFingerprint)
 					})
 				})
+
+				// Account -> api-keys
+				r.Route("/api-keys", func(r chi.Router) {
+					r.Get("/", container.AccountsHandlers.GetApiKeys)
+					r.Post("/", container.AccountsHandlers.CreateApiKey)
+
+					r.Route("/{keyId}", func(r chi.Router) {
+						r.Get("/", container.AccountsHandlers.GetApiKey)
+						r.Post("/revoke", container.AccountsHandlers.RevokeApiKey)
+					})
+				})
 			})
 		})
 
