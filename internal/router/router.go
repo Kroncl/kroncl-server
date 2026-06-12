@@ -60,19 +60,23 @@ func New(cfg *config.Config, container *di.Container) chi.Router {
 		// Public routes
 		// account actions
 		r.Route("/account", func(r chi.Router) {
-			// rate limiter
-			r.Use(httprate.LimitByIP(config.RATE_LIMIT_PUBLIC_ROUTES_PER_MINUTE, 1*time.Minute))
+			// account [public]
+			r.Group(func(r chi.Router) {
 
-			r.Post("/reg", container.AccountsHandlers.Register)
-			r.Get("/check-email-unique", container.AccountsHandlers.CheckEmailUnique)
-			r.Post("/auth", container.AccountsHandlers.Login)
-			r.Post("/fingerprints/auth", container.AccountsHandlers.LoginWithFingerprint)
-			r.Post("/refresh", container.AccountsHandlers.Refresh)
+				// rate limiter
+				r.Use(httprate.LimitByIP(config.RATE_LIMIT_PUBLIC_ROUTES_PER_MINUTE, 1*time.Minute))
 
-			r.Route("/reset-password", func(r chi.Router) {
-				r.Post("/send-link", container.AccountsHandlers.RequestPasswordReset)
-				r.Post("/validate-token", container.AccountsHandlers.ValidateResetToken)
-				r.Post("/", container.AccountsHandlers.ResetPassword)
+				r.Post("/reg", container.AccountsHandlers.Register)
+				r.Get("/check-email-unique", container.AccountsHandlers.CheckEmailUnique)
+				r.Post("/auth", container.AccountsHandlers.Login)
+				r.Post("/fingerprints/auth", container.AccountsHandlers.LoginWithFingerprint)
+				r.Post("/refresh", container.AccountsHandlers.Refresh)
+
+				r.Route("/reset-password", func(r chi.Router) {
+					r.Post("/send-link", container.AccountsHandlers.RequestPasswordReset)
+					r.Post("/validate-token", container.AccountsHandlers.ValidateResetToken)
+					r.Post("/", container.AccountsHandlers.ResetPassword)
+				})
 			})
 
 			// account [protected]
