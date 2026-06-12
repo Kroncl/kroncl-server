@@ -45,7 +45,7 @@ func New(cfg *config.Config, container *di.Container) chi.Router {
 	).Get("/metrics", promhttp.Handler().ServeHTTP)
 
 	// API роуты
-	r.Route("/api", func(r chi.Router) {
+	r.Route("/api/v1", func(r chi.Router) {
 		r.Get("/health", core.HealthCheck)
 
 		// system-status
