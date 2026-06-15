@@ -14,10 +14,12 @@ type JWTService struct {
 	refreshDuration        time.Duration
 	resetPasswordSecretKey []byte
 	resetPasswordDuration  time.Duration
+	apiKeyValidator        ApiKeyValidator
 }
 
 type AccessClaims struct {
-	UserID string `json:"user_id"`
+	UserID   string `json:"user_id"`
+	ApiKeyID string `json:"api_key_id,omitempty"`
 	jwt.RegisteredClaims
 }
 
@@ -164,6 +166,35 @@ func (s *JWTService) GetUserIDFromToken(tokenString string) (string, error) {
 
 	return "", errors.New("user_id not found in token claims")
 }
+
+// ---------
+// API-KEYS
+// ---------
+
+func (s *JWTService) GenerateApiAccessToken(accountID, apiKeyID string) (string, error) {
+	claims := &AccessClaims{
+		UserID:   accountID,
+		ApiKeyID: apiKeyID,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(s.accessDuration)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			Issuer:    TOKEN_ISSUER,
+			Subject:   accountID,
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString(s.secretKey)
+}
+
+// SetApiKeyValidator устанавливает валидатор API-ключей
+func (s *JWTService) SetApiKeyValidator(validator ApiKeyValidator) {
+	s.apiKeyValidator = validator
+}
+
+// ----------
+// UTILS
+// ----------
 
 func (s *JWTService) GetRefreshDuration() time.Duration {
 	return s.refreshDuration

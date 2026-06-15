@@ -1,0 +1,7 @@
+package config
+
+const (
+	API_KEYS_PER_ACCOUNT   = 10
+	API_KEY_DAILY_REQUESTS = 10000
+	API_KEY_PREFIX         = "kron_"
+)

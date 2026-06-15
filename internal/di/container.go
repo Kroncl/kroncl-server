@@ -242,6 +242,9 @@ func (c *Container) initServices(ctx context.Context) error {
 	// Accounts Service (зависит от JWT и Companies)
 	c.AccountsService = accounts.NewService(c.DB, c.JWTService, c.CompaniesService, c.Mailer, c.AdminAuthService)
 
+	// -------> accounts -> jwtService
+	c.JWTService.SetApiKeyValidator(c.AccountsService)
+
 	// Permission Service
 	c.PermissionService = permissioner.NewService(c.CompaniesService)
 
