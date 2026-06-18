@@ -74,6 +74,12 @@ jobs:
 
             # Billing
             BILLING_MODE=${{ secrets.BILLING_MODE }}
+            
+            # T-Bank Acquiring
+            TBANK_API_URL=https://securepay.tinkoff.ru/v2
+            TBANK_TERMINAL_KEY=${{ secrets.TBANK_TERMINAL_KEY }}
+            TBANK_TERMINAL_PASSWORD=${{ secrets.TBANK_TERMINAL_PASSWORD }}
+            TBANK_PAYMENT_WEBHOOK_URL=https://api.kroncl.com/webhook/tbank/payment
 
             # Api
             HOST=0.0.0.0
