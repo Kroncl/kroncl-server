@@ -30,6 +30,7 @@ type Config struct {
 	MinIO      MinIOConfig
 	MailSender MailSenderConfig
 	Gotenberg  pdfgen.Config
+	Acquiring  AcquiringConfig
 }
 
 type ServerConfig struct {
@@ -72,6 +73,15 @@ type MailSenderConfig struct {
 	NotifyDomain string
 }
 
+type AcquiringConfig struct {
+	TerminalKey string
+	Password    string
+	WebhookURL  string
+	BillingMode string
+	IsEnabled   bool
+	BaseURL     string
+}
+
 func Load() (*Config, error) {
 	if err := loadEnvFile(); err != nil {
 		log.Printf("⚠️  Warning: %v", err)
@@ -95,6 +105,15 @@ func Load() (*Config, error) {
 	}
 	maskedApiKey := utils.MaskApiKey(mailSenderConfig.ApiKey)
 
+	acquiringConfig := AcquiringConfig{
+		TerminalKey: getEnv("TBANK_TERMINAL_KEY", ""),
+		Password:    getEnv("TBANK_TERMINAL_PASSWORD", ""),
+		WebhookURL:  getEnv("TBANK_PAYMENT_WEBHOOK_URL", ""),
+		BillingMode: getEnv("BILLING_MODE", "on"),
+		BaseURL:     getEnv("TBANK_API_URL", "https://securepay.tinkoff.ru/v2"),
+		IsEnabled:   getEnv("TBANK_TERMINAL_KEY", "") != "" && getEnv("TBANK_TERMINAL_PASSWORD", "") != "",
+	}
+
 	log.Printf("📋 Конфигурация загружена:")
 	log.Printf("   - Server: %s:%s", getEnv("HOST", "0.0.0.0"), getEnv("PORT", "8080"))
 	log.Printf("   - Mail Sender: %s:%s", maskedApiKey, mailSenderConfig.NotifyDomain)
@@ -104,6 +123,7 @@ func Load() (*Config, error) {
 		dbConfig.Port,
 		dbConfig.Name)
 	log.Printf("   - MinIO: %s (bucket: %s)", minioConfig.Endpoint, minioConfig.PublicBucket)
+	log.Printf("   - Acquiring: enabled=%v, mode=%s", acquiringConfig.IsEnabled, acquiringConfig.BillingMode)
 
 	allowedOrigins := getCORSOrigins()
 
@@ -137,6 +157,7 @@ func Load() (*Config, error) {
 			Endpoint:      getEnv("GOTENBERG_ENDPOINT", "http://gotenberg:3000"),
 			TemplatesPath: getEnv("GOTENBERG_TEMPLATES_PATH", "./templates"),
 		},
+		Acquiring: acquiringConfig,
 	}, nil
 }
 

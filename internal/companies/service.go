@@ -1,6 +1,7 @@
 package companies
 
 import (
+	"kroncl-server/internal/billing"
 	"kroncl-server/internal/mailer"
 	"kroncl-server/internal/pricing"
 	"kroncl-server/internal/tenant/storage"
@@ -13,6 +14,7 @@ type Service struct {
 	storageService *storage.Service
 	pricingService *pricing.Service
 	mailer         *mailer.Service
+	billingService *billing.Service
 }
 
 func NewService(
@@ -20,12 +22,14 @@ func NewService(
 	storageService *storage.Service,
 	pricingService *pricing.Service,
 	mailer *mailer.Service,
+	billingService *billing.Service,
 ) *Service {
 	return &Service{
 		pool:           pool,
 		storageService: storageService,
 		pricingService: pricingService,
 		mailer:         mailer,
+		billingService: billingService,
 	}
 }
 

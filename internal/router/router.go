@@ -274,5 +274,13 @@ func New(cfg *config.Config, container *di.Container) chi.Router {
 		r.Mount("/admin", container.AdminRoutes)
 	})
 
+	// Webhooks
+	r.Route("/webhook", func(r chi.Router) {
+		// tbank
+		r.Route("/tbank", func(r chi.Router) {
+			r.Post("/payment", container.BillingHandlers.WebhookHandler)
+		})
+	})
+
 	return r
 }
