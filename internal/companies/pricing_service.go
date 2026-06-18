@@ -165,19 +165,15 @@ func (s *Service) GetCompanyTransactions(ctx context.Context, companyID string, 
 }
 
 func (s *Service) CreateNewTransaction(ctx context.Context, companyID, accountID string, req *MigratePlanRequest) (*pricing.PricingTransaction, error) {
-	var pendingExists bool
-	checkPendingQuery := `
-		SELECT EXISTS(
-			SELECT 1 FROM pricing_transactions
-			WHERE company_id = $1 AND status = $2 AND is_trial = false
-		)
+	// Находим все pending транзакции и переводим их в revoked
+	revokeQuery := `
+		UPDATE pricing_transactions
+		SET status = $1, updated_at = CURRENT_TIMESTAMP
+		WHERE company_id = $2 AND status = $3 AND is_trial = false
 	`
-	err := s.pool.QueryRow(ctx, checkPendingQuery, companyID, pricing.TransactionStatusPending).Scan(&pendingExists)
+	_, err := s.pool.Exec(ctx, revokeQuery, pricing.TransactionStatusRevoked, companyID, pricing.TransactionStatusPending)
 	if err != nil {
-		return nil, fmt.Errorf("failed to check pending transaction: %w", err)
-	}
-	if pendingExists {
-		return nil, fmt.Errorf("a pending transaction already exists for this company. Please wait for it to be processed or contact support")
+		return nil, fmt.Errorf("failed to revoke pending transactions: %w", err)
 	}
 
 	var months int
