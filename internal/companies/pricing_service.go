@@ -3,15 +3,14 @@ package companies
 import (
 	"context"
 	"fmt"
+	"kroncl-server/internal/billing"
 	"kroncl-server/internal/config"
 	"kroncl-server/internal/pricing"
 	"strings"
 	"time"
 )
 
-// RevokeTransaction отменяет транзакцию (меняет статус на revoked)
 func (s *Service) RevokeTransaction(ctx context.Context, companyID, transactionID string) error {
-	// 1. Получаем транзакцию, чтобы проверить статус и принадлежность к компании
 	var status pricing.TransactionStatus
 	var txCompanyID string
 	query := `SELECT status, company_id FROM pricing_transactions WHERE id = $1`
@@ -20,17 +19,14 @@ func (s *Service) RevokeTransaction(ctx context.Context, companyID, transactionI
 		return fmt.Errorf("failed to get transaction: %w", err)
 	}
 
-	// 2. Проверяем, что транзакция принадлежит этой компании
 	if txCompanyID != companyID {
 		return fmt.Errorf("transaction does not belong to this company")
 	}
 
-	// 3. Проверяем, что транзакция в статусе pending
 	if status != pricing.TransactionStatusPending {
 		return fmt.Errorf("transaction status is %s, cannot revoke", status)
 	}
 
-	// 4. Обновляем статус на revoked
 	_, err = s.pricingService.UpdateTransactionStatus(ctx, transactionID, pricing.TransactionStatusRevoked)
 	if err != nil {
 		return fmt.Errorf("failed to revoke transaction: %w", err)
@@ -39,15 +35,12 @@ func (s *Service) RevokeTransaction(ctx context.Context, companyID, transactionI
 	return nil
 }
 
-// GetCompanyPlan возвращает текущий план компании
 func (s *Service) GetCompanyPlan(ctx context.Context, companyID string) (*CompanyPlanResponse, error) {
-	// Получаем последнюю успешную транзакцию
 	tx, err := s.pricingService.GetLastSuccessfulTransaction(ctx, companyID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get last transaction: %w", err)
 	}
 
-	// Получаем текущий план по plan_code
 	if tx.PlanCode == nil {
 		return nil, fmt.Errorf("no plan code in transaction")
 	}
@@ -171,9 +164,7 @@ func (s *Service) GetCompanyTransactions(ctx context.Context, companyID string, 
 	return transactions, total, nil
 }
 
-// CreateNewTransaction создает новую транзакцию для смены плана
 func (s *Service) CreateNewTransaction(ctx context.Context, companyID, accountID string, req *MigratePlanRequest) (*pricing.PricingTransaction, error) {
-	// 0. Проверяем, нет ли уже зависшей (pending) транзакции
 	var pendingExists bool
 	checkPendingQuery := `
 		SELECT EXISTS(
@@ -189,7 +180,6 @@ func (s *Service) CreateNewTransaction(ctx context.Context, companyID, accountID
 		return nil, fmt.Errorf("a pending transaction already exists for this company. Please wait for it to be processed or contact support")
 	}
 
-	// 1. Валидируем период
 	var months int
 	switch strings.ToLower(req.Period) {
 	case "month":
@@ -200,13 +190,11 @@ func (s *Service) CreateNewTransaction(ctx context.Context, companyID, accountID
 		return nil, fmt.Errorf("invalid period: must be 'month' or 'year'")
 	}
 
-	// 2. Получаем целевой план
 	targetPlan, err := s.pricingService.GetPlanByCode(ctx, req.PlanCode)
 	if err != nil {
 		return nil, fmt.Errorf("invalid plan code: %w", err)
 	}
 
-	// 3. Определяем сумму
 	var amount int
 	if months == 1 {
 		amount = targetPlan.PricePerMonth
@@ -214,20 +202,15 @@ func (s *Service) CreateNewTransaction(ctx context.Context, companyID, accountID
 		amount = targetPlan.PricePerYear
 	}
 
-	// 4. expires_at от текущего момента
 	expiresAt := time.Now().AddDate(0, months, 0)
 
-	// 5. Получаем последнюю успешную транзакцию (для логирования, если нужно)
 	_, err = s.pricingService.GetLastSuccessfulTransaction(ctx, companyID)
 	if err != nil {
 		// Не фатально, просто логируем
-		// Но можно и вернуть ошибку, если хочешь строго
 	}
 
-	// 6. Определяем next_plan_code (для будущей миграции, пока nil)
 	var nextPlanCode *string = nil
 
-	// 7. Создаем транзакцию со статусом pending
 	tx, err := s.pricingService.CreateTransaction(
 		ctx,
 		companyID,
@@ -245,4 +228,58 @@ func (s *Service) CreateNewTransaction(ctx context.Context, companyID, accountID
 	}
 
 	return tx, nil
+}
+
+func (s *Service) InitPayment(
+	ctx context.Context,
+	companyID, accountID string,
+	req *MigratePlanRequest,
+	successURL string,
+) (*InitPaymentResult, error) {
+	company, err := s.GetCompanyByID(ctx, companyID)
+	if err != nil {
+		return nil, fmt.Errorf("company not found: %w", err)
+	}
+	if company == nil {
+		return nil, fmt.Errorf("company not found")
+	}
+
+	plan, err := s.pricingService.GetPlanByCode(ctx, req.PlanCode)
+	if err != nil {
+		return nil, fmt.Errorf("plan not found: %w", err)
+	}
+	if plan == nil {
+		return nil, fmt.Errorf("plan not found")
+	}
+
+	tx, err := s.CreateNewTransaction(ctx, companyID, accountID, req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create transaction: %w", err)
+	}
+
+	amountKopecks := uint64(*tx.Amount * 100) // рубли -> копейки
+
+	// Формируем описание с датой окончания
+	expiresAt := tx.ExpiresAt.Format("02.01.2006")
+	description := fmt.Sprintf("Оплата тарифа «%s» для компании «%s» до %s", plan.Name, company.Name, expiresAt)
+
+	initResp, err := s.billingService.InitPayment(ctx, &billing.InitPaymentRequest{
+		OrderID:     tx.ID,
+		Amount:      amountKopecks,
+		Description: description,
+		CustomerKey: accountID,
+		WebhookURL:  s.billingService.GetWebhookURL(),
+		SuccessURL:  successURL,
+		FailURL:     successURL,
+	})
+	if err != nil {
+		s.pricingService.UpdateTransactionStatus(ctx, tx.ID, pricing.TransactionStatusUnsuccess)
+		return nil, fmt.Errorf("failed to init payment: %w", err)
+	}
+
+	return &InitPaymentResult{
+		Transaction:    tx,
+		PaymentPageURL: initResp.PaymentPageURL,
+		PaymentID:      initResp.PaymentID,
+	}, nil
 }

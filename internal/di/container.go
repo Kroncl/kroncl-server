@@ -39,6 +39,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/rentifly/tinkoff"
 )
 
 type Container struct {
@@ -53,6 +54,7 @@ type Container struct {
 	MediaService      *media.Service
 	MediaHandlers     *media.Handlers
 	Pdfgen            *pdfgen.Service // pdfgen (gotenberg)
+	TbankClient       *tinkoff.Client
 
 	// business-core
 	AccountsService   *accounts.Service
@@ -231,13 +233,18 @@ func (c *Container) initServices(ctx context.Context) error {
 
 	// Pricing+billing Service
 	c.PricingService = pricing.NewService(c.DB)
-	c.BillingService = billing.NewService(c.DB)
+	c.TbankClient = tinkoff.NewClientWithOptions(
+		tinkoff.WithTerminalKey(c.Config.Acquiring.TerminalKey),
+		tinkoff.WithPassword(c.Config.Acquiring.Password),
+		tinkoff.WithBaseURL(c.Config.Acquiring.BaseURL),
+	)
+	c.BillingService = billing.NewService(c.DB, c.TbankClient, c.Config.Acquiring.WebhookURL, c.PricingService)
 
 	// Mailer Service
 	c.Mailer = mailer.NewService(&c.Config.MailSender)
 
 	// Companies Service (зависит от Storage)
-	c.CompaniesService = companies.NewService(c.DB, c.StorageService, c.PricingService, c.Mailer)
+	c.CompaniesService = companies.NewService(c.DB, c.StorageService, c.PricingService, c.Mailer, c.BillingService)
 
 	// Accounts Service (зависит от JWT и Companies)
 	c.AccountsService = accounts.NewService(c.DB, c.JWTService, c.CompaniesService, c.Mailer, c.AdminAuthService)

@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"kroncl-server/internal/auth"
+	"kroncl-server/internal/config"
 	"kroncl-server/internal/core"
+	"kroncl-server/internal/pricing"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -132,7 +134,7 @@ func (h *Handlers) GetCompanyPricingTransactions(w http.ResponseWriter, r *http.
 	core.SendSuccess(w, response, "Company transactions retrieved successfully")
 }
 
-// CreateCompanyTransaction создает новую транзакцию для смены плана
+// MigratePricingPlan создает транзакцию и инициирует платеж
 func (h *Handlers) MigratePricingPlan(w http.ResponseWriter, r *http.Request) {
 	// Получаем ID компании из URL
 	companyID := chi.URLParam(r, "id")
@@ -172,17 +174,38 @@ func (h *Handlers) MigratePricingPlan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Создаем транзакцию
-	tx, err := h.service.CreateNewTransaction(
+	// Формируем successURL
+	var successURL string
+	if req.SuccessURL != "" {
+		successURL = req.SuccessURL
+	} else {
+		clientDomain := config.GetClientDomain()
+		successURL = fmt.Sprintf("%s/platform/%s/pricing/success", clientDomain, companyID)
+	}
+
+	// Создаем транзакцию и инициируем платеж
+	result, err := h.service.InitPayment(
 		r.Context(),
 		companyID,
 		account.UserID,
 		&req,
+		successURL,
 	)
 	if err != nil {
-		core.SendValidationError(w, fmt.Sprintf("Failed to create transaction: %v", err))
+		core.SendValidationError(w, fmt.Sprintf("Failed to init payment: %v", err))
 		return
 	}
 
-	core.SendCreated(w, tx, "Transaction created successfully")
+	// Возвращаем транзакцию и URL для оплаты
+	response := struct {
+		Transaction    *pricing.PricingTransaction `json:"transaction"`
+		PaymentPageURL string                      `json:"payment_page_url"`
+		PaymentID      string                      `json:"payment_id"`
+	}{
+		Transaction:    result.Transaction,
+		PaymentPageURL: result.PaymentPageURL,
+		PaymentID:      result.PaymentID,
+	}
+
+	core.SendCreated(w, response, "Transaction created successfully")
 }

@@ -17,6 +17,13 @@ type CompanyPlanResponse struct {
 
 // MigratePlanRequest запрос на смену тарифа
 type MigratePlanRequest struct {
-	PlanCode string `json:"plan_code"`
-	Period   string `json:"period"` // "month" или "year"
+	PlanCode   string `json:"plan_code"`
+	Period     string `json:"period"` // "month" или "year"
+	SuccessURL string `json:"success_url,omitempty"`
+}
+
+type InitPaymentResult struct {
+	Transaction    *pricing.PricingTransaction
+	PaymentPageURL string
+	PaymentID      string
 }
