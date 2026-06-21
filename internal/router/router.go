@@ -281,10 +281,6 @@ func New(cfg *config.Config, container *di.Container) chi.Router {
 		r.Route("/tbank", func(r chi.Router) {
 			r.Post("/payment", container.BillingHandlers.WebhookHandler)
 		})
-		// telegram
-		r.Route("/telegram", func(r chi.Router) {
-			r.Post("/bot", container.TGBotHandlers.ServeHTTP)
-		})
 	})
 
 	return r
