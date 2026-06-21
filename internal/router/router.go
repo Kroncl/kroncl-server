@@ -25,17 +25,6 @@ func New(cfg *config.Config, container *di.Container) chi.Router {
 	r.Use(chimiddleware.Logger)
 	r.Use(chimiddleware.Recoverer)
 	r.Use(chimiddleware.RequestID)
-	r.Use(core.BaseResponse)
-
-	// CORS
-	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   cfg.CORS.AllowedOrigins,
-		AllowedMethods:   cfg.CORS.AllowedMethods,
-		AllowedHeaders:   cfg.CORS.AllowedHeaders,
-		ExposedHeaders:   cfg.CORS.ExposedHeaders,
-		AllowCredentials: cfg.CORS.AllowCredentials,
-		MaxAge:           cfg.CORS.MaxAge,
-	}))
 
 	// prometheus
 	r.Use(metrics.MetricsMiddleware())
@@ -46,6 +35,18 @@ func New(cfg *config.Config, container *di.Container) chi.Router {
 
 	// API роуты
 	r.Route("/api/v1", func(r chi.Router) {
+		// CORS
+		r.Use(cors.Handler(cors.Options{
+			AllowedOrigins:   cfg.CORS.AllowedOrigins,
+			AllowedMethods:   cfg.CORS.AllowedMethods,
+			AllowedHeaders:   cfg.CORS.AllowedHeaders,
+			ExposedHeaders:   cfg.CORS.ExposedHeaders,
+			AllowCredentials: cfg.CORS.AllowCredentials,
+			MaxAge:           cfg.CORS.MaxAge,
+		}))
+		// base-api-response [status,mes,data,meta]
+		r.Use(core.BaseResponse)
+
 		r.Get("/health", core.HealthCheck)
 
 		// system-status
@@ -279,6 +280,10 @@ func New(cfg *config.Config, container *di.Container) chi.Router {
 		// tbank
 		r.Route("/tbank", func(r chi.Router) {
 			r.Post("/payment", container.BillingHandlers.WebhookHandler)
+		})
+		// telegram
+		r.Route("/telegram", func(r chi.Router) {
+			r.Post("/bot", container.TGBotHandlers.ServeHTTP)
 		})
 	})
 

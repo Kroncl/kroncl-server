@@ -21,6 +21,7 @@ import (
 	"kroncl-server/internal/config"
 	corestatus "kroncl-server/internal/core/status"
 	coreworkers "kroncl-server/internal/core/workers"
+	"kroncl-server/internal/integrations/tgbot"
 	"kroncl-server/internal/mailer"
 	"kroncl-server/internal/media"
 	"kroncl-server/internal/migrator"
@@ -115,6 +116,12 @@ type Container struct {
 	// core-status
 	CoreStatusService  *corestatus.Service
 	CoreStatusHandlers *corestatus.Handlers
+
+	// -----------
+	// integrations
+	// |- tg-bot
+	TGBotHandlers *tgbot.Handlers
+	TGBotService  *tgbot.Service
 }
 
 func NewContainer(ctx context.Context, cfg *config.Config) (*Container, error) {
@@ -333,6 +340,13 @@ func (c *Container) initServices(ctx context.Context) error {
 
 	c.CoreStatusService = corestatus.NewService(c.DB, c.CoreWorkersService)
 	c.CoreStatusHandlers = corestatus.NewHandlers(c.CoreStatusService)
+
+	// -----------
+	// INTEGRATIONS
+	// -----------
+	// |- tg-bot
+	c.TGBotService = tgbot.NewService(c.DB, c.Config.TelegramBot)
+	c.TGBotHandlers = tgbot.NewHandlers(c.TGBotService)
 
 	return nil
 }
