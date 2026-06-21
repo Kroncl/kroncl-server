@@ -123,10 +123,6 @@ jobs:
             # Gotenberg
             GOTENBERG_ENDPOINT=http://gotenberg:3000
             GOTENBERG_TEMPLATES_PATH=./templates
-
-            # Telegram bot
-            TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}
-            TELEGRAM_WEBHOOK_SECRET=${{ secrets.TELEGRAM_WEBHOOK_SECRET }}
             EOF
 
             chmod 600 /opt/kroncl/.env
