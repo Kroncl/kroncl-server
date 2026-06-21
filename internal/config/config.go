@@ -23,15 +23,14 @@ var WebSocketUpgrader = websocket.Upgrader{
 }
 
 type Config struct {
-	Server      ServerConfig
-	Database    utils.DBConfig
-	JWT         JWTConfig
-	CORS        CORSConfig
-	MinIO       MinIOConfig
-	MailSender  MailSenderConfig
-	Gotenberg   pdfgen.Config
-	Acquiring   AcquiringConfig
-	TelegramBot TelegramBotConfig
+	Server     ServerConfig
+	Database   utils.DBConfig
+	JWT        JWTConfig
+	CORS       CORSConfig
+	MinIO      MinIOConfig
+	MailSender MailSenderConfig
+	Gotenberg  pdfgen.Config
+	Acquiring  AcquiringConfig
 }
 
 type ServerConfig struct {
@@ -121,12 +120,6 @@ func Load() (*Config, error) {
 		IsEnabled:   getEnv("TBANK_TERMINAL_KEY", "") != "" && getEnv("TBANK_TERMINAL_PASSWORD", "") != "",
 	}
 
-	telegramBotConfig := TelegramBotConfig{
-		Token:         getEnv("TELEGRAM_BOT_TOKEN", ""),
-		WebhookSecret: getEnv("TELEGRAM_WEBHOOK_SECRET", ""),
-		IsEnabled:     getEnv("TELEGRAM_BOT_TOKEN", "") != "",
-	}
-
 	log.Printf("📋 Конфигурация загружена:")
 	log.Printf("   - Server: %s:%s", getEnv("HOST", "0.0.0.0"), getEnv("PORT", "8080"))
 	log.Printf("   - Mail Sender: %s:%s", maskedApiKey, mailSenderConfig.NotifyDomain)
@@ -137,7 +130,6 @@ func Load() (*Config, error) {
 		dbConfig.Name)
 	log.Printf("   - MinIO: %s (bucket: %s)", minioConfig.Endpoint, minioConfig.PublicBucket)
 	log.Printf("   - Acquiring: enabled=%v, mode=%s", acquiringConfig.IsEnabled, acquiringConfig.BillingMode)
-	log.Printf("   - Telegram Bot: enabled=%v", telegramBotConfig.IsEnabled)
 
 	allowedOrigins := getCORSOrigins()
 
@@ -171,8 +163,7 @@ func Load() (*Config, error) {
 			Endpoint:      getEnv("GOTENBERG_ENDPOINT", "http://gotenberg:3000"),
 			TemplatesPath: getEnv("GOTENBERG_TEMPLATES_PATH", "./templates"),
 		},
-		Acquiring:   acquiringConfig,
-		TelegramBot: telegramBotConfig,
+		Acquiring: acquiringConfig,
 	}, nil
 }
 
