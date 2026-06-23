@@ -28,7 +28,7 @@ type Valute struct {
 	Value    string `xml:"Value"`
 }
 
-type Worker struct {
+type FiatWorker struct {
 	pool       *pgxpool.Pool
 	httpClient *http.Client
 	cron       *cron.Cron
@@ -36,8 +36,8 @@ type Worker struct {
 	cfg        *config.CurrencyConfig
 }
 
-func NewWorker(pool *pgxpool.Pool, interval string, cfg *config.CurrencyConfig) *Worker {
-	return &Worker{
+func NewFiatWorker(pool *pgxpool.Pool, interval string, cfg *config.CurrencyConfig) *FiatWorker {
+	return &FiatWorker{
 		pool: pool,
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
@@ -48,13 +48,14 @@ func NewWorker(pool *pgxpool.Pool, interval string, cfg *config.CurrencyConfig) 
 	}
 }
 
-func (w *Worker) Start() error {
+func (w *FiatWorker) Start() error {
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 		if err := w.collectAndSave(ctx); err != nil {
 			log.Printf("❌ Initial fiat rates collection failed: %v", err)
 		}
+		log.Printf("✅ Initial fiat rates collected")
 	}()
 
 	_, err := w.cron.AddFunc(w.interval, func() {
@@ -78,7 +79,7 @@ func (w *Worker) Start() error {
 	return nil
 }
 
-func (w *Worker) collectAndSave(ctx context.Context) error {
+func (w *FiatWorker) collectAndSave(ctx context.Context) error {
 	// Получаем только те fiat валюты, что есть в таблице currencies
 	rows, err := w.pool.Query(ctx, `SELECT id FROM currencies WHERE type = 'fiat'`)
 	if err != nil {
@@ -134,6 +135,6 @@ func (w *Worker) collectAndSave(ctx context.Context) error {
 	return nil
 }
 
-func (w *Worker) Stop() {
+func (w *FiatWorker) Stop() {
 	w.cron.Stop()
 }

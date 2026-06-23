@@ -58,6 +58,9 @@ func (a *Application) Run() error {
 	if err := a.container.CurrencyFiatWorker.Start(); err != nil {
 		return fmt.Errorf("failed to start currency fiat worker")
 	}
+	if err := a.container.CurrencyCryptoWorker.Start(); err != nil {
+		return fmt.Errorf("failed to start currency crypto worker")
+	}
 
 	serverErrors := make(chan error, 1)
 	signals := make(chan os.Signal, 1)
@@ -104,6 +107,9 @@ func (a *Application) shutdown() error {
 	// stop-currency-workers
 	if a.container.CurrencyFiatWorker != nil {
 		a.container.CurrencyFiatWorker.Stop()
+	}
+	if a.container.CurrencyCryptoWorker != nil {
+		a.container.CurrencyCryptoWorker.Stop()
 	}
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)

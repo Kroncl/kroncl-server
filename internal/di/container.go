@@ -46,20 +46,21 @@ import (
 
 type Container struct {
 	// system-core
-	Config             *config.Config
-	DB                 *pgxpool.Pool
-	JWTService         *auth.JWTService
-	PermissionService  *permissioner.Service
-	Migrator           *migrator.Migrator
-	Mailer             *mailer.Service
-	MediaRepo          *media.Repository
-	MediaService       *media.Service
-	MediaHandlers      *media.Handlers
-	Pdfgen             *pdfgen.Service // pdfgen (gotenberg)
-	TbankClient        *tinkoff.Client
-	CurrencyService    *currency.Service
-	CurrencyHandlers   *currency.Handlers
-	CurrencyFiatWorker *currencyworkers.Worker
+	Config               *config.Config
+	DB                   *pgxpool.Pool
+	JWTService           *auth.JWTService
+	PermissionService    *permissioner.Service
+	Migrator             *migrator.Migrator
+	Mailer               *mailer.Service
+	MediaRepo            *media.Repository
+	MediaService         *media.Service
+	MediaHandlers        *media.Handlers
+	Pdfgen               *pdfgen.Service // pdfgen (gotenberg)
+	TbankClient          *tinkoff.Client
+	CurrencyService      *currency.Service
+	CurrencyHandlers     *currency.Handlers
+	CurrencyFiatWorker   *currencyworkers.FiatWorker
+	CurrencyCryptoWorker *currencyworkers.CryptoWorker
 
 	// business-core
 	AccountsService   *accounts.Service
@@ -248,7 +249,8 @@ func (c *Container) initServices(ctx context.Context) error {
 	// Currency
 	c.CurrencyService = currency.NewService(c.DB)
 	c.CurrencyHandlers = currency.NewHandlers(c.CurrencyService)
-	c.CurrencyFiatWorker = currencyworkers.NewWorker(c.DB, config.WORKER_CURRENCY_FIAT_PERIOD_CRON, &c.Config.Currency)
+	c.CurrencyFiatWorker = currencyworkers.NewFiatWorker(c.DB, config.WORKER_CURRENCY_FIAT_PERIOD_CRON, &c.Config.Currency)
+	c.CurrencyCryptoWorker = currencyworkers.NewCryptoWorker(c.DB, config.WORKER_CURRENCY_CRYPTO_PERIOD_CRON, &c.Config.Currency)
 
 	// Mailer Service
 	c.Mailer = mailer.NewService(&c.Config.MailSender)
