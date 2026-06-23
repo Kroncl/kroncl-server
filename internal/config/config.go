@@ -82,12 +82,6 @@ type AcquiringConfig struct {
 	BaseURL     string
 }
 
-type TelegramBotConfig struct {
-	Token         string
-	WebhookSecret string
-	IsEnabled     bool
-}
-
 func Load() (*Config, error) {
 	if err := loadEnvFile(); err != nil {
 		log.Printf("⚠️  Warning: %v", err)
