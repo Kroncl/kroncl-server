@@ -20,7 +20,6 @@ func (h *Handlers) GetAnalysisSummary(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Парсим параметры дат
 	var startDate, endDate *time.Time
 
 	if startStr := r.URL.Query().Get("start_date"); startStr != "" {
@@ -37,7 +36,12 @@ func (h *Handlers) GetAnalysisSummary(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	summary, err := h.repository.GetAnalysisSummary(r.Context(), startDate, endDate)
+	targetCurrency := r.URL.Query().Get("currency")
+	if targetCurrency == "" {
+		targetCurrency = "RUB"
+	}
+
+	summary, err := h.repository.GetAnalysisSummary(r.Context(), startDate, endDate, targetCurrency)
 	if err != nil {
 		h.logsService.Log(r.Context(), config.PERMISSION_FM_ANALYSIS, accountID,
 			logs.WithStatus(logs.LogStatusError),
@@ -80,6 +84,11 @@ func (h *Handlers) GetGroupedTransactions(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	targetCurrency := r.URL.Query().Get("currency")
+	if targetCurrency == "" {
+		targetCurrency = "RUB"
+	}
+
 	var startDate, endDate *time.Time
 	if startStr := r.URL.Query().Get("start_date"); startStr != "" {
 		t, _ := time.Parse(time.RFC3339, startStr)
@@ -90,7 +99,7 @@ func (h *Handlers) GetGroupedTransactions(w http.ResponseWriter, r *http.Request
 		endDate = &t
 	}
 
-	stats, err := h.repository.GetGroupedTransactions(r.Context(), groupBy, startDate, endDate)
+	stats, err := h.repository.GetGroupedTransactions(r.Context(), groupBy, startDate, endDate, targetCurrency)
 	if err != nil {
 		h.logsService.Log(r.Context(), config.PERMISSION_FM_ANALYSIS, accountID,
 			logs.WithStatus(logs.LogStatusError),

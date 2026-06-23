@@ -464,9 +464,9 @@ func (r *Repository) GetDealsGroupedByTime(ctx context.Context, groupBy GroupBy,
 	return stats, nil
 }
 
-func (r *Repository) GetDealsFinancialSummary(ctx context.Context, params GetAnalysisParams) (*fm.DealTransactionsSummary, error) {
+func (r *Repository) GetDealsFinancialSummary(ctx context.Context, params GetAnalysisParams, targetCurrency string) (*fm.DealTransactionsSummary, error) {
 	return r.fmRepository.GetOverallDealTransactionsSummary(ctx, fm.GetTransactionsRequest{
 		StartDate: params.StartDate,
 		EndDate:   params.EndDate,
-	})
+	}, targetCurrency)
 }

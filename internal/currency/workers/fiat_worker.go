@@ -34,9 +34,15 @@ type FiatWorker struct {
 	cron       *cron.Cron
 	interval   string
 	cfg        *config.CurrencyConfig
+	service    *currency.Service
 }
 
-func NewFiatWorker(pool *pgxpool.Pool, interval string, cfg *config.CurrencyConfig) *FiatWorker {
+func NewFiatWorker(
+	pool *pgxpool.Pool,
+	interval string,
+	cfg *config.CurrencyConfig,
+	service *currency.Service,
+) *FiatWorker {
 	return &FiatWorker{
 		pool: pool,
 		httpClient: &http.Client{
@@ -45,6 +51,7 @@ func NewFiatWorker(pool *pgxpool.Pool, interval string, cfg *config.CurrencyConf
 		cron:     cron.New(),
 		interval: interval,
 		cfg:      cfg,
+		service:  service,
 	}
 }
 
@@ -131,6 +138,9 @@ func (w *FiatWorker) collectAndSave(ctx context.Context) error {
 			log.Printf("⚠️ Failed to save rate for %s: %v", v.CharCode, err)
 		}
 	}
+
+	// ревокаем кэш курсов
+	w.service.InvalidateCache()
 
 	return nil
 }

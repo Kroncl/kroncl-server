@@ -30,3 +30,25 @@ type Currency struct {
 	Symbol string       `json:"symbol"`
 	Rate   CurrencyRate `json:"rate"`
 }
+
+type CurrencyDatePair struct {
+	CurrencyID string
+	Date       time.Time
+}
+
+// RawStat — сырые данные по валюте на дату
+type RawStat struct {
+	Income  float64
+	Expense float64
+	Count   int64
+}
+
+// ConvertedSummary — результат конвертации
+type ConvertedSummary struct {
+	TotalIncome      float64   `json:"total_income"`
+	TotalExpense     float64   `json:"total_expense"`
+	NetBalance       float64   `json:"net_balance"`
+	TransactionCount int64     `json:"transaction_count"`
+	AvgTransaction   float64   `json:"avg_transaction"`
+	Currency         *Currency `json:"currency"`
+}

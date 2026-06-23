@@ -249,8 +249,8 @@ func (c *Container) initServices(ctx context.Context) error {
 	// Currency
 	c.CurrencyService = currency.NewService(c.DB)
 	c.CurrencyHandlers = currency.NewHandlers(c.CurrencyService)
-	c.CurrencyFiatWorker = currencyworkers.NewFiatWorker(c.DB, config.WORKER_CURRENCY_FIAT_PERIOD_CRON, &c.Config.Currency)
-	c.CurrencyCryptoWorker = currencyworkers.NewCryptoWorker(c.DB, config.WORKER_CURRENCY_CRYPTO_PERIOD_CRON, &c.Config.Currency)
+	c.CurrencyFiatWorker = currencyworkers.NewFiatWorker(c.DB, config.WORKER_CURRENCY_FIAT_PERIOD_CRON, &c.Config.Currency, c.CurrencyService)
+	c.CurrencyCryptoWorker = currencyworkers.NewCryptoWorker(c.DB, config.WORKER_CURRENCY_CRYPTO_PERIOD_CRON, &c.Config.Currency, c.CurrencyService)
 
 	// Mailer Service
 	c.Mailer = mailer.NewService(&c.Config.MailSender)

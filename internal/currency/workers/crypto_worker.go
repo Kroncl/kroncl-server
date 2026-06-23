@@ -22,9 +22,15 @@ type CryptoWorker struct {
 	cron       *cron.Cron
 	interval   string
 	cfg        *config.CurrencyConfig
+	service    *currency.Service
 }
 
-func NewCryptoWorker(pool *pgxpool.Pool, interval string, cfg *config.CurrencyConfig) *CryptoWorker {
+func NewCryptoWorker(
+	pool *pgxpool.Pool,
+	interval string,
+	cfg *config.CurrencyConfig,
+	service *currency.Service,
+) *CryptoWorker {
 	return &CryptoWorker{
 		pool: pool,
 		httpClient: &http.Client{
@@ -33,6 +39,7 @@ func NewCryptoWorker(pool *pgxpool.Pool, interval string, cfg *config.CurrencyCo
 		cron:     cron.New(),
 		interval: interval,
 		cfg:      cfg,
+		service:  service,
 	}
 }
 
@@ -158,6 +165,9 @@ func (w *CryptoWorker) collectAndSave(ctx context.Context) error {
 			log.Printf("⚠️ Failed to save rate for %s: %v", currencyID, err)
 		}
 	}
+
+	// ревокаем кэш курсов
+	w.service.InvalidateCache()
 
 	return nil
 }
