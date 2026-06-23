@@ -130,6 +130,11 @@ func (h *Handlers) GetDealTransactionsSummary(w http.ResponseWriter, r *http.Req
 
 	var filters fm.GetTransactionsRequest
 
+	targetCurrency := r.URL.Query().Get("currency")
+	if targetCurrency == "" {
+		targetCurrency = string(fm.CurrencyRUB)
+	}
+
 	if startDate := r.URL.Query().Get("start_date"); startDate != "" {
 		t, err := time.Parse(time.RFC3339, startDate)
 		if err == nil {
@@ -156,7 +161,7 @@ func (h *Handlers) GetDealTransactionsSummary(w http.ResponseWriter, r *http.Req
 		filters.Search = &search
 	}
 
-	summary, err := h.repository.fmRepository.GetDealTransactionsSummary(r.Context(), dealID, filters)
+	summary, err := h.repository.fmRepository.GetDealTransactionsSummary(r.Context(), dealID, filters, targetCurrency)
 	if err != nil {
 		h.logsService.Log(r.Context(), config.PERMISSION_DM_DEALS_TRANSACTIONS_SUMMARY, accountID,
 			logs.WithStatus(logs.LogStatusError),

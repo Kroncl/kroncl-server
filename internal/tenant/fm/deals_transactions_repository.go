@@ -3,6 +3,7 @@ package fm
 import (
 	"context"
 	"fmt"
+	"kroncl-server/internal/currency"
 	"kroncl-server/internal/tenant/hrm"
 	"strconv"
 	"strings"
@@ -300,8 +301,11 @@ func (r *Repository) GetDealTransactions(ctx context.Context, dealID string, off
 	return transactions, total, nil
 }
 
-// GetDealTransactionsSummary возвращает сводку по транзакциям сделки
-func (r *Repository) GetDealTransactionsSummary(ctx context.Context, dealID string, filters GetTransactionsRequest) (*DealTransactionsSummary, error) {
+func (r *Repository) GetDealTransactionsSummary(ctx context.Context, dealID string, filters GetTransactionsRequest, targetCurrency string) (*DealTransactionsSummary, error) {
+	if targetCurrency == "" {
+		targetCurrency = "RUB"
+	}
+
 	var whereConditions []string
 	var args []interface{}
 	argIndex := 1
@@ -359,9 +363,10 @@ func (r *Repository) GetDealTransactionsSummary(ctx context.Context, dealID stri
 
 	query := `
 		SELECT 
-			COALESCE(SUM(CASE WHEN t.direction = 'income' THEN t.base_amount ELSE -t.base_amount END), 0) as total_amount,
-			COALESCE(SUM(CASE WHEN t.direction = 'income' THEN t.base_amount ELSE 0 END), 0) as income_amount,
-			COALESCE(SUM(CASE WHEN t.direction = 'expense' THEN t.base_amount ELSE 0 END), 0) as expense_amount,
+			t.currency,
+			DATE_TRUNC('hour', t.created_at) as date_hour,
+			COALESCE(SUM(CASE WHEN t.direction = 'income' THEN t.base_amount ELSE 0 END), 0) as income,
+			COALESCE(SUM(CASE WHEN t.direction = 'expense' THEN t.base_amount ELSE 0 END), 0) as expense,
 			COALESCE(COUNT(CASE WHEN t.direction = 'income' THEN 1 END), 0) as income_count,
 			COALESCE(COUNT(CASE WHEN t.direction = 'expense' THEN 1 END), 0) as expense_count,
 			COUNT(t.id) as total_count
@@ -371,21 +376,54 @@ func (r *Repository) GetDealTransactionsSummary(ctx context.Context, dealID stri
 		LEFT JOIN employees e ON te.employee_id = e.id
 		LEFT JOIN transaction_category tc ON t.id = tc.transaction_id
 		LEFT JOIN transaction_categories c ON tc.category_id = c.id
-	` + whereClause
+	` + whereClause + `
+		GROUP BY t.currency, DATE_TRUNC('hour', t.created_at)
+	`
 
-	var summary DealTransactionsSummary
-	err := r.pool.QueryRow(ctx, query, args...).Scan(
-		&summary.TotalAmount,
-		&summary.IncomeAmount,
-		&summary.ExpenseAmount,
-		&summary.IncomeCount,
-		&summary.ExpenseCount,
-		&summary.TotalCount,
-	)
-
+	rows, err := r.pool.Query(ctx, query, args...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get deal transactions summary: %w", err)
+		return nil, fmt.Errorf("failed to query deal transactions: %w", err)
+	}
+	defer rows.Close()
+
+	rawStats := make(map[string]map[time.Time]*currency.RawStat)
+	var totalIncomeCount, totalExpenseCount, totalCount int64
+
+	for rows.Next() {
+		var currencyID string
+		var dateHour time.Time
+		var income, expense float64
+		var incomeCount, expenseCount, count int64
+
+		if err := rows.Scan(&currencyID, &dateHour, &income, &expense, &incomeCount, &expenseCount, &count); err != nil {
+			return nil, fmt.Errorf("failed to scan: %w", err)
+		}
+
+		if rawStats[currencyID] == nil {
+			rawStats[currencyID] = make(map[time.Time]*currency.RawStat)
+		}
+		rawStats[currencyID][dateHour] = &currency.RawStat{
+			Income:  income,
+			Expense: expense,
+			Count:   count,
+		}
+		totalIncomeCount += incomeCount
+		totalExpenseCount += expenseCount
+		totalCount += count
 	}
 
-	return &summary, nil
+	converted, err := r.currencyService.ConvertSummary(ctx, rawStats, targetCurrency)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert summary: %w", err)
+	}
+
+	return &DealTransactionsSummary{
+		TotalAmount:   converted.NetBalance,
+		IncomeAmount:  converted.TotalIncome,
+		ExpenseAmount: converted.TotalExpense,
+		IncomeCount:   totalIncomeCount,
+		ExpenseCount:  totalExpenseCount,
+		TotalCount:    totalCount,
+		Currency:      converted.Currency,
+	}, nil
 }

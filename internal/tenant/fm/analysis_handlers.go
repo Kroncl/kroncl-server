@@ -86,7 +86,7 @@ func (h *Handlers) GetGroupedTransactions(w http.ResponseWriter, r *http.Request
 
 	targetCurrency := r.URL.Query().Get("currency")
 	if targetCurrency == "" {
-		targetCurrency = "RUB"
+		targetCurrency = string(CurrencyRUB)
 	}
 
 	var startDate, endDate *time.Time

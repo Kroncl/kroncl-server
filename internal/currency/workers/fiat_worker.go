@@ -24,7 +24,10 @@ type ValCurs struct {
 }
 
 type Valute struct {
+	NumCode  string `xml:"NumCode"`
 	CharCode string `xml:"CharCode"`
+	Nominal  int    `xml:"Nominal"`
+	Name     string `xml:"Name"`
 	Value    string `xml:"Value"`
 }
 
@@ -87,7 +90,6 @@ func (w *FiatWorker) Start() error {
 }
 
 func (w *FiatWorker) collectAndSave(ctx context.Context) error {
-	// Получаем только те fiat валюты, что есть в таблице currencies
 	rows, err := w.pool.Query(ctx, `SELECT id FROM currencies WHERE type = 'fiat'`)
 	if err != nil {
 		return fmt.Errorf("failed to get fiat currencies: %w", err)
@@ -103,7 +105,6 @@ func (w *FiatWorker) collectAndSave(ctx context.Context) error {
 		ourCurrencies[code] = true
 	}
 
-	// Забираем XML от ЦБ
 	apiURL, _ := url.JoinPath(w.cfg.CbrApiUrl, "daily_utf8.xml")
 	resp, err := w.httpClient.Get(apiURL)
 	if err != nil {
@@ -116,18 +117,21 @@ func (w *FiatWorker) collectAndSave(ctx context.Context) error {
 		return fmt.Errorf("failed to decode XML: %w", err)
 	}
 
-	// Сохраняем только те, что есть у нас
 	for _, v := range valCurs.Valutes {
 		if !ourCurrencies[v.CharCode] {
 			continue
 		}
 
-		// -> NUMERIC
 		valueStr := strings.Replace(v.Value, ",", ".", 1)
 		rate, err := strconv.ParseFloat(valueStr, 64)
 		if err != nil {
 			log.Printf("⚠️ Failed to parse rate for %s: %v", v.CharCode, err)
 			continue
+		}
+
+		// Номинал по умолчанию 1, для некоторых валют — 10, 100, 1000
+		if v.Nominal > 1 {
+			rate = rate / float64(v.Nominal)
 		}
 
 		_, err = w.pool.Exec(ctx, `
@@ -139,7 +143,6 @@ func (w *FiatWorker) collectAndSave(ctx context.Context) error {
 		}
 	}
 
-	// ревокаем кэш курсов
 	w.service.InvalidateCache()
 
 	return nil
