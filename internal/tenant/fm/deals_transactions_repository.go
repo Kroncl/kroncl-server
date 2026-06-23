@@ -19,9 +19,8 @@ func (r *Repository) CreateDealTransaction(ctx context.Context, dealID string, r
 		return nil, fmt.Errorf("invalid transaction direction: %s", req.Direction)
 	}
 
-	switch req.Currency {
-	case CurrencyRUB:
-	default:
+	_, err := r.currencyService.GetByID(ctx, req.Currency)
+	if err != nil {
 		return nil, fmt.Errorf("invalid currency: %s", req.Currency)
 	}
 
@@ -33,19 +32,15 @@ func (r *Repository) CreateDealTransaction(ctx context.Context, dealID string, r
 
 	var dealExists bool
 	err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM deals WHERE id = $1)`, dealID).Scan(&dealExists)
-	if err != nil {
-		return nil, fmt.Errorf("failed to check deal: %w", err)
-	}
-	if !dealExists {
+	if err != nil || !dealExists {
 		return nil, fmt.Errorf("deal not found: %s", dealID)
 	}
 
 	if req.EmployeeID != "" {
-		employee, err := r.employeesRepository.GetEmployeeByID(ctx, req.EmployeeID)
+		_, err := r.employeesRepository.GetEmployeeByID(ctx, req.EmployeeID)
 		if err != nil {
 			return nil, fmt.Errorf("invalid employee_id: %w", err)
 		}
-		_ = employee
 	}
 
 	comment := strings.TrimSpace(req.Comment)
@@ -59,54 +54,31 @@ func (r *Repository) CreateDealTransaction(ctx context.Context, dealID string, r
 		status = TransactionStatus(req.Status)
 	}
 
-	transactionQuery := `
-		INSERT INTO transactions (
-			id, base_amount, currency, direction, status, comment,
-			created_at, metadata
-		) VALUES (
-			gen_random_uuid(), $1, $2, $3, $4, $5,
-			CURRENT_TIMESTAMP, $6
-		)
-		RETURNING id
-	`
-
 	var transactionID string
-	err = tx.QueryRow(ctx, transactionQuery,
-		req.BaseAmount,
-		req.Currency,
-		req.Direction,
-		status,
-		commentPtr,
-		req.Metadata,
-	).Scan(&transactionID)
-
+	err = tx.QueryRow(ctx, `
+		INSERT INTO transactions (id, base_amount, currency, direction, status, comment, created_at, metadata)
+		VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, CURRENT_TIMESTAMP, $6)
+		RETURNING id
+	`, req.BaseAmount, req.Currency, req.Direction, status, commentPtr, req.Metadata).Scan(&transactionID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create transaction: %w", err)
 	}
 
-	linkDealQuery := `
-		INSERT INTO deals_transactions (
-			id, deal_id, transaction_id, created_at, updated_at
-		) VALUES (
-			gen_random_uuid(), $1, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
-		)
-	`
-	_, err = tx.Exec(ctx, linkDealQuery, dealID, transactionID)
+	_, err = tx.Exec(ctx, `
+		INSERT INTO deals_transactions (id, deal_id, transaction_id, created_at, updated_at)
+		VALUES (gen_random_uuid(), $1, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+	`, dealID, transactionID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to link deal to transaction: %w", err)
+		return nil, fmt.Errorf("failed to link deal: %w", err)
 	}
 
 	if req.EmployeeID != "" {
-		linkEmployeeQuery := `
-			INSERT INTO transaction_employee (
-				id, employee_id, transaction_id, created_at
-			) VALUES (
-				gen_random_uuid(), $1, $2, CURRENT_TIMESTAMP
-			)
-		`
-		_, err = tx.Exec(ctx, linkEmployeeQuery, req.EmployeeID, transactionID)
+		_, err = tx.Exec(ctx, `
+			INSERT INTO transaction_employee (id, employee_id, transaction_id, created_at)
+			VALUES (gen_random_uuid(), $1, $2, CURRENT_TIMESTAMP)
+		`, req.EmployeeID, transactionID)
 		if err != nil {
-			return nil, fmt.Errorf("failed to link employee to transaction: %w", err)
+			return nil, fmt.Errorf("failed to link employee: %w", err)
 		}
 	}
 
@@ -121,20 +93,16 @@ func (r *Repository) CreateDealTransaction(ctx context.Context, dealID string, r
 		return nil, fmt.Errorf("deal category not found by slug: %s", categorySlug)
 	}
 
-	linkCategoryQuery := `
-		INSERT INTO transaction_category (
-			id, transaction_id, category_id, created_at
-		) VALUES (
-			gen_random_uuid(), $1, $2, CURRENT_TIMESTAMP
-		)
-	`
-	_, err = tx.Exec(ctx, linkCategoryQuery, transactionID, categoryID)
+	_, err = tx.Exec(ctx, `
+		INSERT INTO transaction_category (id, transaction_id, category_id, created_at)
+		VALUES (gen_random_uuid(), $1, $2, CURRENT_TIMESTAMP)
+	`, transactionID, categoryID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to link category to transaction: %w", err)
+		return nil, fmt.Errorf("failed to link category: %w", err)
 	}
 
 	if err := tx.Commit(ctx); err != nil {
-		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+		return nil, fmt.Errorf("failed to commit: %w", err)
 	}
 
 	return r.GetTransactionByID(ctx, transactionID)

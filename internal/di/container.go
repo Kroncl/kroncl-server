@@ -357,6 +357,7 @@ func (c *Container) initTenantRoutes() error {
 		c.CompaniesService,
 		c.Pdfgen,
 		c.Mailer,
+		c.CurrencyService,
 	)
 	return nil
 }

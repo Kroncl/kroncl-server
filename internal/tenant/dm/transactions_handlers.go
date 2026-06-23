@@ -232,10 +232,6 @@ func (h *Handlers) CreateDealTransaction(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	if req.Currency == "" {
-		req.Currency = fm.CurrencyRUB
-	}
-
 	transaction, err := h.repository.fmRepository.CreateDealTransaction(r.Context(), dealID, req)
 	if err != nil {
 		errorMsg := err.Error()

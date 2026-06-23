@@ -49,7 +49,7 @@ func createFMHandlers(pool *pgxpool.Pool, logsService *logs.Service, rt *Routes)
 		excelizerService,
 		docsService,
 	)
-	fmRepo := fm.NewRepository(pool, hrmRepo, rt.storageService.Media, excelizerService, docsService)
+	fmRepo := fm.NewRepository(pool, hrmRepo, rt.storageService.Media, excelizerService, docsService, rt.currencyService)
 	return fm.NewHandlers(fmRepo, logsService)
 }
 
@@ -94,7 +94,7 @@ func createDMHandlers(pool *pgxpool.Pool, logsService *logs.Service, rt *Routes)
 		excelizerService,
 		docsService,
 	)
-	fmRepo := fm.NewRepository(pool, hrmRepo, rt.storageService.Media, excelizerService, docsService)
+	fmRepo := fm.NewRepository(pool, hrmRepo, rt.storageService.Media, excelizerService, docsService, rt.currencyService)
 	crmRepo := crm.NewRepository(pool, rt.storageService.Media, excelizerService, docsService)
 	wmRepo := wm.NewRepository(pool, rt.storageService.Media, excelizerService, docsService)
 	dmRepo := dm.NewRepository(pool, fmRepo, hrmRepo, crmRepo, wmRepo, rt.pdfgen, rt.storageService.Media, docsService)
