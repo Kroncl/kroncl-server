@@ -31,6 +31,7 @@ type Config struct {
 	MailSender MailSenderConfig
 	Gotenberg  pdfgen.Config
 	Acquiring  AcquiringConfig
+	Currency   CurrencyConfig
 }
 
 type ServerConfig struct {
@@ -82,6 +83,12 @@ type AcquiringConfig struct {
 	BaseURL     string
 }
 
+type CurrencyConfig struct {
+	CbrApiUrl       string
+	CoinGeckoApiUrl string
+	CoinGeckoToken  string
+}
+
 func Load() (*Config, error) {
 	if err := loadEnvFile(); err != nil {
 		log.Printf("⚠️  Warning: %v", err)
@@ -114,6 +121,12 @@ func Load() (*Config, error) {
 		IsEnabled:   getEnv("TBANK_TERMINAL_KEY", "") != "" && getEnv("TBANK_TERMINAL_PASSWORD", "") != "",
 	}
 
+	currencyConfig := CurrencyConfig{
+		CbrApiUrl:       getEnv("CBR_API_URL", "https://www.cbr-xml-daily.ru"),
+		CoinGeckoApiUrl: getEnv("COIN_GECKO_API_URL", "https://api.coingecko.com/api/v3"),
+		CoinGeckoToken:  getEnv("COIN_GECKO_TOKEN", ""),
+	}
+
 	log.Printf("📋 Конфигурация загружена:")
 	log.Printf("   - Server: %s:%s", getEnv("HOST", "0.0.0.0"), getEnv("PORT", "8080"))
 	log.Printf("   - Mail Sender: %s:%s", maskedApiKey, mailSenderConfig.NotifyDomain)
@@ -124,6 +137,7 @@ func Load() (*Config, error) {
 		dbConfig.Name)
 	log.Printf("   - MinIO: %s (bucket: %s)", minioConfig.Endpoint, minioConfig.PublicBucket)
 	log.Printf("   - Acquiring: enabled=%v, mode=%s", acquiringConfig.IsEnabled, acquiringConfig.BillingMode)
+	log.Printf("   - Currency Rates: cbr=%v, coin-gecko=%s", currencyConfig.CbrApiUrl, currencyConfig.CoinGeckoApiUrl)
 
 	allowedOrigins := getCORSOrigins()
 
@@ -158,6 +172,7 @@ func Load() (*Config, error) {
 			TemplatesPath: getEnv("GOTENBERG_TEMPLATES_PATH", "./templates"),
 		},
 		Acquiring: acquiringConfig,
+		Currency:  currencyConfig,
 	}, nil
 }
 

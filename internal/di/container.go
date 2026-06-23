@@ -248,7 +248,7 @@ func (c *Container) initServices(ctx context.Context) error {
 	// Currency
 	c.CurrencyService = currency.NewService(c.DB)
 	c.CurrencyHandlers = currency.NewHandlers(c.CurrencyService)
-	c.CurrencyFiatWorker = currencyworkers.NewWorker(c.DB, config.WORKER_CURRENCY_FIAT_PERIOD_CRON)
+	c.CurrencyFiatWorker = currencyworkers.NewWorker(c.DB, config.WORKER_CURRENCY_FIAT_PERIOD_CRON, &c.Config.Currency)
 
 	// Mailer Service
 	c.Mailer = mailer.NewService(&c.Config.MailSender)

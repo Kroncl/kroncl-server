@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
 
+	"kroncl-server/internal/config"
 	"kroncl-server/internal/currency"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -31,9 +33,10 @@ type Worker struct {
 	httpClient *http.Client
 	cron       *cron.Cron
 	interval   string
+	cfg        *config.CurrencyConfig
 }
 
-func NewWorker(pool *pgxpool.Pool, interval string) *Worker {
+func NewWorker(pool *pgxpool.Pool, interval string, cfg *config.CurrencyConfig) *Worker {
 	return &Worker{
 		pool: pool,
 		httpClient: &http.Client{
@@ -41,6 +44,7 @@ func NewWorker(pool *pgxpool.Pool, interval string) *Worker {
 		},
 		cron:     cron.New(),
 		interval: interval,
+		cfg:      cfg,
 	}
 }
 
@@ -92,7 +96,8 @@ func (w *Worker) collectAndSave(ctx context.Context) error {
 	}
 
 	// Забираем XML от ЦБ
-	resp, err := w.httpClient.Get("https://www.cbr-xml-daily.ru/daily_utf8.xml")
+	apiURL, _ := url.JoinPath(w.cfg.CbrApiUrl, "daily_utf8.xml")
+	resp, err := w.httpClient.Get(apiURL)
 	if err != nil {
 		return fmt.Errorf("failed to fetch CBR rates: %w", err)
 	}
