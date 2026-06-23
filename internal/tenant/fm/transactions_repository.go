@@ -441,10 +441,15 @@ func (r *Repository) CreateReverseTransaction(ctx context.Context, originalID st
 		return nil, fmt.Errorf("failed to create reverse transaction: %w", err)
 	}
 
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("failed to commit: %w", err)
+	}
+
+	// После коммита — привязываем связи (reverseID уже видим для FK)
 	var dealID *string
-	err = tx.QueryRow(ctx, `SELECT deal_id FROM deals_transactions WHERE transaction_id = $1`, originalID).Scan(&dealID)
+	err = r.pool.QueryRow(ctx, `SELECT deal_id FROM deals_transactions WHERE transaction_id = $1`, originalID).Scan(&dealID)
 	if err == nil && dealID != nil {
-		_, err = tx.Exec(ctx, `
+		_, err = r.pool.Exec(ctx, `
 			INSERT INTO deals_transactions (id, deal_id, transaction_id, created_at, updated_at)
 			VALUES (gen_random_uuid(), $1, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 		`, *dealID, reverseID)
@@ -454,7 +459,7 @@ func (r *Repository) CreateReverseTransaction(ctx context.Context, originalID st
 	}
 
 	if original.EmployeeID != nil && *original.EmployeeID != "" {
-		_, err = tx.Exec(ctx, `
+		_, err = r.pool.Exec(ctx, `
 			INSERT INTO transaction_employee (id, employee_id, transaction_id, created_at)
 			VALUES (gen_random_uuid(), $1, $2, CURRENT_TIMESTAMP)
 		`, *original.EmployeeID, reverseID)
@@ -464,17 +469,13 @@ func (r *Repository) CreateReverseTransaction(ctx context.Context, originalID st
 	}
 
 	if original.CategoryID != nil && *original.CategoryID != "" {
-		_, err = tx.Exec(ctx, `
+		_, err = r.pool.Exec(ctx, `
 			INSERT INTO transaction_category (id, transaction_id, category_id, created_at)
 			VALUES (gen_random_uuid(), $1, $2, CURRENT_TIMESTAMP)
-		`, *original.CategoryID, reverseID)
+		`, reverseID, *original.CategoryID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to link category to reverse transaction: %w", err)
 		}
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return nil, fmt.Errorf("failed to commit: %w", err)
 	}
 
 	return r.GetTransactionByID(ctx, reverseID)
