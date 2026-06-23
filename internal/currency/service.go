@@ -162,8 +162,8 @@ func (s *Service) GetRate(ctx context.Context, currencyID string, date time.Time
 	var rate float64
 	err := s.pool.QueryRow(ctx, `
 		SELECT rate FROM currency_rates
-		WHERE currency_id = $1 AND updated_at <= $2
-		ORDER BY updated_at DESC
+		WHERE currency_id = $1
+		ORDER BY ABS(EXTRACT(EPOCH FROM (updated_at - $2))) ASC
 		LIMIT 1
 	`, currencyID, date).Scan(&rate)
 	if err != nil {
@@ -233,8 +233,7 @@ func (s *Service) GetRates(ctx context.Context, pairs []CurrencyDatePair) (map[s
 			SELECT rate
 			FROM currency_rates cr
 			WHERE cr.currency_id = req.currency_id
-			  AND cr.updated_at <= req.date
-			ORDER BY cr.updated_at DESC
+			ORDER BY ABS(EXTRACT(EPOCH FROM (cr.updated_at - req.date))) ASC
 			LIMIT 1
 		) cr`
 

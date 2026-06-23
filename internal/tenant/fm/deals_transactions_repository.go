@@ -10,103 +10,44 @@ import (
 	"time"
 )
 
-// CreateDealTransaction создает транзакцию с привязкой к сделке и автоматическим определением категории
 func (r *Repository) CreateDealTransaction(ctx context.Context, dealID string, req CreateTransactionRequest) (*TransactionDetail, error) {
-	if req.BaseAmount <= 0 {
-		return nil, fmt.Errorf("base_amount must be greater than 0")
-	}
-
-	if req.Direction != TransactionDirectionIncome && req.Direction != TransactionDirectionExpense {
-		return nil, fmt.Errorf("invalid transaction direction: %s", req.Direction)
-	}
-
-	_, err := r.currencyService.GetByID(ctx, req.Currency)
-	if err != nil {
-		return nil, fmt.Errorf("invalid currency: %s", req.Currency)
-	}
-
-	tx, err := r.pool.Begin(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to begin transaction: %w", err)
-	}
-	defer tx.Rollback(ctx)
-
+	// Проверяем существование сделки
 	var dealExists bool
-	err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM deals WHERE id = $1)`, dealID).Scan(&dealExists)
+	err := r.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM deals WHERE id = $1)`, dealID).Scan(&dealExists)
 	if err != nil || !dealExists {
 		return nil, fmt.Errorf("deal not found: %s", dealID)
 	}
 
-	if req.EmployeeID != "" {
-		_, err := r.employeesRepository.GetEmployeeByID(ctx, req.EmployeeID)
-		if err != nil {
-			return nil, fmt.Errorf("invalid employee_id: %w", err)
+	// Если категория не передана — подставляем авто-категорию сделки
+	if req.CategoryID == "" {
+		categorySlug := DEAL_TRANSACTION_CATEGORY_EXPENSE_SLUG
+		if req.Direction == TransactionDirectionIncome {
+			categorySlug = DEAL_TRANSACTION_CATEGORY_INCOME_SLUG
 		}
+		var categoryID string
+		err := r.pool.QueryRow(ctx, `SELECT id FROM transaction_categories WHERE slug = $1`, categorySlug).Scan(&categoryID)
+		if err != nil {
+			return nil, fmt.Errorf("deal category not found by slug: %s", categorySlug)
+		}
+		req.CategoryID = categoryID
 	}
 
-	comment := strings.TrimSpace(req.Comment)
-	var commentPtr *string
-	if comment != "" {
-		commentPtr = &comment
-	}
-
-	status := TransactionStatusCompleted
-	if req.Status != "" {
-		status = TransactionStatus(req.Status)
-	}
-
-	var transactionID string
-	err = tx.QueryRow(ctx, `
-		INSERT INTO transactions (id, base_amount, currency, direction, status, comment, created_at, metadata)
-		VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, CURRENT_TIMESTAMP, $6)
-		RETURNING id
-	`, req.BaseAmount, req.Currency, req.Direction, status, commentPtr, req.Metadata).Scan(&transactionID)
+	// Создаём транзакцию через общий метод
+	detail, err := r.CreateTransaction(ctx, req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create transaction: %w", err)
+		return nil, err
 	}
 
-	_, err = tx.Exec(ctx, `
+	// Привязываем к сделке
+	_, err = r.pool.Exec(ctx, `
 		INSERT INTO deals_transactions (id, deal_id, transaction_id, created_at, updated_at)
 		VALUES (gen_random_uuid(), $1, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-	`, dealID, transactionID)
+	`, dealID, detail.ID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to link deal: %w", err)
 	}
 
-	if req.EmployeeID != "" {
-		_, err = tx.Exec(ctx, `
-			INSERT INTO transaction_employee (id, employee_id, transaction_id, created_at)
-			VALUES (gen_random_uuid(), $1, $2, CURRENT_TIMESTAMP)
-		`, req.EmployeeID, transactionID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to link employee: %w", err)
-		}
-	}
-
-	categorySlug := DEAL_TRANSACTION_CATEGORY_EXPENSE_SLUG
-	if req.Direction == TransactionDirectionIncome {
-		categorySlug = DEAL_TRANSACTION_CATEGORY_INCOME_SLUG
-	}
-
-	var categoryID string
-	err = tx.QueryRow(ctx, `SELECT id FROM transaction_categories WHERE slug = $1`, categorySlug).Scan(&categoryID)
-	if err != nil {
-		return nil, fmt.Errorf("deal category not found by slug: %s", categorySlug)
-	}
-
-	_, err = tx.Exec(ctx, `
-		INSERT INTO transaction_category (id, transaction_id, category_id, created_at)
-		VALUES (gen_random_uuid(), $1, $2, CURRENT_TIMESTAMP)
-	`, transactionID, categoryID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to link category: %w", err)
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return nil, fmt.Errorf("failed to commit: %w", err)
-	}
-
-	return r.GetTransactionByID(ctx, transactionID)
+	return detail, nil
 }
 
 // GetDealTransactions возвращает список транзакций, привязанных к сделке, с пагинацией и фильтрацией
