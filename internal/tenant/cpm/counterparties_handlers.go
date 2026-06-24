@@ -1,4 +1,4 @@
-package fm
+package cpm
 
 import (
 	"encoding/json"
@@ -24,7 +24,7 @@ func (h *Handlers) GetCounterparty(w http.ResponseWriter, r *http.Request) {
 	// Получаем ID контрагента из URL
 	counterpartyID := r.PathValue("counterpartyId")
 	if counterpartyID == "" {
-		h.logsService.Log(r.Context(), config.PERMISSION_FM_COUNTERPARTIES, accountID,
+		h.logsService.Log(r.Context(), config.PERMISSION_CPM_COUNTERPARTIES, accountID,
 			logs.WithStatus(logs.LogStatusError),
 			logs.WithUserAgent(r.UserAgent()),
 			logs.WithMetadata("error", "Counterparty ID is required"),
@@ -36,7 +36,7 @@ func (h *Handlers) GetCounterparty(w http.ResponseWriter, r *http.Request) {
 
 	counterparty, err := h.repository.GetCounterpartyByID(r.Context(), counterpartyID)
 	if err != nil {
-		h.logsService.Log(r.Context(), config.PERMISSION_FM_COUNTERPARTIES, accountID,
+		h.logsService.Log(r.Context(), config.PERMISSION_CPM_COUNTERPARTIES, accountID,
 			logs.WithStatus(logs.LogStatusError),
 			logs.WithUserAgent(r.UserAgent()),
 			logs.WithMetadata("error", "Counterparty not found"),
@@ -47,7 +47,7 @@ func (h *Handlers) GetCounterparty(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.logsService.Log(r.Context(), config.PERMISSION_FM_COUNTERPARTIES, accountID,
+	h.logsService.Log(r.Context(), config.PERMISSION_CPM_COUNTERPARTIES, accountID,
 		logs.WithStatus(logs.LogStatusSuccess),
 		logs.WithUserAgent(r.UserAgent()),
 		logs.WithMetadata("counterparty_id", counterpartyID),
@@ -74,7 +74,7 @@ func (h *Handlers) GetCounterparties(w http.ResponseWriter, r *http.Request) {
 	if typeStr := r.URL.Query().Get("type"); typeStr != "" {
 		t := CounterpartyType(typeStr)
 		if t != CounterpartyTypeBank && t != CounterpartyTypeOrganization && t != CounterpartyTypePerson {
-			h.logsService.Log(r.Context(), config.PERMISSION_FM_COUNTERPARTIES, accountID,
+			h.logsService.Log(r.Context(), config.PERMISSION_CPM_COUNTERPARTIES, accountID,
 				logs.WithStatus(logs.LogStatusError),
 				logs.WithUserAgent(r.UserAgent()),
 				logs.WithMetadata("error", "Invalid type"),
@@ -90,7 +90,7 @@ func (h *Handlers) GetCounterparties(w http.ResponseWriter, r *http.Request) {
 	if statusStr := r.URL.Query().Get("status"); statusStr != "" {
 		s := CounterpartyStatus(statusStr)
 		if s != CounterpartyStatusActive && s != CounterpartyStatusInactive {
-			h.logsService.Log(r.Context(), config.PERMISSION_FM_COUNTERPARTIES, accountID,
+			h.logsService.Log(r.Context(), config.PERMISSION_CPM_COUNTERPARTIES, accountID,
 				logs.WithStatus(logs.LogStatusError),
 				logs.WithUserAgent(r.UserAgent()),
 				logs.WithMetadata("error", "Invalid status"),
@@ -114,7 +114,7 @@ func (h *Handlers) GetCounterparties(w http.ResponseWriter, r *http.Request) {
 		filters,
 	)
 	if err != nil {
-		h.logsService.Log(r.Context(), config.PERMISSION_FM_COUNTERPARTIES, accountID,
+		h.logsService.Log(r.Context(), config.PERMISSION_CPM_COUNTERPARTIES, accountID,
 			logs.WithStatus(logs.LogStatusError),
 			logs.WithUserAgent(r.UserAgent()),
 			logs.WithMetadata("error", err.Error()),
@@ -124,7 +124,7 @@ func (h *Handlers) GetCounterparties(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.logsService.Log(r.Context(), config.PERMISSION_FM_COUNTERPARTIES, accountID,
+	h.logsService.Log(r.Context(), config.PERMISSION_CPM_COUNTERPARTIES, accountID,
 		logs.WithStatus(logs.LogStatusSuccess),
 		logs.WithUserAgent(r.UserAgent()),
 		logs.WithMetadata("filters", map[string]interface{}{
@@ -161,7 +161,7 @@ func (h *Handlers) CreateCounterparty(w http.ResponseWriter, r *http.Request) {
 	// Парсим тело запроса
 	var req CreateCounterpartyRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.logsService.Log(r.Context(), config.PERMISSION_FM_COUNTERPARTIES_CREATE, accountID,
+		h.logsService.Log(r.Context(), config.PERMISSION_CPM_COUNTERPARTIES_CREATE, accountID,
 			logs.WithStatus(logs.LogStatusError),
 			logs.WithUserAgent(r.UserAgent()),
 			logs.WithMetadata("error", "Invalid request body"),
@@ -173,7 +173,7 @@ func (h *Handlers) CreateCounterparty(w http.ResponseWriter, r *http.Request) {
 
 	// Валидация
 	if strings.TrimSpace(req.Name) == "" {
-		h.logsService.Log(r.Context(), config.PERMISSION_FM_COUNTERPARTIES_CREATE, accountID,
+		h.logsService.Log(r.Context(), config.PERMISSION_CPM_COUNTERPARTIES_CREATE, accountID,
 			logs.WithStatus(logs.LogStatusError),
 			logs.WithUserAgent(r.UserAgent()),
 			logs.WithMetadata("error", "Counterparty name is required"),
@@ -183,7 +183,7 @@ func (h *Handlers) CreateCounterparty(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if req.Type == "" {
-		h.logsService.Log(r.Context(), config.PERMISSION_FM_COUNTERPARTIES_CREATE, accountID,
+		h.logsService.Log(r.Context(), config.PERMISSION_CPM_COUNTERPARTIES_CREATE, accountID,
 			logs.WithStatus(logs.LogStatusError),
 			logs.WithUserAgent(r.UserAgent()),
 			logs.WithMetadata("error", "Counterparty type is required"),
@@ -193,7 +193,7 @@ func (h *Handlers) CreateCounterparty(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if req.Type != CounterpartyTypeBank && req.Type != CounterpartyTypeOrganization && req.Type != CounterpartyTypePerson {
-		h.logsService.Log(r.Context(), config.PERMISSION_FM_COUNTERPARTIES_CREATE, accountID,
+		h.logsService.Log(r.Context(), config.PERMISSION_CPM_COUNTERPARTIES_CREATE, accountID,
 			logs.WithStatus(logs.LogStatusError),
 			logs.WithUserAgent(r.UserAgent()),
 			logs.WithMetadata("error", "Invalid type"),
@@ -204,7 +204,7 @@ func (h *Handlers) CreateCounterparty(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if req.Status != "" && req.Status != CounterpartyStatusActive && req.Status != CounterpartyStatusInactive {
-		h.logsService.Log(r.Context(), config.PERMISSION_FM_COUNTERPARTIES_CREATE, accountID,
+		h.logsService.Log(r.Context(), config.PERMISSION_CPM_COUNTERPARTIES_CREATE, accountID,
 			logs.WithStatus(logs.LogStatusError),
 			logs.WithUserAgent(r.UserAgent()),
 			logs.WithMetadata("error", "Invalid status"),
@@ -217,7 +217,7 @@ func (h *Handlers) CreateCounterparty(w http.ResponseWriter, r *http.Request) {
 
 	counterparty, err := h.repository.CreateCounterparty(r.Context(), req)
 	if err != nil {
-		h.logsService.Log(r.Context(), config.PERMISSION_FM_COUNTERPARTIES_CREATE, accountID,
+		h.logsService.Log(r.Context(), config.PERMISSION_CPM_COUNTERPARTIES_CREATE, accountID,
 			logs.WithStatus(logs.LogStatusError),
 			logs.WithUserAgent(r.UserAgent()),
 			logs.WithMetadata("error", err.Error()),
@@ -227,7 +227,7 @@ func (h *Handlers) CreateCounterparty(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.logsService.Log(r.Context(), config.PERMISSION_FM_COUNTERPARTIES_CREATE, accountID,
+	h.logsService.Log(r.Context(), config.PERMISSION_CPM_COUNTERPARTIES_CREATE, accountID,
 		logs.WithStatus(logs.LogStatusSuccess),
 		logs.WithUserAgent(r.UserAgent()),
 		logs.WithMetadata("counterparty_id", counterparty.ID),
@@ -248,7 +248,7 @@ func (h *Handlers) UpdateCounterparty(w http.ResponseWriter, r *http.Request) {
 	// Получаем ID контрагента из URL
 	counterpartyID := r.PathValue("counterpartyId")
 	if counterpartyID == "" {
-		h.logsService.Log(r.Context(), config.PERMISSION_FM_COUNTERPARTIES_UPDATE, accountID,
+		h.logsService.Log(r.Context(), config.PERMISSION_CPM_COUNTERPARTIES_UPDATE, accountID,
 			logs.WithStatus(logs.LogStatusError),
 			logs.WithUserAgent(r.UserAgent()),
 			logs.WithMetadata("error", "Counterparty ID is required"),
@@ -261,7 +261,7 @@ func (h *Handlers) UpdateCounterparty(w http.ResponseWriter, r *http.Request) {
 	// Парсим тело запроса
 	var req UpdateCounterpartyRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.logsService.Log(r.Context(), config.PERMISSION_FM_COUNTERPARTIES_UPDATE, accountID,
+		h.logsService.Log(r.Context(), config.PERMISSION_CPM_COUNTERPARTIES_UPDATE, accountID,
 			logs.WithStatus(logs.LogStatusError),
 			logs.WithUserAgent(r.UserAgent()),
 			logs.WithMetadata("error", "Invalid request body"),
@@ -274,7 +274,7 @@ func (h *Handlers) UpdateCounterparty(w http.ResponseWriter, r *http.Request) {
 	// Валидация типа если указан
 	if req.Type != nil {
 		if *req.Type != CounterpartyTypeBank && *req.Type != CounterpartyTypeOrganization && *req.Type != CounterpartyTypePerson {
-			h.logsService.Log(r.Context(), config.PERMISSION_FM_COUNTERPARTIES_UPDATE, accountID,
+			h.logsService.Log(r.Context(), config.PERMISSION_CPM_COUNTERPARTIES_UPDATE, accountID,
 				logs.WithStatus(logs.LogStatusError),
 				logs.WithUserAgent(r.UserAgent()),
 				logs.WithMetadata("error", "Invalid type"),
@@ -291,7 +291,7 @@ func (h *Handlers) UpdateCounterparty(w http.ResponseWriter, r *http.Request) {
 		errorMsg := err.Error()
 		switch {
 		case strings.Contains(errorMsg, "counterparty not found"):
-			h.logsService.Log(r.Context(), config.PERMISSION_FM_COUNTERPARTIES_UPDATE, accountID,
+			h.logsService.Log(r.Context(), config.PERMISSION_CPM_COUNTERPARTIES_UPDATE, accountID,
 				logs.WithStatus(logs.LogStatusError),
 				logs.WithUserAgent(r.UserAgent()),
 				logs.WithMetadata("error", "Counterparty not found"),
@@ -300,7 +300,7 @@ func (h *Handlers) UpdateCounterparty(w http.ResponseWriter, r *http.Request) {
 			)
 			core.SendNotFound(w, "Counterparty not found.")
 		default:
-			h.logsService.Log(r.Context(), config.PERMISSION_FM_COUNTERPARTIES_UPDATE, accountID,
+			h.logsService.Log(r.Context(), config.PERMISSION_CPM_COUNTERPARTIES_UPDATE, accountID,
 				logs.WithStatus(logs.LogStatusError),
 				logs.WithUserAgent(r.UserAgent()),
 				logs.WithMetadata("error", errorMsg),
@@ -311,7 +311,7 @@ func (h *Handlers) UpdateCounterparty(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.logsService.Log(r.Context(), config.PERMISSION_FM_COUNTERPARTIES_UPDATE, accountID,
+	h.logsService.Log(r.Context(), config.PERMISSION_CPM_COUNTERPARTIES_UPDATE, accountID,
 		logs.WithStatus(logs.LogStatusSuccess),
 		logs.WithUserAgent(r.UserAgent()),
 		logs.WithMetadata("counterparty_id", counterpartyID),
@@ -330,7 +330,7 @@ func (h *Handlers) ActivateCounterparty(w http.ResponseWriter, r *http.Request) 
 	// Получаем ID контрагента из URL
 	counterpartyID := r.PathValue("counterpartyId")
 	if counterpartyID == "" {
-		h.logsService.Log(r.Context(), config.PERMISSION_FM_COUNTERPARTIES_UPDATE, accountID,
+		h.logsService.Log(r.Context(), config.PERMISSION_CPM_COUNTERPARTIES_UPDATE, accountID,
 			logs.WithStatus(logs.LogStatusError),
 			logs.WithUserAgent(r.UserAgent()),
 			logs.WithMetadata("error", "Counterparty ID is required"),
@@ -345,7 +345,7 @@ func (h *Handlers) ActivateCounterparty(w http.ResponseWriter, r *http.Request) 
 		errorMsg := err.Error()
 		switch {
 		case strings.Contains(errorMsg, "counterparty not found"):
-			h.logsService.Log(r.Context(), config.PERMISSION_FM_COUNTERPARTIES_UPDATE, accountID,
+			h.logsService.Log(r.Context(), config.PERMISSION_CPM_COUNTERPARTIES_UPDATE, accountID,
 				logs.WithStatus(logs.LogStatusError),
 				logs.WithUserAgent(r.UserAgent()),
 				logs.WithMetadata("error", "Counterparty not found"),
@@ -354,7 +354,7 @@ func (h *Handlers) ActivateCounterparty(w http.ResponseWriter, r *http.Request) 
 			)
 			core.SendNotFound(w, "Counterparty not found.")
 		default:
-			h.logsService.Log(r.Context(), config.PERMISSION_FM_COUNTERPARTIES_UPDATE, accountID,
+			h.logsService.Log(r.Context(), config.PERMISSION_CPM_COUNTERPARTIES_UPDATE, accountID,
 				logs.WithStatus(logs.LogStatusError),
 				logs.WithUserAgent(r.UserAgent()),
 				logs.WithMetadata("error", errorMsg),
@@ -365,7 +365,7 @@ func (h *Handlers) ActivateCounterparty(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	h.logsService.Log(r.Context(), config.PERMISSION_FM_COUNTERPARTIES_UPDATE, accountID,
+	h.logsService.Log(r.Context(), config.PERMISSION_CPM_COUNTERPARTIES_UPDATE, accountID,
 		logs.WithStatus(logs.LogStatusSuccess),
 		logs.WithUserAgent(r.UserAgent()),
 		logs.WithMetadata("counterparty_id", counterpartyID),
@@ -385,7 +385,7 @@ func (h *Handlers) DeactivateCounterparty(w http.ResponseWriter, r *http.Request
 	// Получаем ID контрагента из URL
 	counterpartyID := r.PathValue("counterpartyId")
 	if counterpartyID == "" {
-		h.logsService.Log(r.Context(), config.PERMISSION_FM_COUNTERPARTIES_UPDATE, accountID,
+		h.logsService.Log(r.Context(), config.PERMISSION_CPM_COUNTERPARTIES_UPDATE, accountID,
 			logs.WithStatus(logs.LogStatusError),
 			logs.WithUserAgent(r.UserAgent()),
 			logs.WithMetadata("error", "Counterparty ID is required"),
@@ -400,7 +400,7 @@ func (h *Handlers) DeactivateCounterparty(w http.ResponseWriter, r *http.Request
 		errorMsg := err.Error()
 		switch {
 		case strings.Contains(errorMsg, "counterparty not found"):
-			h.logsService.Log(r.Context(), config.PERMISSION_FM_COUNTERPARTIES_UPDATE, accountID,
+			h.logsService.Log(r.Context(), config.PERMISSION_CPM_COUNTERPARTIES_UPDATE, accountID,
 				logs.WithStatus(logs.LogStatusError),
 				logs.WithUserAgent(r.UserAgent()),
 				logs.WithMetadata("error", "Counterparty not found"),
@@ -409,7 +409,7 @@ func (h *Handlers) DeactivateCounterparty(w http.ResponseWriter, r *http.Request
 			)
 			core.SendNotFound(w, "Counterparty not found.")
 		default:
-			h.logsService.Log(r.Context(), config.PERMISSION_FM_COUNTERPARTIES_UPDATE, accountID,
+			h.logsService.Log(r.Context(), config.PERMISSION_CPM_COUNTERPARTIES_UPDATE, accountID,
 				logs.WithStatus(logs.LogStatusError),
 				logs.WithUserAgent(r.UserAgent()),
 				logs.WithMetadata("error", errorMsg),
@@ -420,7 +420,7 @@ func (h *Handlers) DeactivateCounterparty(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	h.logsService.Log(r.Context(), config.PERMISSION_FM_COUNTERPARTIES_UPDATE, accountID,
+	h.logsService.Log(r.Context(), config.PERMISSION_CPM_COUNTERPARTIES_UPDATE, accountID,
 		logs.WithStatus(logs.LogStatusSuccess),
 		logs.WithUserAgent(r.UserAgent()),
 		logs.WithMetadata("counterparty_id", counterpartyID),

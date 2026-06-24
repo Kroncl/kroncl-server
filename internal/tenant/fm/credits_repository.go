@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"kroncl-server/internal/core"
+	"kroncl-server/internal/tenant/cpm"
 	"strconv"
 	"strings"
 	"time"
@@ -49,7 +50,7 @@ func (r *Repository) GetCreditByID(ctx context.Context, id string) (*CreditDetai
 	`
 
 	var credit CreditDetail
-	var counterparty Counterparty
+	var counterparty cpm.Counterparty
 	var cpID, cpName, cpComment, cpType, cpStatus *string
 	var cpMetadata []byte // вместо *map[string]interface{} используем []byte для JSONB
 	var cpCreatedAt, cpUpdatedAt *time.Time
@@ -88,8 +89,8 @@ func (r *Repository) GetCreditByID(ctx context.Context, id string) (*CreditDetai
 		counterparty.ID = *cpID
 		counterparty.Name = *cpName
 		counterparty.Comment = cpComment
-		counterparty.Type = CounterpartyType(*cpType)
-		counterparty.Status = CounterpartyStatus(*cpStatus)
+		counterparty.Type = cpm.CounterpartyType(*cpType)
+		counterparty.Status = cpm.CounterpartyStatus(*cpStatus)
 		counterparty.CreatedAt = *cpCreatedAt
 		counterparty.UpdatedAt = *cpUpdatedAt
 
@@ -195,7 +196,7 @@ func (r *Repository) GetCredits(ctx context.Context, offset, limit int, filters 
 	var credits []CreditDetail
 	for rows.Next() {
 		var credit CreditDetail
-		var counterparty Counterparty
+		var counterparty cpm.Counterparty
 		var cpID, cpName, cpComment, cpType, cpStatus *string
 		var cpMetadata []byte
 		var cpCreatedAt, cpUpdatedAt *time.Time
@@ -233,8 +234,8 @@ func (r *Repository) GetCredits(ctx context.Context, offset, limit int, filters 
 			counterparty.ID = *cpID
 			counterparty.Name = *cpName
 			counterparty.Comment = cpComment
-			counterparty.Type = CounterpartyType(*cpType)
-			counterparty.Status = CounterpartyStatus(*cpStatus)
+			counterparty.Type = cpm.CounterpartyType(*cpType)
+			counterparty.Status = cpm.CounterpartyStatus(*cpStatus)
 			counterparty.CreatedAt = *cpCreatedAt
 			counterparty.UpdatedAt = *cpUpdatedAt
 

@@ -76,11 +76,6 @@ var PermissionCriticality = map[string]CriticalityLevel{
 	// ----- FM ANALYSIS (1) -----
 	PERMISSION_FM_ANALYSIS: 1, // просмотр аналитики
 
-	// ----- FM COUNTERPARTIES (2-6) -----
-	PERMISSION_FM_COUNTERPARTIES:        2, // просмотр контрагентов
-	PERMISSION_FM_COUNTERPARTIES_CREATE: 6, // создание контрагента
-	PERMISSION_FM_COUNTERPARTIES_UPDATE: 5, // обновление контрагента
-
 	// ----- FM CREDITS (3-8) -----
 	PERMISSION_FM_CREDITS:              3, // просмотр кредитов
 	PERMISSION_FM_CREDITS_CREATE:       8, // создание кредита
@@ -141,6 +136,12 @@ var PermissionCriticality = map[string]CriticalityLevel{
 	PERMISSION_DM_DEALS_TRANSACTIONS_SUMMARY: 2,
 	PERMISSION_DM_DEALS_BATCHES:              3,
 	PERMISSION_DM_DEALS_BATCHES_CREATE:       7,
+
+	// ----- CPM (2-6) -----
+	PERMISSION_CPM:                       2,
+	PERMISSION_CPM_COUNTERPARTIES:        2, // просмотр контрагентов
+	PERMISSION_CPM_COUNTERPARTIES_CREATE: 6, // создание контрагента
+	PERMISSION_CPM_COUNTERPARTIES_UPDATE: 5, // обновление контрагента
 }
 
 // GetCriticality returns criticality level for a permission

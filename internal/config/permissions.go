@@ -47,9 +47,6 @@ const (
 	PERMISSION_FM_TRANSACTIONS_CATEGORIES_UPDATE = "fm.transactions.categories.update"
 	PERMISSION_FM_TRANSACTIONS_CATEGORIES_DELETE = "fm.transactions.categories.delete"
 	PERMISSION_FM_ANALYSIS                       = "fm.analysis"
-	PERMISSION_FM_COUNTERPARTIES                 = "fm.counterparties"
-	PERMISSION_FM_COUNTERPARTIES_CREATE          = "fm.counterparties.create"
-	PERMISSION_FM_COUNTERPARTIES_UPDATE          = "fm.counterparties.update"
 	PERMISSION_FM_CREDITS                        = "fm.credits"
 	PERMISSION_FM_CREDITS_CREATE                 = "fm.credits.create"
 	PERMISSION_FM_CREDITS_UPDATE                 = "fm.credits.update"
@@ -101,6 +98,10 @@ const (
 	PERMISSION_DM_DEALS_BATCHES                  = "dm.deals.batches"
 	PERMISSION_DM_DEALS_BATCHES_CREATE           = "dm.deals.batches.create"
 	PERMISSION_DM_ANALYSIS                       = "dm.analysis"
+	PERMISSION_CPM                               = "cpm"
+	PERMISSION_CPM_COUNTERPARTIES                = "cpm.counterparties"
+	PERMISSION_CPM_COUNTERPARTIES_CREATE         = "cpm.counterparties.create"
+	PERMISSION_CPM_COUNTERPARTIES_UPDATE         = "cpm.counterparties.update"
 )
 
 // --------
@@ -156,9 +157,6 @@ func GetAllPermissions() []string {
 		PERMISSION_FM_TRANSACTIONS_CATEGORIES_UPDATE,
 		PERMISSION_FM_TRANSACTIONS_CATEGORIES_DELETE,
 		PERMISSION_FM_ANALYSIS,
-		PERMISSION_FM_COUNTERPARTIES,
-		PERMISSION_FM_COUNTERPARTIES_CREATE,
-		PERMISSION_FM_COUNTERPARTIES_UPDATE,
 		PERMISSION_FM_CREDITS,
 		PERMISSION_FM_CREDITS_CREATE,
 		PERMISSION_FM_CREDITS_UPDATE,
@@ -210,6 +208,10 @@ func GetAllPermissions() []string {
 		PERMISSION_DM_DEALS_BATCHES,
 		PERMISSION_DM_DEALS_BATCHES_CREATE,
 		PERMISSION_DM_ANALYSIS,
+		PERMISSION_CPM,
+		PERMISSION_CPM_COUNTERPARTIES,
+		PERMISSION_CPM_COUNTERPARTIES_CREATE,
+		PERMISSION_CPM_COUNTERPARTIES_UPDATE,
 	}
 }
 
@@ -233,13 +235,12 @@ func GetGuestPermissions() map[string]bool {
 		PERMISSION_ACCOUNTS_INVITATIONS:   true,
 
 		// modules
-		PERMISSION_HRM:               true,
-		PERMISSION_HRM_EMPLOYEES:     true,
-		PERMISSION_HRM_POSITIONS:     true,
-		PERMISSION_FM:                true,
-		PERMISSION_FM_TRANSACTIONS:   true,
-		PERMISSION_FM_COUNTERPARTIES: true,
-		PERMISSION_FM_CREDITS:        true,
+		PERMISSION_HRM:             true,
+		PERMISSION_HRM_EMPLOYEES:   true,
+		PERMISSION_HRM_POSITIONS:   true,
+		PERMISSION_FM:              true,
+		PERMISSION_FM_TRANSACTIONS: true,
+		PERMISSION_FM_CREDITS:      true,
 
 		PERMISSION_CRM:         true,
 		PERMISSION_CRM_CLIENTS: true,
@@ -258,6 +259,9 @@ func GetGuestPermissions() map[string]bool {
 		PERMISSION_DM_DEALS:              true,
 		PERMISSION_DM_DEALS_TRANSACTIONS: true,
 		PERMISSION_DM_DEALS_BATCHES:      true,
+
+		PERMISSION_CPM:                true,
+		PERMISSION_CPM_COUNTERPARTIES: true,
 	}
 }
 
