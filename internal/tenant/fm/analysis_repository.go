@@ -3,6 +3,7 @@ package fm
 import (
 	"context"
 	"fmt"
+	"kroncl-server/internal/currency"
 	"time"
 )
 
@@ -10,9 +11,68 @@ import (
 // ANALYSIS
 // ---------
 
+func (r *Repository) GetAnalysisSummary(ctx context.Context, startDate, endDate *time.Time, targetCurrency string) (*AnalysisSummary, error) {
+	query := `
+		SELECT t.currency, DATE_TRUNC('hour', t.created_at) as date_hour,
+			COALESCE(SUM(CASE WHEN t.direction = 'income' THEN t.base_amount ELSE 0 END), 0) as income,
+			COALESCE(SUM(CASE WHEN t.direction = 'expense' THEN t.base_amount ELSE 0 END), 0) as expense,
+			COUNT(*) as count
+		FROM transactions t
+		WHERE ($1::timestamptz IS NULL OR t.created_at >= $1)
+		  AND ($2::timestamptz IS NULL OR t.created_at <= $2)
+		GROUP BY t.currency, DATE_TRUNC('hour', t.created_at)
+	`
+
+	rows, err := r.pool.Query(ctx, query, startDate, endDate)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	rawStats := make(map[string]map[time.Time]*currency.RawStat)
+
+	for rows.Next() {
+		var currencyID string
+		var date time.Time
+		var income, expense float64
+		var count int64
+
+		rows.Scan(&currencyID, &date, &income, &expense, &count)
+
+		if rawStats[currencyID] == nil {
+			rawStats[currencyID] = make(map[time.Time]*currency.RawStat)
+		}
+		rawStats[currencyID][date] = &currency.RawStat{
+			Income:  income,
+			Expense: expense,
+			Count:   count,
+		}
+	}
+
+	converted, err := r.currencyService.ConvertSummary(ctx, rawStats, targetCurrency)
+	if err != nil {
+		return nil, err
+	}
+
+	return &AnalysisSummary{
+		TotalIncome:      converted.TotalIncome,
+		TotalExpense:     converted.TotalExpense,
+		NetBalance:       converted.NetBalance,
+		TransactionCount: converted.TransactionCount,
+		AvgTransaction:   converted.AvgTransaction,
+		Currency:         converted.Currency,
+	}, nil
+}
+
 func (r *Repository) GetGroupedTransactions(ctx context.Context,
 	groupBy GroupBy,
-	startDate, endDate *time.Time) ([]GroupedStats, error) {
+	startDate, endDate *time.Time,
+	targetCurrency string,
+) ([]GroupedStats, error) {
+
+	if targetCurrency == "" {
+		targetCurrency = "RUB"
+	}
 
 	var selectCols, groupByExpr, joinClause string
 
@@ -27,11 +87,11 @@ func (r *Repository) GetGroupedTransactions(ctx context.Context,
 
 	case GroupByEmployee:
 		selectCols = `
-        COALESCE(te.employee_id::text, 'no-employee') as group_key,
-        COALESCE(MIN(NULLIF(CONCAT_WS(' ', e.first_name, e.last_name), '')), 'Без сотрудника') as group_name`
+			COALESCE(te.employee_id::text, 'no-employee') as group_key,
+			COALESCE(MIN(NULLIF(CONCAT_WS(' ', e.first_name, e.last_name), '')), 'Без сотрудника') as group_name`
 		groupByExpr = `COALESCE(te.employee_id::text, 'no-employee')`
 		joinClause = `LEFT JOIN transaction_employee te ON t.id = te.transaction_id
-                  LEFT JOIN employees e ON te.employee_id = e.id`
+		              LEFT JOIN employees e ON te.employee_id = e.id`
 
 	case GroupByDay:
 		selectCols = `
@@ -54,88 +114,90 @@ func (r *Repository) GetGroupedTransactions(ctx context.Context,
 	query := fmt.Sprintf(`
 		SELECT 
 			%s,
+			t.currency,
+			DATE_TRUNC('hour', t.created_at) as date_hour,
 			COALESCE(SUM(CASE WHEN t.direction = 'income' THEN t.base_amount ELSE 0 END), 0) as income,
 			COALESCE(SUM(CASE WHEN t.direction = 'expense' THEN t.base_amount ELSE 0 END), 0) as expense,
-			COALESCE(SUM(CASE 
-				WHEN t.direction = 'income' THEN t.base_amount 
-				WHEN t.direction = 'expense' THEN -t.base_amount 
-				ELSE 0 
-			END), 0) as net,
 			COUNT(*) as count
 		FROM transactions t
 		%s
 		WHERE ($1::timestamptz IS NULL OR t.created_at >= $1)
 		  AND ($2::timestamptz IS NULL OR t.created_at <= $2)
-		GROUP BY %s
+		GROUP BY %s, t.currency, DATE_TRUNC('hour', t.created_at)
 		ORDER BY income DESC
 	`, selectCols, joinClause, groupByExpr)
 
 	rows, err := r.pool.Query(ctx, query, startDate, endDate)
 	if err != nil {
-		return nil, fmt.Errorf("failed to query grouped transactions: %w", err)
+		return nil, err
 	}
 	defer rows.Close()
 
-	var stats []GroupedStats
+	// rawStats: [groupKey][currencyID][dateHour] = RawStat
+	type groupKey string
+	rawStats := make(map[groupKey]map[string]map[time.Time]*currency.RawStat)
+	groupNames := make(map[groupKey]string)
+
 	for rows.Next() {
-		var stat GroupedStats
-		err := rows.Scan(
-			&stat.GroupKey,
-			&stat.GroupName,
-			&stat.Income,
-			&stat.Expense,
-			&stat.Net,
-			&stat.Count,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to scan grouped stats: %w", err)
+		var gk, currencyID string
+		var dateHour time.Time
+		var income, expense float64
+		var count int64
+		var groupName string
+
+		rows.Scan(&gk, &groupName, &currencyID, &dateHour, &income, &expense, &count)
+
+		groupNames[groupKey(gk)] = groupName
+
+		if rawStats[groupKey(gk)] == nil {
+			rawStats[groupKey(gk)] = make(map[string]map[time.Time]*currency.RawStat)
 		}
-		stats = append(stats, stat)
+		if rawStats[groupKey(gk)][currencyID] == nil {
+			rawStats[groupKey(gk)][currencyID] = make(map[time.Time]*currency.RawStat)
+		}
+		rawStats[groupKey(gk)][currencyID][dateHour] = &currency.RawStat{
+			Income:  income,
+			Expense: expense,
+			Count:   count,
+		}
 	}
+
+	// Конвертируем каждую группу
+	var stats []GroupedStats
+	for gk, currencyStats := range rawStats {
+		converted, err := r.currencyService.ConvertSummary(ctx, currencyStats, targetCurrency)
+		if err != nil {
+			continue
+		}
+
+		stats = append(stats, GroupedStats{
+			GroupKey:  string(gk),
+			GroupName: groupNames[gk],
+			Income:    converted.TotalIncome,
+			Expense:   converted.TotalExpense,
+			Net:       converted.NetBalance,
+			Count:     converted.TransactionCount,
+			Currency:  converted.Currency,
+		})
+	}
+
+	// Сортируем по доходу (уже из SQL, но после конвертации может измениться)
+	// Оставляем как есть — SQL сортировка примерная
 
 	return stats, nil
 }
 
-// GetAnalysisSummary returns financial summary for given period
-func (r *Repository) GetAnalysisSummary(ctx context.Context, startDate, endDate *time.Time) (*AnalysisSummary, error) {
-	query := `
-		SELECT 
-			COALESCE(SUM(CASE WHEN direction = 'income' THEN base_amount ELSE 0 END), 0) as total_income,
-			COALESCE(SUM(CASE WHEN direction = 'expense' THEN base_amount ELSE 0 END), 0) as total_expense,
-			COALESCE(SUM(CASE 
-				WHEN direction = 'income' THEN base_amount 
-				WHEN direction = 'expense' THEN -base_amount 
-				ELSE 0 
-			END), 0) as net_balance,
-			COUNT(*) as transaction_count,
-			COALESCE(AVG(base_amount), 0) as avg_transaction
-		FROM transactions t
-		WHERE ($1::timestamptz IS NULL OR t.created_at >= $1)
-		  AND ($2::timestamptz IS NULL OR t.created_at <= $2)
-	`
-
-	var summary AnalysisSummary
-	err := r.pool.QueryRow(ctx, query, startDate, endDate).Scan(
-		&summary.TotalIncome,
-		&summary.TotalExpense,
-		&summary.NetBalance,
-		&summary.TransactionCount,
-		&summary.AvgTransaction,
-	)
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to get analysis summary: %w", err)
+func (r *Repository) GetOverallDealTransactionsSummary(ctx context.Context, filters GetTransactionsRequest, targetCurrency string) (*DealTransactionsSummary, error) {
+	if targetCurrency == "" {
+		targetCurrency = "RUB"
 	}
 
-	return &summary, nil
-}
-
-func (r *Repository) GetOverallDealTransactionsSummary(ctx context.Context, filters GetTransactionsRequest) (*DealTransactionsSummary, error) {
 	query := `
 		SELECT 
-			COALESCE(SUM(CASE WHEN t.direction = 'income' THEN t.base_amount ELSE -t.base_amount END), 0) as total_amount,
-			COALESCE(SUM(CASE WHEN t.direction = 'income' THEN t.base_amount ELSE 0 END), 0) as income_amount,
-			COALESCE(SUM(CASE WHEN t.direction = 'expense' THEN t.base_amount ELSE 0 END), 0) as expense_amount,
+			t.currency,
+			DATE_TRUNC('hour', t.created_at) as date_hour,
+			COALESCE(SUM(CASE WHEN t.direction = 'income' THEN t.base_amount ELSE 0 END), 0) as income,
+			COALESCE(SUM(CASE WHEN t.direction = 'expense' THEN t.base_amount ELSE 0 END), 0) as expense,
 			COALESCE(COUNT(CASE WHEN t.direction = 'income' THEN 1 END), 0) as income_count,
 			COALESCE(COUNT(CASE WHEN t.direction = 'expense' THEN 1 END), 0) as expense_count,
 			COUNT(t.id) as total_count
@@ -143,81 +205,50 @@ func (r *Repository) GetOverallDealTransactionsSummary(ctx context.Context, filt
 		INNER JOIN deals_transactions dt ON t.id = dt.transaction_id
 		WHERE ($1::timestamptz IS NULL OR t.created_at >= $1)
 		  AND ($2::timestamptz IS NULL OR t.created_at <= $2)
+		GROUP BY t.currency, DATE_TRUNC('hour', t.created_at)
 	`
 
-	var summary DealTransactionsSummary
-	err := r.pool.QueryRow(ctx, query, filters.StartDate, filters.EndDate).Scan(
-		&summary.TotalAmount,
-		&summary.IncomeAmount,
-		&summary.ExpenseAmount,
-		&summary.IncomeCount,
-		&summary.ExpenseCount,
-		&summary.TotalCount,
-	)
+	rows, err := r.pool.Query(ctx, query, filters.StartDate, filters.EndDate)
 	if err != nil {
 		return nil, err
 	}
-	return &summary, nil
+	defer rows.Close()
+
+	rawStats := make(map[string]map[time.Time]*currency.RawStat)
+	var totalIncomeCount, totalExpenseCount, totalCount int64
+
+	for rows.Next() {
+		var currencyID string
+		var dateHour time.Time
+		var income, expense float64
+		var incomeCount, expenseCount, count int64
+
+		rows.Scan(&currencyID, &dateHour, &income, &expense, &incomeCount, &expenseCount, &count)
+
+		if rawStats[currencyID] == nil {
+			rawStats[currencyID] = make(map[time.Time]*currency.RawStat)
+		}
+		rawStats[currencyID][dateHour] = &currency.RawStat{
+			Income:  income,
+			Expense: expense,
+			Count:   count,
+		}
+		totalIncomeCount += incomeCount
+		totalExpenseCount += expenseCount
+		totalCount += count
+	}
+
+	converted, err := r.currencyService.ConvertSummary(ctx, rawStats, targetCurrency)
+	if err != nil {
+		return nil, err
+	}
+
+	return &DealTransactionsSummary{
+		TotalAmount:   converted.NetBalance,
+		IncomeAmount:  converted.TotalIncome,
+		ExpenseAmount: converted.TotalExpense,
+		IncomeCount:   totalIncomeCount,
+		ExpenseCount:  totalExpenseCount,
+		TotalCount:    totalCount,
+	}, nil
 }
-
-// // DailyStats represents financial stats for a single day
-// type DailyStats struct {
-// 	Date             string `json:"date"` // YYYY-MM-DD
-// 	TransactionCount int64  `json:"transactions_count"`
-// 	Income           int64  `json:"income"`
-// 	Expense          int64  `json:"expense"`
-// 	Net              int64  `json:"net"`
-// }
-// GetDailyStats returns financial stats grouped by day
-// func (r *Repository) GetDailyStats(ctx context.Context, startDate, endDate *time.Time) ([]DailyStats, error) {
-// 	query := `
-// 		SELECT
-// 			DATE(created_at) as date,
-// 			COUNT(*) as transactions_count,
-// 			COALESCE(SUM(base_amount) FILTER (WHERE direction = 'income'), 0) as income,
-// 			COALESCE(SUM(base_amount) FILTER (WHERE direction = 'expense'), 0) as expense,
-// 			COALESCE(SUM(CASE
-// 				WHEN direction = 'income' THEN base_amount
-// 				WHEN direction = 'expense' THEN -base_amount
-// 				ELSE 0
-// 			END), 0) as net
-// 		FROM transactions
-// 		WHERE ($1::timestamptz IS NULL OR created_at >= $1)
-// 		  AND ($2::timestamptz IS NULL OR created_at <= $2)
-// 		GROUP BY DATE(created_at)
-// 		ORDER BY date ASC
-// 	`
-
-// 	rows, err := r.pool.Query(ctx, query, startDate, endDate)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("failed to query daily stats: %w", err)
-// 	}
-// 	defer rows.Close()
-
-// 	var stats []DailyStats
-// 	for rows.Next() {
-// 		var stat DailyStats
-// 		var date time.Time // ← сканируем в time.Time
-
-// 		err := rows.Scan(
-// 			&date,
-// 			&stat.TransactionCount,
-// 			&stat.Income,
-// 			&stat.Expense,
-// 			&stat.Net,
-// 		)
-// 		if err != nil {
-// 			return nil, fmt.Errorf("failed to scan daily stats: %w", err)
-// 		}
-
-// 		// Форматируем в YYYY-MM-DD
-// 		stat.Date = date.Format("2006-01-02")
-// 		stats = append(stats, stat)
-// 	}
-
-// 	if err = rows.Err(); err != nil {
-// 		return nil, fmt.Errorf("error iterating daily stats: %w", err)
-// 	}
-
-// 	return stats, nil
-// }

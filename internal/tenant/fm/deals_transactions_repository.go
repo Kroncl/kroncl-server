@@ -3,141 +3,51 @@ package fm
 import (
 	"context"
 	"fmt"
+	"kroncl-server/internal/currency"
 	"kroncl-server/internal/tenant/hrm"
 	"strconv"
 	"strings"
 	"time"
 )
 
-// CreateDealTransaction создает транзакцию с привязкой к сделке и автоматическим определением категории
 func (r *Repository) CreateDealTransaction(ctx context.Context, dealID string, req CreateTransactionRequest) (*TransactionDetail, error) {
-	if req.BaseAmount <= 0 {
-		return nil, fmt.Errorf("base_amount must be greater than 0")
-	}
-
-	if req.Direction != TransactionDirectionIncome && req.Direction != TransactionDirectionExpense {
-		return nil, fmt.Errorf("invalid transaction direction: %s", req.Direction)
-	}
-
-	switch req.Currency {
-	case CurrencyRUB:
-	default:
-		return nil, fmt.Errorf("invalid currency: %s", req.Currency)
-	}
-
-	tx, err := r.pool.Begin(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to begin transaction: %w", err)
-	}
-	defer tx.Rollback(ctx)
-
+	// Проверяем существование сделки
 	var dealExists bool
-	err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM deals WHERE id = $1)`, dealID).Scan(&dealExists)
-	if err != nil {
-		return nil, fmt.Errorf("failed to check deal: %w", err)
-	}
-	if !dealExists {
+	err := r.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM deals WHERE id = $1)`, dealID).Scan(&dealExists)
+	if err != nil || !dealExists {
 		return nil, fmt.Errorf("deal not found: %s", dealID)
 	}
 
-	if req.EmployeeID != "" {
-		employee, err := r.employeesRepository.GetEmployeeByID(ctx, req.EmployeeID)
-		if err != nil {
-			return nil, fmt.Errorf("invalid employee_id: %w", err)
+	// Если категория не передана — подставляем авто-категорию сделки
+	if req.CategoryID == "" {
+		categorySlug := DEAL_TRANSACTION_CATEGORY_EXPENSE_SLUG
+		if req.Direction == TransactionDirectionIncome {
+			categorySlug = DEAL_TRANSACTION_CATEGORY_INCOME_SLUG
 		}
-		_ = employee
-	}
-
-	comment := strings.TrimSpace(req.Comment)
-	var commentPtr *string
-	if comment != "" {
-		commentPtr = &comment
-	}
-
-	status := TransactionStatusCompleted
-	if req.Status != "" {
-		status = TransactionStatus(req.Status)
-	}
-
-	transactionQuery := `
-		INSERT INTO transactions (
-			id, base_amount, currency, direction, status, comment,
-			created_at, metadata
-		) VALUES (
-			gen_random_uuid(), $1, $2, $3, $4, $5,
-			CURRENT_TIMESTAMP, $6
-		)
-		RETURNING id
-	`
-
-	var transactionID string
-	err = tx.QueryRow(ctx, transactionQuery,
-		req.BaseAmount,
-		req.Currency,
-		req.Direction,
-		status,
-		commentPtr,
-		req.Metadata,
-	).Scan(&transactionID)
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to create transaction: %w", err)
-	}
-
-	linkDealQuery := `
-		INSERT INTO deals_transactions (
-			id, deal_id, transaction_id, created_at, updated_at
-		) VALUES (
-			gen_random_uuid(), $1, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
-		)
-	`
-	_, err = tx.Exec(ctx, linkDealQuery, dealID, transactionID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to link deal to transaction: %w", err)
-	}
-
-	if req.EmployeeID != "" {
-		linkEmployeeQuery := `
-			INSERT INTO transaction_employee (
-				id, employee_id, transaction_id, created_at
-			) VALUES (
-				gen_random_uuid(), $1, $2, CURRENT_TIMESTAMP
-			)
-		`
-		_, err = tx.Exec(ctx, linkEmployeeQuery, req.EmployeeID, transactionID)
+		var categoryID string
+		err := r.pool.QueryRow(ctx, `SELECT id FROM transaction_categories WHERE slug = $1`, categorySlug).Scan(&categoryID)
 		if err != nil {
-			return nil, fmt.Errorf("failed to link employee to transaction: %w", err)
+			return nil, fmt.Errorf("deal category not found by slug: %s", categorySlug)
 		}
+		req.CategoryID = categoryID
 	}
 
-	categorySlug := DEAL_TRANSACTION_CATEGORY_EXPENSE_SLUG
-	if req.Direction == TransactionDirectionIncome {
-		categorySlug = DEAL_TRANSACTION_CATEGORY_INCOME_SLUG
-	}
-
-	var categoryID string
-	err = tx.QueryRow(ctx, `SELECT id FROM transaction_categories WHERE slug = $1`, categorySlug).Scan(&categoryID)
+	// Создаём транзакцию через общий метод
+	detail, err := r.CreateTransaction(ctx, req)
 	if err != nil {
-		return nil, fmt.Errorf("deal category not found by slug: %s", categorySlug)
+		return nil, err
 	}
 
-	linkCategoryQuery := `
-		INSERT INTO transaction_category (
-			id, transaction_id, category_id, created_at
-		) VALUES (
-			gen_random_uuid(), $1, $2, CURRENT_TIMESTAMP
-		)
-	`
-	_, err = tx.Exec(ctx, linkCategoryQuery, transactionID, categoryID)
+	// Привязываем к сделке
+	_, err = r.pool.Exec(ctx, `
+		INSERT INTO deals_transactions (id, deal_id, transaction_id, created_at, updated_at)
+		VALUES (gen_random_uuid(), $1, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+	`, dealID, detail.ID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to link category to transaction: %w", err)
+		return nil, fmt.Errorf("failed to link deal: %w", err)
 	}
 
-	if err := tx.Commit(ctx); err != nil {
-		return nil, fmt.Errorf("failed to commit transaction: %w", err)
-	}
-
-	return r.GetTransactionByID(ctx, transactionID)
+	return detail, nil
 }
 
 // GetDealTransactions возвращает список транзакций, привязанных к сделке, с пагинацией и фильтрацией
@@ -332,8 +242,11 @@ func (r *Repository) GetDealTransactions(ctx context.Context, dealID string, off
 	return transactions, total, nil
 }
 
-// GetDealTransactionsSummary возвращает сводку по транзакциям сделки
-func (r *Repository) GetDealTransactionsSummary(ctx context.Context, dealID string, filters GetTransactionsRequest) (*DealTransactionsSummary, error) {
+func (r *Repository) GetDealTransactionsSummary(ctx context.Context, dealID string, filters GetTransactionsRequest, targetCurrency string) (*DealTransactionsSummary, error) {
+	if targetCurrency == "" {
+		targetCurrency = "RUB"
+	}
+
 	var whereConditions []string
 	var args []interface{}
 	argIndex := 1
@@ -391,9 +304,10 @@ func (r *Repository) GetDealTransactionsSummary(ctx context.Context, dealID stri
 
 	query := `
 		SELECT 
-			COALESCE(SUM(CASE WHEN t.direction = 'income' THEN t.base_amount ELSE -t.base_amount END), 0) as total_amount,
-			COALESCE(SUM(CASE WHEN t.direction = 'income' THEN t.base_amount ELSE 0 END), 0) as income_amount,
-			COALESCE(SUM(CASE WHEN t.direction = 'expense' THEN t.base_amount ELSE 0 END), 0) as expense_amount,
+			t.currency,
+			DATE_TRUNC('hour', t.created_at) as date_hour,
+			COALESCE(SUM(CASE WHEN t.direction = 'income' THEN t.base_amount ELSE 0 END), 0) as income,
+			COALESCE(SUM(CASE WHEN t.direction = 'expense' THEN t.base_amount ELSE 0 END), 0) as expense,
 			COALESCE(COUNT(CASE WHEN t.direction = 'income' THEN 1 END), 0) as income_count,
 			COALESCE(COUNT(CASE WHEN t.direction = 'expense' THEN 1 END), 0) as expense_count,
 			COUNT(t.id) as total_count
@@ -403,21 +317,54 @@ func (r *Repository) GetDealTransactionsSummary(ctx context.Context, dealID stri
 		LEFT JOIN employees e ON te.employee_id = e.id
 		LEFT JOIN transaction_category tc ON t.id = tc.transaction_id
 		LEFT JOIN transaction_categories c ON tc.category_id = c.id
-	` + whereClause
+	` + whereClause + `
+		GROUP BY t.currency, DATE_TRUNC('hour', t.created_at)
+	`
 
-	var summary DealTransactionsSummary
-	err := r.pool.QueryRow(ctx, query, args...).Scan(
-		&summary.TotalAmount,
-		&summary.IncomeAmount,
-		&summary.ExpenseAmount,
-		&summary.IncomeCount,
-		&summary.ExpenseCount,
-		&summary.TotalCount,
-	)
-
+	rows, err := r.pool.Query(ctx, query, args...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get deal transactions summary: %w", err)
+		return nil, fmt.Errorf("failed to query deal transactions: %w", err)
+	}
+	defer rows.Close()
+
+	rawStats := make(map[string]map[time.Time]*currency.RawStat)
+	var totalIncomeCount, totalExpenseCount, totalCount int64
+
+	for rows.Next() {
+		var currencyID string
+		var dateHour time.Time
+		var income, expense float64
+		var incomeCount, expenseCount, count int64
+
+		if err := rows.Scan(&currencyID, &dateHour, &income, &expense, &incomeCount, &expenseCount, &count); err != nil {
+			return nil, fmt.Errorf("failed to scan: %w", err)
+		}
+
+		if rawStats[currencyID] == nil {
+			rawStats[currencyID] = make(map[time.Time]*currency.RawStat)
+		}
+		rawStats[currencyID][dateHour] = &currency.RawStat{
+			Income:  income,
+			Expense: expense,
+			Count:   count,
+		}
+		totalIncomeCount += incomeCount
+		totalExpenseCount += expenseCount
+		totalCount += count
 	}
 
-	return &summary, nil
+	converted, err := r.currencyService.ConvertSummary(ctx, rawStats, targetCurrency)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert summary: %w", err)
+	}
+
+	return &DealTransactionsSummary{
+		TotalAmount:   converted.NetBalance,
+		IncomeAmount:  converted.TotalIncome,
+		ExpenseAmount: converted.TotalExpense,
+		IncomeCount:   totalIncomeCount,
+		ExpenseCount:  totalExpenseCount,
+		TotalCount:    totalCount,
+		Currency:      converted.Currency,
+	}, nil
 }

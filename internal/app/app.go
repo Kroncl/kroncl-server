@@ -54,6 +54,14 @@ func (a *Application) Run() error {
 		return fmt.Errorf("failed to start media metrics worker")
 	}
 
+	// start-currency-workers
+	if err := a.container.CurrencyFiatWorker.Start(); err != nil {
+		return fmt.Errorf("failed to start currency fiat worker")
+	}
+	if err := a.container.CurrencyCryptoWorker.Start(); err != nil {
+		return fmt.Errorf("failed to start currency crypto worker")
+	}
+
 	serverErrors := make(chan error, 1)
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
@@ -94,6 +102,14 @@ func (a *Application) shutdown() error {
 	}
 	if a.container.CoreMediaMetricsWorker != nil {
 		a.container.CoreMediaMetricsWorker.Stop()
+	}
+
+	// stop-currency-workers
+	if a.container.CurrencyFiatWorker != nil {
+		a.container.CurrencyFiatWorker.Stop()
+	}
+	if a.container.CurrencyCryptoWorker != nil {
+		a.container.CurrencyCryptoWorker.Stop()
 	}
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)

@@ -12,10 +12,9 @@ import (
 )
 
 const (
-	ReportTypeTransactions   = "transactions"
-	ReportTypeCategories     = "categories"
-	ReportTypeCounterparties = "counterparties"
-	ReportTypeCredits        = "credits"
+	ReportTypeTransactions = "transactions"
+	ReportTypeCategories   = "categories"
+	ReportTypeCredits      = "credits"
 )
 
 type FullReportOptions struct {
@@ -46,8 +45,6 @@ func (r *Repository) GenerateFullReport(ctx context.Context, opts FullReportOpti
 			}
 		case ReportTypeCategories:
 			generators["Категории"] = r.writeCategoriesSheet
-		case ReportTypeCounterparties:
-			generators["Контрагенты (Кредиты)"] = r.writeCounterpartiesSheet
 		case ReportTypeCredits:
 			generators["Кредиты и займы"] = r.writeCreditsSheet
 		default:

@@ -2,6 +2,7 @@ package tenant
 
 import (
 	"kroncl-server/internal/core"
+	"kroncl-server/internal/tenant/cpm"
 	"kroncl-server/internal/tenant/crm"
 	"kroncl-server/internal/tenant/dm"
 	"kroncl-server/internal/tenant/docs"
@@ -78,6 +79,10 @@ func (rt *Routes) logs(h func(*logs.Handlers) http.HandlerFunc) http.HandlerFunc
 
 func (rt *Routes) dm(h func(*dm.Handlers) http.HandlerFunc) http.HandlerFunc {
 	return withTenantPoolMiddleware(rt, createDMHandlers, h)
+}
+
+func (rt *Routes) cpm(h func(*cpm.Handlers) http.HandlerFunc) http.HandlerFunc {
+	return withTenantPoolMiddleware(rt, createCPMHandlers, h)
 }
 
 func (rt *Routes) docs(h func(*docs.Handlers) http.HandlerFunc) http.HandlerFunc {

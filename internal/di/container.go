@@ -21,6 +21,8 @@ import (
 	"kroncl-server/internal/config"
 	corestatus "kroncl-server/internal/core/status"
 	coreworkers "kroncl-server/internal/core/workers"
+	"kroncl-server/internal/currency"
+	currencyworkers "kroncl-server/internal/currency/workers"
 	"kroncl-server/internal/mailer"
 	"kroncl-server/internal/media"
 	"kroncl-server/internal/migrator"
@@ -44,17 +46,21 @@ import (
 
 type Container struct {
 	// system-core
-	Config            *config.Config
-	DB                *pgxpool.Pool
-	JWTService        *auth.JWTService
-	PermissionService *permissioner.Service
-	Migrator          *migrator.Migrator
-	Mailer            *mailer.Service
-	MediaRepo         *media.Repository
-	MediaService      *media.Service
-	MediaHandlers     *media.Handlers
-	Pdfgen            *pdfgen.Service // pdfgen (gotenberg)
-	TbankClient       *tinkoff.Client
+	Config               *config.Config
+	DB                   *pgxpool.Pool
+	JWTService           *auth.JWTService
+	PermissionService    *permissioner.Service
+	Migrator             *migrator.Migrator
+	Mailer               *mailer.Service
+	MediaRepo            *media.Repository
+	MediaService         *media.Service
+	MediaHandlers        *media.Handlers
+	Pdfgen               *pdfgen.Service // pdfgen (gotenberg)
+	TbankClient          *tinkoff.Client
+	CurrencyService      *currency.Service
+	CurrencyHandlers     *currency.Handlers
+	CurrencyFiatWorker   *currencyworkers.FiatWorker
+	CurrencyCryptoWorker *currencyworkers.CryptoWorker
 
 	// business-core
 	AccountsService   *accounts.Service
@@ -240,6 +246,12 @@ func (c *Container) initServices(ctx context.Context) error {
 	)
 	c.BillingService = billing.NewService(c.DB, c.TbankClient, c.Config.Acquiring.WebhookURL, c.PricingService)
 
+	// Currency
+	c.CurrencyService = currency.NewService(c.DB)
+	c.CurrencyHandlers = currency.NewHandlers(c.CurrencyService)
+	c.CurrencyFiatWorker = currencyworkers.NewFiatWorker(c.DB, config.WORKER_CURRENCY_FIAT_PERIOD_CRON, &c.Config.Currency, c.CurrencyService)
+	c.CurrencyCryptoWorker = currencyworkers.NewCryptoWorker(c.DB, config.WORKER_CURRENCY_CRYPTO_PERIOD_CRON, &c.Config.Currency, c.CurrencyService)
+
 	// Mailer Service
 	c.Mailer = mailer.NewService(&c.Config.MailSender)
 
@@ -345,6 +357,7 @@ func (c *Container) initTenantRoutes() error {
 		c.CompaniesService,
 		c.Pdfgen,
 		c.Mailer,
+		c.CurrencyService,
 	)
 	return nil
 }

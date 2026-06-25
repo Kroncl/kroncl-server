@@ -1,6 +1,9 @@
 package fm
 
-import "time"
+import (
+	"kroncl-server/internal/tenant/cpm"
+	"time"
+)
 
 // ---------
 // CREDITS
@@ -42,7 +45,7 @@ type Credit struct {
 // CreditDetail represents detailed credit view with counterparty data
 type CreditDetail struct {
 	Credit
-	Counterparty *Counterparty `json:"counterparty"`
+	Counterparty *cpm.Counterparty `json:"counterparty"`
 }
 
 // CreateCreditRequest represents request to create a credit
