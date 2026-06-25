@@ -23,6 +23,7 @@ import (
 	coreworkers "kroncl-server/internal/core/workers"
 	"kroncl-server/internal/currency"
 	currencyworkers "kroncl-server/internal/currency/workers"
+	"kroncl-server/internal/dadata"
 	"kroncl-server/internal/mailer"
 	"kroncl-server/internal/media"
 	"kroncl-server/internal/migrator"
@@ -61,6 +62,8 @@ type Container struct {
 	CurrencyHandlers     *currency.Handlers
 	CurrencyFiatWorker   *currencyworkers.FiatWorker
 	CurrencyCryptoWorker *currencyworkers.CryptoWorker
+	DaDataService        *dadata.Service
+	DaDataHandlers       *dadata.Handlers
 
 	// business-core
 	AccountsService   *accounts.Service
@@ -251,6 +254,10 @@ func (c *Container) initServices(ctx context.Context) error {
 	c.CurrencyHandlers = currency.NewHandlers(c.CurrencyService)
 	c.CurrencyFiatWorker = currencyworkers.NewFiatWorker(c.DB, config.WORKER_CURRENCY_FIAT_PERIOD_CRON, &c.Config.Currency, c.CurrencyService)
 	c.CurrencyCryptoWorker = currencyworkers.NewCryptoWorker(c.DB, config.WORKER_CURRENCY_CRYPTO_PERIOD_CRON, &c.Config.Currency, c.CurrencyService)
+
+	// DaData
+	c.DaDataService = dadata.NewService(c.DB, &c.Config.DaData)
+	c.DaDataHandlers = dadata.NewHandlers(c.DaDataService)
 
 	// Mailer Service
 	c.Mailer = mailer.NewService(&c.Config.MailSender)
