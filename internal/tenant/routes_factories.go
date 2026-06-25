@@ -1,6 +1,7 @@
 package tenant
 
 import (
+	"kroncl-server/internal/tenant/cpm"
 	"kroncl-server/internal/tenant/crm"
 	"kroncl-server/internal/tenant/dm"
 	"kroncl-server/internal/tenant/docs"
@@ -49,7 +50,7 @@ func createFMHandlers(pool *pgxpool.Pool, logsService *logs.Service, rt *Routes)
 		excelizerService,
 		docsService,
 	)
-	fmRepo := fm.NewRepository(pool, hrmRepo, rt.storageService.Media, excelizerService, docsService)
+	fmRepo := fm.NewRepository(pool, hrmRepo, rt.storageService.Media, excelizerService, docsService, rt.currencyService)
 	return fm.NewHandlers(fmRepo, logsService)
 }
 
@@ -68,6 +69,15 @@ func createWMHandlers(pool *pgxpool.Pool, logsService *logs.Service, rt *Routes)
 	docsService := docs.NewService(pool)
 	wmRepo := wm.NewRepository(pool, rt.storageService.Media, excelizerService, docsService)
 	return wm.NewHandlers(wmRepo, logsService)
+}
+
+// CPM [counterparties] factory
+func createCPMHandlers(pool *pgxpool.Pool, logsService *logs.Service, rt *Routes) *cpm.Handlers {
+	excelizerService := excelizer.NewService(rt.storageService.Media)
+	docsService := docs.NewService(pool)
+
+	cpmRepo := cpm.NewRepository(pool, rt.storageService.Media, excelizerService, docsService)
+	return cpm.NewHandlers(cpmRepo, logsService)
 }
 
 // Logs factory
@@ -94,7 +104,7 @@ func createDMHandlers(pool *pgxpool.Pool, logsService *logs.Service, rt *Routes)
 		excelizerService,
 		docsService,
 	)
-	fmRepo := fm.NewRepository(pool, hrmRepo, rt.storageService.Media, excelizerService, docsService)
+	fmRepo := fm.NewRepository(pool, hrmRepo, rt.storageService.Media, excelizerService, docsService, rt.currencyService)
 	crmRepo := crm.NewRepository(pool, rt.storageService.Media, excelizerService, docsService)
 	wmRepo := wm.NewRepository(pool, rt.storageService.Media, excelizerService, docsService)
 	dmRepo := dm.NewRepository(pool, fmRepo, hrmRepo, crmRepo, wmRepo, rt.pdfgen, rt.storageService.Media, docsService)

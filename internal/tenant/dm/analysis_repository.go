@@ -12,7 +12,7 @@ import (
 // ANALYSIS REPOSITORY
 // ---------
 
-func (r *Repository) GetDealAnalysisSummary(ctx context.Context, params GetAnalysisParams) (*DealAnalysisSummary, error) {
+func (r *Repository) GetDealAnalysisSummary(ctx context.Context, params GetAnalysisParams, targetCurrency string) (*DealAnalysisSummary, error) {
 	var args []interface{}
 	var conditions []string
 	argIndex := 1
@@ -93,7 +93,7 @@ func (r *Repository) GetDealAnalysisSummary(ctx context.Context, params GetAnaly
 	summary.DefaultStatusName = defaultStatusName
 
 	if params.StartDate == nil && params.EndDate == nil && params.TypeID == nil && params.StatusID == nil && params.ClientID == nil && params.EmployeeID == nil {
-		fmSummary, err := r.fmRepository.GetDealTransactionsSummary(ctx, "", fm.GetTransactionsRequest{})
+		fmSummary, err := r.fmRepository.GetDealTransactionsSummary(ctx, "", fm.GetTransactionsRequest{}, targetCurrency)
 		if err == nil && fmSummary.TotalCount > 0 {
 			summary.AvgDealAmount = float64(fmSummary.TotalAmount) / float64(summary.TotalDeals)
 		}
@@ -464,9 +464,9 @@ func (r *Repository) GetDealsGroupedByTime(ctx context.Context, groupBy GroupBy,
 	return stats, nil
 }
 
-func (r *Repository) GetDealsFinancialSummary(ctx context.Context, params GetAnalysisParams) (*fm.DealTransactionsSummary, error) {
+func (r *Repository) GetDealsFinancialSummary(ctx context.Context, params GetAnalysisParams, targetCurrency string) (*fm.DealTransactionsSummary, error) {
 	return r.fmRepository.GetOverallDealTransactionsSummary(ctx, fm.GetTransactionsRequest{
 		StartDate: params.StartDate,
 		EndDate:   params.EndDate,
-	})
+	}, targetCurrency)
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"kroncl-server/internal/config"
 	"kroncl-server/internal/core"
+	"kroncl-server/internal/tenant/fm"
 	"kroncl-server/internal/tenant/logs"
 	"net/http"
 	"strings"
@@ -19,6 +20,11 @@ func (h *Handlers) GetAnalysisSummary(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var params GetAnalysisParams
+
+	targetCurrency := r.URL.Query().Get("currency")
+	if targetCurrency == "" {
+		targetCurrency = string(fm.CurrencyRUB)
+	}
 
 	if startDate := r.URL.Query().Get("start_date"); startDate != "" {
 		t, err := time.Parse(time.RFC3339, startDate)
@@ -45,7 +51,7 @@ func (h *Handlers) GetAnalysisSummary(w http.ResponseWriter, r *http.Request) {
 		params.EmployeeID = &employeeID
 	}
 
-	summary, err := h.repository.GetDealAnalysisSummary(r.Context(), params)
+	summary, err := h.repository.GetDealAnalysisSummary(r.Context(), params, targetCurrency)
 	if err != nil {
 		h.logsService.Log(r.Context(), config.PERMISSION_DM_ANALYSIS, accountID,
 			logs.WithStatus(logs.LogStatusError),
@@ -175,6 +181,11 @@ func (h *Handlers) GetAnalysisFinancialSummary(w http.ResponseWriter, r *http.Re
 
 	var params GetAnalysisParams
 
+	targetCurrency := r.URL.Query().Get("currency")
+	if targetCurrency == "" {
+		targetCurrency = "RUB"
+	}
+
 	if startDate := r.URL.Query().Get("start_date"); startDate != "" {
 		t, err := time.Parse(time.RFC3339, startDate)
 		if err == nil {
@@ -188,7 +199,7 @@ func (h *Handlers) GetAnalysisFinancialSummary(w http.ResponseWriter, r *http.Re
 		}
 	}
 
-	summary, err := h.repository.GetDealsFinancialSummary(r.Context(), params)
+	summary, err := h.repository.GetDealsFinancialSummary(r.Context(), params, targetCurrency)
 	if err != nil {
 		if strings.Contains(err.Error(), "no transactions found") {
 			h.logsService.Log(r.Context(), config.PERMISSION_DM_ANALYSIS, accountID,

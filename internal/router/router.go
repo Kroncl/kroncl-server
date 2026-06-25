@@ -154,6 +154,15 @@ func New(cfg *config.Config, container *di.Container) chi.Router {
 			r.Get("/", container.CompaniesHandlers.GetPlatformPermissions)
 		})
 
+		// currency (rates)
+		r.Route("/currency", func(r chi.Router) {
+			// rate limiter
+			r.Use(httprate.LimitByIP(config.RATE_LIMIT_PUBLIC_ROUTES_PER_MINUTE, 1*time.Minute))
+
+			r.Get("/", container.CurrencyHandlers.GetAll)
+			r.Get("/{id}", container.CurrencyHandlers.GetByID)
+		})
+
 		// Public companies overview
 		r.Route("/visit-cards/{slug}", func(r chi.Router) {
 			// rate limiter

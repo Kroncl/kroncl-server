@@ -1,5 +1,7 @@
 package fm
 
+import "kroncl-server/internal/currency"
+
 type GroupBy string
 
 const (
@@ -10,19 +12,20 @@ const (
 )
 
 type GroupedStats struct {
-	GroupKey  string `json:"group_key"`  // category_id, employee_id, date
-	GroupName string `json:"group_name"` // category_name, employee_name, date
-	Income    int64  `json:"income"`
-	Expense   int64  `json:"expense"`
-	Net       int64  `json:"net"`
-	Count     int64  `json:"count"`
+	GroupKey  string             `json:"group_key"`  // category_id, employee_id, date
+	GroupName string             `json:"group_name"` // category_name, employee_name, date
+	Income    float64            `json:"income"`
+	Expense   float64            `json:"expense"`
+	Net       float64            `json:"net"`
+	Count     int64              `json:"count"`
+	Currency  *currency.Currency `json:"currency"`
 }
 
-// AnalysisSummary represents financial summary for a period
 type AnalysisSummary struct {
-	TotalIncome      int64   `json:"total_income"`
-	TotalExpense     int64   `json:"total_expense"`
-	NetBalance       int64   `json:"net_balance"`
-	TransactionCount int64   `json:"transaction_count"`
-	AvgTransaction   float64 `json:"avg_transaction"`
+	TotalIncome      float64            `json:"total_income"`
+	TotalExpense     float64            `json:"total_expense"`
+	NetBalance       float64            `json:"net_balance"`
+	TransactionCount int64              `json:"transaction_count"`
+	AvgTransaction   float64            `json:"avg_transaction"`
+	Currency         *currency.Currency `json:"currency"`
 }

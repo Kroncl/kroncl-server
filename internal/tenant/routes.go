@@ -4,8 +4,10 @@ import (
 	"kroncl-server/internal/accounts"
 	"kroncl-server/internal/companies"
 	"kroncl-server/internal/config"
+	"kroncl-server/internal/currency"
 	"kroncl-server/internal/mailer"
 	"kroncl-server/internal/permissioner"
+	"kroncl-server/internal/tenant/cpm"
 	"kroncl-server/internal/tenant/crm"
 	"kroncl-server/internal/tenant/dm"
 	"kroncl-server/internal/tenant/docs"
@@ -31,6 +33,7 @@ type Routes struct {
 	companiesService *companies.Service
 	pdfgen           *pdfgen.Service
 	mailer           *mailer.Service
+	currencyService  *currency.Service
 }
 
 func NewRoutes(
@@ -40,6 +43,7 @@ func NewRoutes(
 	companiesService *companies.Service,
 	pdfgen *pdfgen.Service,
 	mailer *mailer.Service,
+	currencyService *currency.Service,
 ) *Routes {
 	return &Routes{
 		publicPool:       publicPool,
@@ -48,6 +52,7 @@ func NewRoutes(
 		companiesService: companiesService,
 		pdfgen:           pdfgen,
 		mailer:           mailer,
+		currencyService:  currencyService,
 	}
 }
 
@@ -364,39 +369,6 @@ func (rt *Routes) Register(r chi.Router, permDeps *permissioner.PermissionDeps) 
 			}))
 		})
 
-		// counterparties
-		r.Route("/counterparties", func(r chi.Router) {
-			r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_FM_COUNTERPARTIES))
-
-			r.Get("/", rt.fm(func(h *fm.Handlers) http.HandlerFunc {
-				return h.GetCounterparties
-			}))
-			r.With(permissioner.RequirePermission(permDeps, config.PERMISSION_FM_COUNTERPARTIES_CREATE)).
-				Post("/", rt.fm(func(h *fm.Handlers) http.HandlerFunc {
-					return h.CreateCounterparty
-				}))
-			r.Route("/{counterpartyId}", func(r chi.Router) {
-				r.Get("/", rt.fm(func(h *fm.Handlers) http.HandlerFunc {
-					return h.GetCounterparty
-				}))
-
-				// [update counterparty] no hard delete!
-				r.Group(func(r chi.Router) {
-					r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_FM_COUNTERPARTIES_UPDATE))
-
-					r.Patch("/", rt.fm(func(h *fm.Handlers) http.HandlerFunc {
-						return h.UpdateCounterparty
-					}))
-					r.Post("/deactivate", rt.fm(func(h *fm.Handlers) http.HandlerFunc {
-						return h.DeactivateCounterparty
-					}))
-					r.Post("/activate", rt.fm(func(h *fm.Handlers) http.HandlerFunc {
-						return h.ActivateCounterparty
-					}))
-				})
-			})
-		})
-
 		// credits
 		r.Route("/credits", func(r chi.Router) {
 			r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_FM_CREDITS))
@@ -423,7 +395,7 @@ func (rt *Routes) Register(r chi.Router, permDeps *permissioner.PermissionDeps) 
 
 				// [update credit] no hard delete!
 				r.Group(func(r chi.Router) {
-					r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_FM_COUNTERPARTIES_UPDATE))
+					r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_CPM_COUNTERPARTIES_UPDATE))
 
 					r.Patch("/", rt.fm(func(h *fm.Handlers) http.HandlerFunc {
 						return h.UpdateCredit
@@ -808,6 +780,44 @@ func (rt *Routes) Register(r chi.Router, permDeps *permissioner.PermissionDeps) 
 			r.Get("/financial-summary", rt.dm(func(h *dm.Handlers) http.HandlerFunc {
 				return h.GetAnalysisFinancialSummary
 			}))
+		})
+	})
+
+	// CPM module
+	r.Route("/cpm", func(r chi.Router) {
+		r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_CPM))
+
+		// counterparties
+		r.Route("/counterparties", func(r chi.Router) {
+			r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_CPM_COUNTERPARTIES))
+
+			r.Get("/", rt.cpm(func(h *cpm.Handlers) http.HandlerFunc {
+				return h.GetCounterparties
+			}))
+			r.With(permissioner.RequirePermission(permDeps, config.PERMISSION_CPM_COUNTERPARTIES_CREATE)).
+				Post("/", rt.cpm(func(h *cpm.Handlers) http.HandlerFunc {
+					return h.CreateCounterparty
+				}))
+			r.Route("/{counterpartyId}", func(r chi.Router) {
+				r.Get("/", rt.cpm(func(h *cpm.Handlers) http.HandlerFunc {
+					return h.GetCounterparty
+				}))
+
+				// [update counterparty] no hard delete!
+				r.Group(func(r chi.Router) {
+					r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_CPM_COUNTERPARTIES_UPDATE))
+
+					r.Patch("/", rt.cpm(func(h *cpm.Handlers) http.HandlerFunc {
+						return h.UpdateCounterparty
+					}))
+					r.Post("/deactivate", rt.cpm(func(h *cpm.Handlers) http.HandlerFunc {
+						return h.DeactivateCounterparty
+					}))
+					r.Post("/activate", rt.cpm(func(h *cpm.Handlers) http.HandlerFunc {
+						return h.ActivateCounterparty
+					}))
+				})
+			})
 		})
 	})
 }
