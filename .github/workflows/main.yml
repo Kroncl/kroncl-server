@@ -128,6 +128,11 @@ jobs:
             CBR_API_URL=https://www.cbr-xml-daily.ru
             COIN_GECKO_API_URL=https://api.coingecko.com/api/v3
             COIN_GECKO_TOKEN=${{ secrets.COIN_GECKO_TOKEN }}
+
+            # DaData
+            DADATA_API_URL=https://suggestions.dadata.ru/suggestions/api/4_1/rs
+            DADATA_API_KEY=${{ secrets.DADATA_API_KEY }}
+            DADATA_SECRET_KEY=${{ secrets.DADATA_SECRET_KEY }}
             EOF
 
             chmod 600 /opt/kroncl/.env

@@ -32,6 +32,7 @@ type Config struct {
 	Gotenberg  pdfgen.Config
 	Acquiring  AcquiringConfig
 	Currency   CurrencyConfig
+	DaData     DaDataConfig
 }
 
 type ServerConfig struct {
@@ -89,6 +90,12 @@ type CurrencyConfig struct {
 	CoinGeckoToken  string
 }
 
+type DaDataConfig struct {
+	ApiUrl    string
+	ApiKey    string
+	SecretKey string
+}
+
 func Load() (*Config, error) {
 	if err := loadEnvFile(); err != nil {
 		log.Printf("⚠️  Warning: %v", err)
@@ -125,6 +132,12 @@ func Load() (*Config, error) {
 		CbrApiUrl:       getEnv("CBR_API_URL", "https://www.cbr-xml-daily.ru"),
 		CoinGeckoApiUrl: getEnv("COIN_GECKO_API_URL", "https://api.coingecko.com/api/v3"),
 		CoinGeckoToken:  getEnv("COIN_GECKO_TOKEN", ""),
+	}
+
+	dadataConfig := DaDataConfig{
+		ApiUrl:    getEnv("DADATA_API_URL", "https://suggestions.dadata.ru/suggestions/api/4_1/rs"),
+		ApiKey:    getEnv("DADATA_API_KEY", ""),
+		SecretKey: getEnv("DADATA_SECRET_KEY", ""),
 	}
 
 	log.Printf("📋 Конфигурация загружена:")
@@ -173,6 +186,7 @@ func Load() (*Config, error) {
 		},
 		Acquiring: acquiringConfig,
 		Currency:  currencyConfig,
+		DaData:    dadataConfig,
 	}, nil
 }
 

@@ -163,6 +163,14 @@ func New(cfg *config.Config, container *di.Container) chi.Router {
 			r.Get("/{id}", container.CurrencyHandlers.GetByID)
 		})
 
+		// dadata
+		r.Route("/dadata", func(r chi.Router) {
+			// rate limiter
+			r.Use(httprate.LimitByIP(config.RATE_LIMIT_DADATA_ROUTES_PER_MINUTE, 1*time.Minute))
+
+			r.Get("/orgs", container.DaDataHandlers.SuggestParty)
+		})
+
 		// Public companies overview
 		r.Route("/visit-cards/{slug}", func(r chi.Router) {
 			// rate limiter
