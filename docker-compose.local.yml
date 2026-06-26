@@ -80,6 +80,9 @@ services:
       CBR_API_URL: ${CBR_API_URL}
       COIN_GECKO_API_URL: ${COIN_GECKO_API_URL}
       COIN_GECKO_TOKEN: ${COIN_GECKO_TOKEN}
+      DADATA_API_URL: ${DADATA_API_URL}
+      DADATA_API_KEY: ${DADATA_API_KEY}
+      DADATA_SECRET_KEY: ${DADATA_SECRET_KEY}
     ports:
       - "8080:8080"
     depends_on:
