@@ -3,6 +3,7 @@ package currency
 import (
 	"context"
 	"fmt"
+	"math"
 	"strings"
 	"sync"
 	"time"
@@ -398,6 +399,15 @@ func (s *Service) ConvertSummary(
 	}
 
 	targetCur, _ := s.GetByID(ctx, targetCurrency)
+
+	if targetCur != nil && targetCur.Type == "fiat" {
+		totalIncome = math.Round(totalIncome*100) / 100
+		totalExpense = math.Round(totalExpense*100) / 100
+		netBalance = math.Round(netBalance*100) / 100
+		if totalCount > 0 {
+			avgTransaction = math.Round(avgTransaction*100) / 100
+		}
+	}
 
 	return &ConvertedSummary{
 		TotalIncome:      totalIncome,
