@@ -1,6 +1,7 @@
 package cpm
 
 import (
+	"kroncl-server/internal/currency"
 	"kroncl-server/internal/tenant/docs"
 	"kroncl-server/internal/tenant/excelizer"
 	storagemedia "kroncl-server/internal/tenant/storage/media"
@@ -9,12 +10,25 @@ import (
 )
 
 type Repository struct {
-	pool         *pgxpool.Pool
-	mediaService *storagemedia.Service
-	excelizer    *excelizer.Service
-	docsService  *docs.Service
+	pool            *pgxpool.Pool
+	mediaService    *storagemedia.Service
+	excelizer       *excelizer.Service
+	docsService     *docs.Service
+	currencyService *currency.Service
 }
 
-func NewRepository(pool *pgxpool.Pool, mediaService *storagemedia.Service, excelizer *excelizer.Service, docsService *docs.Service) *Repository {
-	return &Repository{pool: pool, mediaService: mediaService, excelizer: excelizer, docsService: docsService}
+func NewRepository(
+	pool *pgxpool.Pool,
+	mediaService *storagemedia.Service,
+	excelizer *excelizer.Service,
+	docsService *docs.Service,
+	currencyService *currency.Service,
+) *Repository {
+	return &Repository{
+		pool:            pool,
+		mediaService:    mediaService,
+		excelizer:       excelizer,
+		docsService:     docsService,
+		currencyService: currencyService,
+	}
 }

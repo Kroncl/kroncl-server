@@ -76,7 +76,7 @@ func createCPMHandlers(pool *pgxpool.Pool, logsService *logs.Service, rt *Routes
 	excelizerService := excelizer.NewService(rt.storageService.Media)
 	docsService := docs.NewService(pool)
 
-	cpmRepo := cpm.NewRepository(pool, rt.storageService.Media, excelizerService, docsService)
+	cpmRepo := cpm.NewRepository(pool, rt.storageService.Media, excelizerService, docsService, rt.currencyService)
 	return cpm.NewHandlers(cpmRepo, logsService)
 }
 

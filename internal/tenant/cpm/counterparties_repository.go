@@ -14,35 +14,26 @@ import (
 // COUNTERPARTIES
 // ----------
 
-// GetCounterpartyByID возвращает контрагента по ID
 func (r *Repository) GetCounterpartyByID(ctx context.Context, id string) (*Counterparty, error) {
 	query := `
-		SELECT 
-			id, name, comment, type, status, metadata, created_at, updated_at
+		SELECT id, name, comment, type, status, inn, ogrn, kpp, address, default_currency, metadata, created_at, updated_at
 		FROM counterparties
 		WHERE id = $1
 	`
 
-	var counterparty Counterparty
+	var c Counterparty
 	err := r.pool.QueryRow(ctx, query, id).Scan(
-		&counterparty.ID,
-		&counterparty.Name,
-		&counterparty.Comment,
-		&counterparty.Type,
-		&counterparty.Status,
-		&counterparty.Metadata,
-		&counterparty.CreatedAt,
-		&counterparty.UpdatedAt,
+		&c.ID, &c.Name, &c.Comment, &c.Type, &c.Status,
+		&c.INN, &c.OGRN, &c.KPP, &c.Address, &c.DefaultCurrency,
+		&c.Metadata, &c.CreatedAt, &c.UpdatedAt,
 	)
-
 	if err != nil {
 		return nil, fmt.Errorf("failed to get counterparty: %w", err)
 	}
 
-	return &counterparty, nil
+	return &c, nil
 }
 
-// GetCounterparties возвращает список контрагентов с пагинацией и фильтрацией
 func (r *Repository) GetCounterparties(ctx context.Context, offset, limit int, filters GetCounterpartiesRequest) ([]Counterparty, int, error) {
 	var whereClause string
 	var args []interface{}
@@ -65,6 +56,7 @@ func (r *Repository) GetCounterparties(ctx context.Context, offset, limit int, f
 		searchConditions := []string{
 			"name ILIKE $" + strconv.Itoa(argIndex),
 			"comment ILIKE $" + strconv.Itoa(argIndex),
+			"inn ILIKE $" + strconv.Itoa(argIndex),
 		}
 		whereConditions = append(whereConditions, "("+strings.Join(searchConditions, " OR ")+")")
 		args = append(args, "%"+*filters.Search+"%")
@@ -75,7 +67,6 @@ func (r *Repository) GetCounterparties(ctx context.Context, offset, limit int, f
 		whereClause = "WHERE " + strings.Join(whereConditions, " AND ")
 	}
 
-	// Получаем общее количество
 	countQuery := `SELECT COUNT(*) FROM counterparties ` + whereClause
 	var total int
 	err := r.pool.QueryRow(ctx, countQuery, args[:argIndex-1]...).Scan(&total)
@@ -83,12 +74,10 @@ func (r *Repository) GetCounterparties(ctx context.Context, offset, limit int, f
 		return nil, 0, fmt.Errorf("failed to count counterparties: %w", err)
 	}
 
-	// Получаем контрагентов с пагинацией
 	query := `
-		SELECT 
-			id, name, comment, type, status, metadata, created_at, updated_at
+		SELECT id, name, comment, type, status, inn, ogrn, kpp, address, default_currency, metadata, created_at, updated_at
 		FROM counterparties
-		` + whereClause + `
+	` + whereClause + `
 		ORDER BY name ASC
 		LIMIT $` + strconv.Itoa(argIndex) + ` OFFSET $` + strconv.Itoa(argIndex+1)
 
@@ -102,29 +91,22 @@ func (r *Repository) GetCounterparties(ctx context.Context, offset, limit int, f
 
 	var counterparties []Counterparty
 	for rows.Next() {
-		var counterparty Counterparty
+		var c Counterparty
 		err := rows.Scan(
-			&counterparty.ID,
-			&counterparty.Name,
-			&counterparty.Comment,
-			&counterparty.Type,
-			&counterparty.Status,
-			&counterparty.Metadata,
-			&counterparty.CreatedAt,
-			&counterparty.UpdatedAt,
+			&c.ID, &c.Name, &c.Comment, &c.Type, &c.Status,
+			&c.INN, &c.OGRN, &c.KPP, &c.Address, &c.DefaultCurrency,
+			&c.Metadata, &c.CreatedAt, &c.UpdatedAt,
 		)
 		if err != nil {
 			return nil, 0, fmt.Errorf("failed to scan counterparty: %w", err)
 		}
-		counterparties = append(counterparties, counterparty)
+		counterparties = append(counterparties, c)
 	}
 
 	return counterparties, total, nil
 }
 
-// CreateCounterparty создает нового контрагента
 func (r *Repository) CreateCounterparty(ctx context.Context, req CreateCounterpartyRequest) (*Counterparty, error) {
-	// Валидация
 	name := strings.TrimSpace(req.Name)
 	if name == "" {
 		return nil, fmt.Errorf("counterparty name is required")
@@ -136,53 +118,65 @@ func (r *Repository) CreateCounterparty(ctx context.Context, req CreateCounterpa
 		commentPtr = &comment
 	}
 
-	// Статус по умолчанию
 	status := CounterpartyStatusActive
 	if req.Status != "" {
 		status = req.Status
+	}
+
+	// Валидация default_currency
+	var defaultCurrencyPtr *string
+	if req.DefaultCurrency != "" {
+		if _, err := r.currencyService.GetByID(ctx, req.DefaultCurrency); err != nil {
+			return nil, fmt.Errorf("invalid default_currency: %s", req.DefaultCurrency)
+		}
+		defaultCurrencyPtr = &req.DefaultCurrency
+	}
+
+	// CreateCounterparty
+	var innPtr, ogrnPtr, kppPtr, addressPtr *string
+
+	if req.INN = strings.TrimSpace(req.INN); req.INN != "" {
+		innPtr = &req.INN
+	}
+	if req.OGRN = strings.TrimSpace(req.OGRN); req.OGRN != "" {
+		ogrnPtr = &req.OGRN
+	}
+	if req.KPP = strings.TrimSpace(req.KPP); req.KPP != "" {
+		kppPtr = &req.KPP
+	}
+	if req.Address = strings.TrimSpace(req.Address); req.Address != "" {
+		addressPtr = &req.Address
 	}
 
 	id := uuid.New().String()
 
 	query := `
 		INSERT INTO counterparties (
-			id, name, comment, type, status, metadata, created_at, updated_at
+			id, name, comment, type, status, inn, ogrn, kpp, address, default_currency, metadata, created_at, updated_at
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
 		)
-		RETURNING 
-			id, name, comment, type, status, metadata, created_at, updated_at
+		RETURNING id, name, comment, type, status, inn, ogrn, kpp, address, default_currency, metadata, created_at, updated_at
 	`
 
-	var counterparty Counterparty
+	var c Counterparty
 	err := r.pool.QueryRow(ctx, query,
-		id,
-		name,
-		commentPtr,
-		req.Type,
-		status,
+		id, name, commentPtr, req.Type, status,
+		innPtr, ogrnPtr, kppPtr, addressPtr, defaultCurrencyPtr,
 		req.Metadata,
 	).Scan(
-		&counterparty.ID,
-		&counterparty.Name,
-		&counterparty.Comment,
-		&counterparty.Type,
-		&counterparty.Status,
-		&counterparty.Metadata,
-		&counterparty.CreatedAt,
-		&counterparty.UpdatedAt,
+		&c.ID, &c.Name, &c.Comment, &c.Type, &c.Status,
+		&c.INN, &c.OGRN, &c.KPP, &c.Address, &c.DefaultCurrency,
+		&c.Metadata, &c.CreatedAt, &c.UpdatedAt,
 	)
-
 	if err != nil {
 		return nil, fmt.Errorf("failed to create counterparty: %w", err)
 	}
 
-	return &counterparty, nil
+	return &c, nil
 }
 
-// UpdateCounterparty обновляет контрагента (без статуса)
 func (r *Repository) UpdateCounterparty(ctx context.Context, id string, req UpdateCounterpartyRequest) (*Counterparty, error) {
-	// Проверяем существование
 	_, err := r.GetCounterpartyByID(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("counterparty not found: %w", err)
@@ -210,6 +204,54 @@ func (r *Repository) UpdateCounterparty(ctx context.Context, id string, req Upda
 		updater.SetString("type", string(*req.Type))
 	}
 
+	if req.INN != nil {
+		inn := strings.TrimSpace(*req.INN)
+		if inn == "" {
+			updater.SetNull("inn")
+		} else {
+			updater.SetString("inn", inn)
+		}
+	}
+
+	if req.OGRN != nil {
+		ogrn := strings.TrimSpace(*req.OGRN)
+		if ogrn == "" {
+			updater.SetNull("ogrn")
+		} else {
+			updater.SetString("ogrn", ogrn)
+		}
+	}
+
+	if req.KPP != nil {
+		kpp := strings.TrimSpace(*req.KPP)
+		if kpp == "" {
+			updater.SetNull("kpp")
+		} else {
+			updater.SetString("kpp", kpp)
+		}
+	}
+
+	if req.Address != nil {
+		addr := strings.TrimSpace(*req.Address)
+		if addr == "" {
+			updater.SetNull("address")
+		} else {
+			updater.SetString("address", addr)
+		}
+	}
+
+	if req.DefaultCurrency != nil {
+		dc := strings.TrimSpace(*req.DefaultCurrency)
+		if dc == "" {
+			updater.SetNull("default_currency")
+		} else {
+			if _, err := r.currencyService.GetByID(ctx, dc); err != nil {
+				return nil, fmt.Errorf("invalid default_currency: %s", dc)
+			}
+			updater.SetString("default_currency", dc)
+		}
+	}
+
 	if req.Metadata != nil {
 		updater.Set("metadata", *req.Metadata)
 	}
@@ -227,16 +269,13 @@ func (r *Repository) UpdateCounterparty(ctx context.Context, id string, req Upda
 	return r.GetCounterpartyByID(ctx, id)
 }
 
-// ActivateCounterparty активирует контрагента
 func (r *Repository) ActivateCounterparty(ctx context.Context, id string) (*Counterparty, error) {
-	// Проверяем существование
 	_, err := r.GetCounterpartyByID(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("counterparty not found: %w", err)
 	}
 
-	query := `UPDATE counterparties SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`
-	_, err = r.pool.Exec(ctx, query, CounterpartyStatusActive, id)
+	_, err = r.pool.Exec(ctx, `UPDATE counterparties SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`, CounterpartyStatusActive, id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to activate counterparty: %w", err)
 	}
@@ -244,16 +283,13 @@ func (r *Repository) ActivateCounterparty(ctx context.Context, id string) (*Coun
 	return r.GetCounterpartyByID(ctx, id)
 }
 
-// DeactivateCounterparty деактивирует контрагента
 func (r *Repository) DeactivateCounterparty(ctx context.Context, id string) (*Counterparty, error) {
-	// Проверяем существование
 	_, err := r.GetCounterpartyByID(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("counterparty not found: %w", err)
 	}
 
-	query := `UPDATE counterparties SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`
-	_, err = r.pool.Exec(ctx, query, CounterpartyStatusInactive, id)
+	_, err = r.pool.Exec(ctx, `UPDATE counterparties SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`, CounterpartyStatusInactive, id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to deactivate counterparty: %w", err)
 	}
