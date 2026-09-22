@@ -7,6 +7,7 @@ import (
 	"kroncl-server/internal/tenant/docs"
 	"kroncl-server/internal/tenant/excelizer"
 	"kroncl-server/internal/tenant/fm"
+	tenantgeneral "kroncl-server/internal/tenant/general"
 	"kroncl-server/internal/tenant/hrm"
 	"kroncl-server/internal/tenant/logs"
 	"kroncl-server/internal/tenant/support"
@@ -14,6 +15,12 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+// Company general factory
+func createGeneralHandlers(pool *pgxpool.Pool, logsService *logs.Service, rt *Routes) *tenantgeneral.Handlers {
+	generalService := tenantgeneral.NewService(pool, rt.currencyService)
+	return tenantgeneral.NewHandlers(generalService, logsService)
+}
 
 // Support tickets factory
 func createSupportHandlers(pool *pgxpool.Pool, logsService *logs.Service, rt *Routes) *support.Handlers {

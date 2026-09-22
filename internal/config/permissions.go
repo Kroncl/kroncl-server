@@ -8,6 +8,7 @@ const (
 	PERMISSION_PRICING_TRANSACTIONS              = "pricing.transactions"
 	PERMISSION_COMPANY_UPDATE                    = "company.update"
 	PERMISSION_COMPANY_DELETE                    = "company.delete"
+	PERMISSION_COMPANY_SUMMARY                   = "company.summary"
 	PERMISSION_STORAGE                           = "storage"
 	PERMISSION_STORAGE_DB                        = "storage.db"
 	PERMISSION_STORAGE_DB_SOURCES                = "storage.db.sources"
@@ -116,6 +117,7 @@ func GetAllPermissions() []string {
 		PERMISSION_SUPPORT_TICKETS_UPDATE,
 		PERMISSION_PRICING_MIGRATE,
 		PERMISSION_PRICING_TRANSACTIONS,
+		PERMISSION_COMPANY_SUMMARY,
 		PERMISSION_COMPANY_UPDATE,
 		PERMISSION_COMPANY_DELETE,
 		PERMISSION_STORAGE,
@@ -219,6 +221,7 @@ func GetAllPermissions() []string {
 // Гость имеет только права на чтение базовых данных, без возможности создания/изменения
 func GetGuestPermissions() map[string]bool {
 	return map[string]bool{
+		PERMISSION_COMPANY_SUMMARY:        true,
 		PERMISSION_SUPPORT_TICKETS:        true,
 		PERMISSION_SUPPORT_TICKETS_CREATE: true,
 		PERMISSION_SUPPORT_TICKETS_UPDATE: true,

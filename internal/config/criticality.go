@@ -13,6 +13,7 @@ const (
 
 var PermissionCriticality = map[string]CriticalityLevel{
 	// ========== COMPANY (3-10) ==========
+	PERMISSION_COMPANY_SUMMARY:        3,
 	PERMISSION_COMPANY_UPDATE:         8,
 	PERMISSION_COMPANY_DELETE:         10,
 	PERMISSION_PRICING_MIGRATE:        10,

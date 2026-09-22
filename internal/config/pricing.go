@@ -11,6 +11,7 @@ const PRICING_PLAN_MIN_LVL = 1 // самый пиздатый
 // PermissionLvlLevel defines required tariff level for each permission
 var PermissionLvl = map[string]int{
 	// ========== COMPANY ==========
+	PERMISSION_COMPANY_SUMMARY:        PRICING_PLAN_MAX_LVL,
 	PERMISSION_COMPANY_UPDATE:         PRICING_PLAN_MAX_LVL,
 	PERMISSION_COMPANY_DELETE:         PRICING_PLAN_MAX_LVL,
 	PERMISSION_PRICING_MIGRATE:        PRICING_PLAN_MAX_LVL,
@@ -150,6 +151,7 @@ func GetExpiredAllowedPermissions() map[string]bool {
 		PERMISSION_SUPPORT_TICKETS_UPDATE:      true,
 		PERMISSION_PRICING_MIGRATE:             true,
 		PERMISSION_PRICING_TRANSACTIONS:        true,
+		PERMISSION_COMPANY_SUMMARY:             true,
 		PERMISSION_COMPANY_UPDATE:              true,
 		PERMISSION_COMPANY_DELETE:              true,
 		PERMISSION_STORAGE:                     true,

@@ -7,6 +7,7 @@ import (
 	"kroncl-server/internal/tenant/dm"
 	"kroncl-server/internal/tenant/docs"
 	"kroncl-server/internal/tenant/fm"
+	tenantgeneral "kroncl-server/internal/tenant/general"
 	"kroncl-server/internal/tenant/hrm"
 	"kroncl-server/internal/tenant/logs"
 	"kroncl-server/internal/tenant/support"
@@ -91,6 +92,10 @@ func (rt *Routes) docs(h func(*docs.Handlers) http.HandlerFunc) http.HandlerFunc
 
 func (rt *Routes) support(h func(*support.Handlers) http.HandlerFunc) http.HandlerFunc {
 	return withPublicPoolMiddleware(rt, createSupportHandlers, h)
+}
+
+func (rt *Routes) general(h func(*tenantgeneral.Handlers) http.HandlerFunc) http.HandlerFunc {
+	return withTenantPoolMiddleware(rt, createGeneralHandlers, h)
 }
 
 func (rt *Routes) supportWebsocket(h func(*support.Handlers) http.HandlerFunc) http.HandlerFunc {

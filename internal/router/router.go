@@ -206,9 +206,14 @@ func New(cfg *config.Config, container *di.Container) chi.Router {
 
 				// Specific company routes
 				r.Route("/{id}", func(r chi.Router) {
-					r.Use(companies.CompanyMembership(container.DB))
+					r.Use(companies.CompanyMembership(container.DB)) // мегаважный чекер доступа к хранилищу тенанта
 					r.Use(container.StorageDbService.TenantPoolMiddleware)
 					r.Use(container.StorageMediaService.TenantBucketMiddleware)
+
+					// Company basics
+					r.Get("/", container.CompaniesHandlers.GetUserCompanyById)
+					r.With(permissioner.RequirePermission(container.PermissionDeps, config.PERMISSION_COMPANY_UPDATE)).Patch("/", container.CompaniesHandlers.Update)
+					r.With(permissioner.RequirePermission(container.PermissionDeps, config.PERMISSION_COMPANY_DELETE)).Post("/delete", container.CompaniesHandlers.Drop)
 
 					// Company permissions
 					r.Get("/permissions", container.CompaniesHandlers.GetCompanyPermissions)
@@ -226,11 +231,6 @@ func New(cfg *config.Config, container *di.Container) chi.Router {
 							With(permissioner.RequirePermission(container.PermissionDeps, config.PERMISSION_PRICING_MIGRATE)).
 							Post("/migrate", container.CompaniesHandlers.MigratePricingPlan) // смена плана
 					})
-
-					// Company basics
-					r.Get("/", container.CompaniesHandlers.GetUserCompanyById)
-					r.With(permissioner.RequirePermission(container.PermissionDeps, config.PERMISSION_COMPANY_UPDATE)).Patch("/", container.CompaniesHandlers.Update)
-					r.With(permissioner.RequirePermission(container.PermissionDeps, config.PERMISSION_COMPANY_DELETE)).Post("/delete", container.CompaniesHandlers.Drop)
 
 					// Company storage ctrl [db + media]
 					r.Route("/storage", func(r chi.Router) {

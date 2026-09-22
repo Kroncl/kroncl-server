@@ -12,6 +12,7 @@ import (
 	"kroncl-server/internal/tenant/dm"
 	"kroncl-server/internal/tenant/docs"
 	"kroncl-server/internal/tenant/fm"
+	tenantgeneral "kroncl-server/internal/tenant/general"
 	"kroncl-server/internal/tenant/hrm"
 	"kroncl-server/internal/tenant/logs"
 	"kroncl-server/internal/tenant/pdfgen"
@@ -57,6 +58,14 @@ func NewRoutes(
 }
 
 func (rt *Routes) Register(r chi.Router, permDeps *permissioner.PermissionDeps) {
+	// general
+	r.Group(func(r chi.Router) {
+		r.With(permissioner.RequirePermission(permDeps, config.PERMISSION_COMPANY_SUMMARY)).
+			Get("/summary", rt.general(func(h *tenantgeneral.Handlers) http.HandlerFunc {
+				return h.GetCompanySummary
+			}))
+	})
+
 	// accounts -> employees actions + account settings
 	// корявенько получилось в плане /modules/accounts и просто /accounts эп,
 	// но пока похуй
