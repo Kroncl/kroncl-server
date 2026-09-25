@@ -15,6 +15,7 @@ const (
 	ReportTypeStockBalance      = "stock_balance"
 	ReportTypeStockBatches      = "stock_batches"
 	ReportTypeStockPositions    = "stock_positions"
+	ReportTypeStockMovements    = "stock_movements"
 )
 
 type FullReportOptions struct {
@@ -37,6 +38,8 @@ func (r *Repository) GenerateFullReport(ctx context.Context, opts FullReportOpti
 			generators["Партии (поставки)"] = r.writeStockBatchesSheet
 		case ReportTypeStockPositions:
 			generators["Складские позиции"] = r.writeStockPositionsSheet
+		case ReportTypeStockMovements:
+			generators["Движения позиций"] = r.writeStockMovementsSheet
 		default:
 			return nil, fmt.Errorf("unknown report type: %s", t)
 		}

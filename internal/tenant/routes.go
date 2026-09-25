@@ -596,19 +596,24 @@ func (rt *Routes) Register(r chi.Router, permDeps *permissioner.PermissionDeps) 
 		r.Route("/stocks", func(r chi.Router) {
 			r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_WM_STOCKS))
 
-			// balance
+			// --------
+			// BALANCE
+			// --------
 			r.Route("/balance", func(r chi.Router) {
-				r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_WM_STOCKS_BATCHES))
+				r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_WM_STOCKS_BALANCE))
 
 				r.Get("/", rt.wm(func(h *wm.Handlers) http.HandlerFunc {
 					return h.GetStockBalance
 				}))
 			})
 
-			// batches
+			// --------
+			// BATCHES
+			// --------
 			r.Route("/batches", func(r chi.Router) {
 				r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_WM_STOCKS_BATCHES))
 
+				// list + create
 				r.Get("/", rt.wm(func(h *wm.Handlers) http.HandlerFunc {
 					return h.GetStockBatches
 				}))
@@ -616,14 +621,26 @@ func (rt *Routes) Register(r chi.Router, permDeps *permissioner.PermissionDeps) 
 					Post("/", rt.wm(func(h *wm.Handlers) http.HandlerFunc {
 						return h.CreateStockBatch
 					}))
+				r.With(permissioner.RequirePermission(permDeps, config.PERMISSION_WM_STOCKS_BATCHES_CREATE)).
+					Post("/only", rt.wm(func(h *wm.Handlers) http.HandlerFunc {
+						return h.CreateStockBatchOnly
+					}))
+
+				// single batch
 				r.Route("/{batchId}", func(r chi.Router) {
 					r.Get("/", rt.wm(func(h *wm.Handlers) http.HandlerFunc {
 						return h.GetStockBatch
 					}))
+					r.With(permissioner.RequirePermission(permDeps, config.PERMISSION_WM_STOCKS_BATCHES_CREATE)).
+						Patch("/status", rt.wm(func(h *wm.Handlers) http.HandlerFunc {
+							return h.UpdateStockBatchStatus
+						}))
 				})
 			})
 
-			// positions
+			// --------
+			// POSITIONS
+			// --------
 			r.Route("/positions", func(r chi.Router) {
 				r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_WM_STOCKS_POSITIONS))
 
@@ -635,6 +652,58 @@ func (rt *Routes) Register(r chi.Router, permDeps *permissioner.PermissionDeps) 
 						return h.GetStockPosition
 					}))
 				})
+			})
+
+			// --------
+			// MOVEMENTS
+			// --------
+			r.Route("/movements", func(r chi.Router) {
+				r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_WM_STOCKS_MOVEMENTS))
+
+				r.Get("/", rt.wm(func(h *wm.Handlers) http.HandlerFunc {
+					return h.GetMovements
+				}))
+				r.With(permissioner.RequirePermission(permDeps, config.PERMISSION_WM_STOCKS_MOVEMENTS_CREATE)).
+					Post("/", rt.wm(func(h *wm.Handlers) http.HandlerFunc {
+						return h.CreateStockMovement
+					}))
+				r.With(permissioner.RequirePermission(permDeps, config.PERMISSION_WM_STOCKS_MOVEMENTS_CREATE)).
+					Post("/batch", rt.wm(func(h *wm.Handlers) http.HandlerFunc {
+						return h.CreateStockMovementsBatch
+					}))
+			})
+		})
+
+		// barcodes
+		r.Route("/barcodes", func(r chi.Router) {
+			r.Use(permissioner.RequirePermission(permDeps, config.PERMISSION_WM_BARCODES))
+
+			r.Get("/", rt.wm(func(h *wm.Handlers) http.HandlerFunc {
+				return h.GetBarcodes
+			}))
+			r.With(permissioner.RequirePermission(permDeps, config.PERMISSION_WM_BARCODES_CREATE)).
+				Post("/", rt.wm(func(h *wm.Handlers) http.HandlerFunc {
+					return h.CreateBarcode
+				}))
+
+			// lookup by value (?barcode=...)
+			r.Get("/lookup", rt.wm(func(h *wm.Handlers) http.HandlerFunc {
+				return h.GetBarcode
+			}))
+
+			// by id
+			r.Route("/{barcodeId}", func(r chi.Router) {
+				r.Get("/", rt.wm(func(h *wm.Handlers) http.HandlerFunc {
+					return h.GetBarcodeByID
+				}))
+				r.With(permissioner.RequirePermission(permDeps, config.PERMISSION_WM_BARCODES_UPDATE)).
+					Patch("/", rt.wm(func(h *wm.Handlers) http.HandlerFunc {
+						return h.UpdateBarcode
+					}))
+				r.With(permissioner.RequirePermission(permDeps, config.PERMISSION_WM_BARCODES_DELETE)).
+					Delete("/", rt.wm(func(h *wm.Handlers) http.HandlerFunc {
+						return h.DeleteBarcode
+					}))
 			})
 		})
 	})

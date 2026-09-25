@@ -79,6 +79,12 @@ const (
 	PERMISSION_WM_STOCKS_BATCHES_CREATE          = "wm.stocks.batches.create"
 	PERMISSION_WM_STOCKS_POSITIONS               = "wm.stocks.positions"
 	PERMISSION_WM_STOCKS_BALANCE                 = "wm.stocks.balance"
+	PERMISSION_WM_STOCKS_MOVEMENTS               = "wm.stocks.movements"
+	PERMISSION_WM_STOCKS_MOVEMENTS_CREATE        = "wm.stocks.movements.create"
+	PERMISSION_WM_BARCODES                       = "wm.barcodes"
+	PERMISSION_WM_BARCODES_CREATE                = "wm.barcodes.create"
+	PERMISSION_WM_BARCODES_UPDATE                = "wm.barcodes.update"
+	PERMISSION_WM_BARCODES_DELETE                = "wm.barcodes.delete"
 	PERMISSION_DM                                = "dm"
 	PERMISSION_DM_TYPES                          = "dm.types"
 	PERMISSION_DM_TYPES_CREATE                   = "dm.types.create"
@@ -190,6 +196,12 @@ func GetAllPermissions() []string {
 		PERMISSION_WM_STOCKS_BATCHES_CREATE,
 		PERMISSION_WM_STOCKS_POSITIONS,
 		PERMISSION_WM_STOCKS_BALANCE,
+		PERMISSION_WM_BARCODES,
+		PERMISSION_WM_BARCODES_CREATE,
+		PERMISSION_WM_BARCODES_UPDATE,
+		PERMISSION_WM_BARCODES_DELETE,
+		PERMISSION_WM_STOCKS_MOVEMENTS,
+		PERMISSION_WM_STOCKS_MOVEMENTS_CREATE,
 		PERMISSION_DM,
 		PERMISSION_DM_TYPES,
 		PERMISSION_DM_TYPES_CREATE,
@@ -255,6 +267,8 @@ func GetGuestPermissions() map[string]bool {
 		PERMISSION_WM_CATALOG_UNITS:      true,
 		PERMISSION_WM_STOCKS:             true,
 		PERMISSION_WM_STOCKS_BALANCE:     true,
+		PERMISSION_WM_BARCODES:           true,
+		PERMISSION_WM_STOCKS_MOVEMENTS:   true,
 
 		PERMISSION_DM:                    true,
 		PERMISSION_DM_TYPES:              true,

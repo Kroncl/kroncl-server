@@ -88,3 +88,10 @@ func ValidatePaginationParams(page, limit, maxLimit int) (int, int) {
 
 	return page, limit
 }
+
+func CalculatePages(total, limit int) int {
+	if limit <= 0 {
+		return 0
+	}
+	return (total + limit - 1) / limit
+}
