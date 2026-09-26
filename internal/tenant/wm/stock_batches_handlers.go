@@ -64,7 +64,7 @@ func (h *Handlers) CreateStockBatch(w http.ResponseWriter, r *http.Request) {
 	h.logsService.Log(r.Context(), config.PERMISSION_WM_STOCKS_BATCHES_CREATE, accountID,
 		logs.WithStatus(logs.LogStatusSuccess),
 		logs.WithUserAgent(r.UserAgent()),
-		logs.WithMetadata("batch_id", result.BatchID),
+		logs.WithMetadata("batch_id", result.ID),
 		logs.WithMetadata("direction", result.Direction),
 		logs.WithMetadata("positions_count", len(result.Positions)),
 	)
@@ -186,7 +186,7 @@ func (h *Handlers) GetStockBatch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	batch, err := h.repository.GetStockBatchWithPositions(r.Context(), batchID)
+	batch, err := h.repository.GetStockBatchByID(r.Context(), batchID)
 	if err != nil {
 		h.logsService.Log(r.Context(), config.PERMISSION_WM_STOCKS_BATCHES, accountID,
 			logs.WithStatus(logs.LogStatusError),

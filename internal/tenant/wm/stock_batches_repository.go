@@ -24,7 +24,6 @@ func (r *Repository) StockBatchExists(ctx context.Context, id string) (bool, err
 	return exists, nil
 }
 
-// GetStockBatchByID возвращает батч по ID
 func (r *Repository) GetStockBatchByID(ctx context.Context, id string) (*StockBatch, error) {
 	query := `
 		SELECT id, direction, status, comment, metadata, created_at, updated_at
@@ -45,6 +44,13 @@ func (r *Repository) GetStockBatchByID(ctx context.Context, id string) (*StockBa
 	if err != nil {
 		return nil, fmt.Errorf("failed to get stock batch: %w", err)
 	}
+
+	positions, err := r.GetPositionsByIncomeBatch(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get batch positions: %w", err)
+	}
+	batch.Positions = positions
+
 	return &batch, nil
 }
 
@@ -77,7 +83,6 @@ func (r *Repository) GetStockBatches(ctx context.Context, req GetStockBatchesPar
 		argIndex++
 	}
 
-	// Фильтр по unit_id через позиции
 	fromClause := `FROM stock_batches sb`
 	if req.UnitID != nil && *req.UnitID != "" {
 		fromClause += ` INNER JOIN stock_positions sp ON sp.income_batch_id = sb.id`
@@ -130,34 +135,22 @@ func (r *Repository) GetStockBatches(ctx context.Context, req GetStockBatchesPar
 		batches = append(batches, batch)
 	}
 
+	if err = rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("error iterating batches: %w", err)
+	}
+
+	// подтягиваем позиции для каждого батча
+	for i := range batches {
+		positions, err := r.GetPositionsByIncomeBatch(ctx, batches[i].ID)
+		if err != nil {
+			return nil, 0, fmt.Errorf("failed to get positions for batch %s: %w", batches[i].ID, err)
+		}
+		batches[i].Positions = positions
+	}
+
 	return batches, total, nil
 }
 
-// GetStockBatchWithPositions возвращает батч со всеми позициями
-func (r *Repository) GetStockBatchWithPositions(ctx context.Context, batchID string) (*BatchWithPositionsResponse, error) {
-	batch, err := r.GetStockBatchByID(ctx, batchID)
-	if err != nil {
-		return nil, err
-	}
-
-	positions, err := r.GetPositionsByIncomeBatch(ctx, batchID)
-	if err != nil {
-		return nil, err
-	}
-
-	return &BatchWithPositionsResponse{
-		ID:        batch.ID,
-		Direction: batch.Direction,
-		Status:    batch.Status,
-		Comment:   batch.Comment,
-		Metadata:  batch.Metadata,
-		CreatedAt: batch.CreatedAt,
-		UpdatedAt: batch.UpdatedAt,
-		Positions: positions,
-	}, nil
-}
-
-// CreateStockBatchOnly создаёт пустой батч (без позиций)
 func (r *Repository) CreateStockBatchOnly(ctx context.Context, req CreateStockBatchOnlyRequest) (*StockBatch, error) {
 	id := uuid.New().String()
 
@@ -180,6 +173,7 @@ func (r *Repository) CreateStockBatchOnly(ctx context.Context, req CreateStockBa
 	if err != nil {
 		return nil, fmt.Errorf("failed to create stock batch: %w", err)
 	}
+	batch.Positions = []PositionWithUnitResponse{}
 	return &batch, nil
 }
 
@@ -205,11 +199,19 @@ func (r *Repository) UpdateStockBatchStatus(ctx context.Context, id string, stat
 	if err != nil {
 		return nil, fmt.Errorf("failed to update stock batch status: %w", err)
 	}
+
+	positions, err := r.GetPositionsByIncomeBatch(ctx, id)
+	if err == nil {
+		batch.Positions = positions
+	} else {
+		batch.Positions = []PositionWithUnitResponse{}
+	}
+
 	return &batch, nil
 }
 
 // CreateStockBatchWithPositions создаёт батч с позициями атомарно
-func (r *Repository) CreateStockBatchWithPositions(ctx context.Context, req CreateStockBatchRequest) (*CreateStockBatchResponse, error) {
+func (r *Repository) CreateStockBatchWithPositions(ctx context.Context, req CreateStockBatchRequest) (*StockBatch, error) {
 	if len(req.Positions) == 0 {
 		return nil, fmt.Errorf("at least one position is required")
 	}
@@ -386,8 +388,8 @@ func (r *Repository) CreateStockBatchWithPositions(ctx context.Context, req Crea
 		return nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
-	return &CreateStockBatchResponse{
-		BatchID:   batch.ID,
+	return &StockBatch{
+		ID:        batch.ID,
 		Direction: batch.Direction,
 		Status:    batch.Status,
 		Comment:   batch.Comment,

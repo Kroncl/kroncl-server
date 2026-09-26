@@ -48,15 +48,15 @@ const (
 // STOCK MODELS
 // --------
 
-// StockBatch represents a stock movement document (income/outcome)
 type StockBatch struct {
-	ID        string                 `json:"id"`
-	Direction StockDirection         `json:"direction"`
-	Status    StockBatchStatus       `json:"status"`
-	Comment   *string                `json:"comment"`
-	Metadata  map[string]interface{} `json:"metadata"`
-	CreatedAt time.Time              `json:"created_at"`
-	UpdatedAt time.Time              `json:"updated_at"`
+	ID        string                     `json:"id"`
+	Direction StockDirection             `json:"direction"`
+	Status    StockBatchStatus           `json:"status"`
+	Comment   *string                    `json:"comment"`
+	Metadata  map[string]interface{}     `json:"metadata"`
+	CreatedAt time.Time                  `json:"created_at"`
+	UpdatedAt time.Time                  `json:"updated_at"`
+	Positions []PositionWithUnitResponse `json:"positions"`
 }
 
 // StockPosition represents a physical stock position (batch or serial)
@@ -145,30 +145,6 @@ type PositionWithUnitResponse struct {
 	CreatedAt     time.Time         `json:"created_at"`
 	UpdatedAt     time.Time         `json:"updated_at"`
 	Unit          CatalogUnit       `json:"unit"`
-}
-
-// BatchWithPositionsResponse represents batch with its positions
-type BatchWithPositionsResponse struct {
-	ID        string                     `json:"id"`
-	Direction StockDirection             `json:"direction"`
-	Status    StockBatchStatus           `json:"status"`
-	Comment   *string                    `json:"comment"`
-	Metadata  map[string]interface{}     `json:"metadata"`
-	CreatedAt time.Time                  `json:"created_at"`
-	UpdatedAt time.Time                  `json:"updated_at"`
-	Positions []PositionWithUnitResponse `json:"positions"`
-}
-
-// CreateStockBatchResponse represents response after creating batch with positions
-type CreateStockBatchResponse struct {
-	BatchID   string                     `json:"batch_id"`
-	Direction StockDirection             `json:"direction"`
-	Status    StockBatchStatus           `json:"status"`
-	Comment   *string                    `json:"comment"`
-	Metadata  map[string]interface{}     `json:"metadata"`
-	CreatedAt time.Time                  `json:"created_at"`
-	UpdatedAt time.Time                  `json:"updated_at"`
-	Positions []PositionWithUnitResponse `json:"positions"`
 }
 
 // -----------
