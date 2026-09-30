@@ -257,6 +257,15 @@ func (r *Repository) CreateStockBatchWithPositions(ctx context.Context, req Crea
 		return nil, fmt.Errorf("failed to create stock batch: %w", err)
 	}
 
+	// helper: генерирует следующий короткий код
+	nextShortCode := func() (string, error) {
+		var code string
+		err := tx.QueryRow(ctx, `
+			SELECT 'POS-' || LPAD(nextval('stock_position_short_code_seq')::text, 6, '0')
+		`).Scan(&code)
+		return code, err
+	}
+
 	var positions []PositionWithUnitResponse
 
 	for _, posReq := range req.Positions {
@@ -301,16 +310,23 @@ func (r *Repository) CreateStockBatchWithPositions(ctx context.Context, req Crea
 
 			for i := 0; i < int(posReq.Quantity); i++ {
 				posID := uuid.New().String()
+
+				shortCode, err := nextShortCode()
+				if err != nil {
+					return nil, fmt.Errorf("failed to generate short code: %w", err)
+				}
+
 				var stockPos StockPosition
 				err = tx.QueryRow(ctx, `
 					INSERT INTO stock_positions (
-						id, type, income_batch_id, unit_id, quantity, unit_price,
+						id, short_code, type, income_batch_id, unit_id, quantity, unit_price,
 						maker, barcode_id, created_at, updated_at
 					)
-					VALUES ($1, $2, $3, $4, 1, $5, $6, $7, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-					RETURNING id, type, income_batch_id, unit_id, quantity, unit_price, maker, barcode_id, created_at, updated_at
-				`, posID, posType, batch.ID, posReq.UnitID, posReq.UnitPrice, posReq.Maker, barcodeID).Scan(
+					VALUES ($1, $2, $3, $4, $5, 1, $6, $7, $8, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+					RETURNING id, short_code, type, income_batch_id, unit_id, quantity, unit_price, maker, barcode_id, created_at, updated_at
+				`, posID, shortCode, posType, batch.ID, posReq.UnitID, posReq.UnitPrice, posReq.Maker, barcodeID).Scan(
 					&stockPos.ID,
+					&stockPos.ShortCode,
 					&stockPos.Type,
 					&stockPos.IncomeBatchID,
 					&stockPos.UnitID,
@@ -327,6 +343,7 @@ func (r *Repository) CreateStockBatchWithPositions(ctx context.Context, req Crea
 
 				positions = append(positions, PositionWithUnitResponse{
 					ID:            stockPos.ID,
+					ShortCode:     stockPos.ShortCode,
 					Type:          stockPos.Type,
 					IncomeBatchID: stockPos.IncomeBatchID,
 					UnitID:        stockPos.UnitID,
@@ -343,16 +360,23 @@ func (r *Repository) CreateStockBatchWithPositions(ctx context.Context, req Crea
 		} else {
 			// batch: одна запись
 			posID := uuid.New().String()
+
+			shortCode, err := nextShortCode()
+			if err != nil {
+				return nil, fmt.Errorf("failed to generate short code: %w", err)
+			}
+
 			var stockPos StockPosition
 			err = tx.QueryRow(ctx, `
 				INSERT INTO stock_positions (
-					id, type, income_batch_id, unit_id, quantity, unit_price,
+					id, short_code, type, income_batch_id, unit_id, quantity, unit_price,
 					maker, barcode_id, created_at, updated_at
 				)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-				RETURNING id, type, income_batch_id, unit_id, quantity, unit_price, maker, barcode_id, created_at, updated_at
-			`, posID, posType, batch.ID, posReq.UnitID, posReq.Quantity, posReq.UnitPrice, posReq.Maker, barcodeID).Scan(
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+				RETURNING id, short_code, type, income_batch_id, unit_id, quantity, unit_price, maker, barcode_id, created_at, updated_at
+			`, posID, shortCode, posType, batch.ID, posReq.UnitID, posReq.Quantity, posReq.UnitPrice, posReq.Maker, barcodeID).Scan(
 				&stockPos.ID,
+				&stockPos.ShortCode,
 				&stockPos.Type,
 				&stockPos.IncomeBatchID,
 				&stockPos.UnitID,
@@ -369,6 +393,7 @@ func (r *Repository) CreateStockBatchWithPositions(ctx context.Context, req Crea
 
 			positions = append(positions, PositionWithUnitResponse{
 				ID:            stockPos.ID,
+				ShortCode:     stockPos.ShortCode,
 				Type:          stockPos.Type,
 				IncomeBatchID: stockPos.IncomeBatchID,
 				UnitID:        stockPos.UnitID,

@@ -62,6 +62,7 @@ type StockBatch struct {
 // StockPosition represents a physical stock position (batch or serial)
 type StockPosition struct {
 	ID            string            `json:"id"`
+	ShortCode     string            `json:"short_code"`
 	Type          StockPositionType `json:"type"`
 	IncomeBatchID string            `json:"income_batch_id"`
 	UnitID        string            `json:"unit_id"`
@@ -134,6 +135,7 @@ type CreateStockMovementRequest struct {
 // PositionWithUnitResponse represents position with unit info
 type PositionWithUnitResponse struct {
 	ID            string            `json:"id"`
+	ShortCode     string            `json:"short_code"`
 	Type          StockPositionType `json:"type"`
 	IncomeBatchID string            `json:"income_batch_id"`
 	UnitID        string            `json:"unit_id"`
@@ -141,7 +143,7 @@ type PositionWithUnitResponse struct {
 	UnitPrice     float64           `json:"unit_price"`
 	Maker         *string           `json:"maker"`
 	BarcodeID     *string           `json:"barcode_id"`
-	Remaining     float64           `json:"remaining"` // остаток = quantity - сумма движений
+	Remaining     float64           `json:"remaining"`
 	CreatedAt     time.Time         `json:"created_at"`
 	UpdatedAt     time.Time         `json:"updated_at"`
 	Unit          CatalogUnit       `json:"unit"`

@@ -647,6 +647,9 @@ func (rt *Routes) Register(r chi.Router, permDeps *permissioner.PermissionDeps) 
 				r.Get("/", rt.wm(func(h *wm.Handlers) http.HandlerFunc {
 					return h.GetStockPositions
 				}))
+				r.Get("/by-code/{shortCode}", rt.wm(func(h *wm.Handlers) http.HandlerFunc {
+					return h.GetStockPositionByShortCode
+				}))
 				r.Route("/{positionId}", func(r chi.Router) {
 					r.Get("/", rt.wm(func(h *wm.Handlers) http.HandlerFunc {
 						return h.GetStockPosition

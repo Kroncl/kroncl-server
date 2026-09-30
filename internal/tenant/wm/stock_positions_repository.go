@@ -33,7 +33,7 @@ func (r *Repository) getUnitTrackingDetail(ctx context.Context, unitID string) (
 
 // positionScanFields — единый набор полей для SELECT-сканов
 const positionSelectFields = `
-	sp.id, sp.type, sp.income_batch_id, sp.unit_id, sp.quantity, sp.unit_price,
+	sp.id, sp.short_code, sp.type, sp.income_batch_id, sp.unit_id, sp.quantity, sp.unit_price,
 	sp.maker, sp.barcode_id, sp.created_at, sp.updated_at,
 	u.id, u.name, u.comment, u.type, u.status, u.inventory_type,
 	u.tracking_detail, u.tracked_type, u.unit, u.sale_price,
@@ -48,7 +48,7 @@ func scanPositionWithUnit(rows interface {
 	var unit CatalogUnit
 
 	err := rows.Scan(
-		&pos.ID, &pos.Type, &pos.IncomeBatchID, &pos.UnitID, &pos.Quantity, &pos.UnitPrice,
+		&pos.ID, &pos.ShortCode, &pos.Type, &pos.IncomeBatchID, &pos.UnitID, &pos.Quantity, &pos.UnitPrice,
 		&pos.Maker, &pos.BarcodeID, &pos.CreatedAt, &pos.UpdatedAt,
 		&unit.ID, &unit.Name, &unit.Comment, &unit.Type, &unit.Status, &unit.InventoryType,
 		&unit.TrackingDetail, &unit.TrackedType, &unit.Unit, &unit.SalePrice,
@@ -65,14 +65,14 @@ func scanPositionWithUnit(rows interface {
 // GetStockPositionByID возвращает позицию без деталей
 func (r *Repository) GetStockPositionByID(ctx context.Context, id string) (*StockPosition, error) {
 	query := `
-		SELECT id, type, income_batch_id, unit_id, quantity, unit_price, maker, barcode_id, created_at, updated_at
+		SELECT id, short_code, type, income_batch_id, unit_id, quantity, unit_price, maker, barcode_id, created_at, updated_at
 		FROM stock_positions
 		WHERE id = $1
 	`
 
 	var pos StockPosition
 	err := r.pool.QueryRow(ctx, query, id).Scan(
-		&pos.ID, &pos.Type, &pos.IncomeBatchID, &pos.UnitID, &pos.Quantity, &pos.UnitPrice,
+		&pos.ID, &pos.ShortCode, &pos.Type, &pos.IncomeBatchID, &pos.UnitID, &pos.Quantity, &pos.UnitPrice,
 		&pos.Maker, &pos.BarcodeID, &pos.CreatedAt, &pos.UpdatedAt,
 	)
 	if err != nil {
@@ -254,7 +254,7 @@ func (r *Repository) GetStockPositionsByIDs(ctx context.Context, ids []string) (
 	}
 
 	query := fmt.Sprintf(`
-		SELECT id, type, income_batch_id, unit_id, quantity, unit_price, maker, barcode_id, created_at, updated_at
+		SELECT id, short_code, type, income_batch_id, unit_id, quantity, unit_price, maker, barcode_id, created_at, updated_at
 		FROM stock_positions
 		WHERE id IN (%s)
 		ORDER BY created_at DESC
@@ -270,7 +270,7 @@ func (r *Repository) GetStockPositionsByIDs(ctx context.Context, ids []string) (
 	for rows.Next() {
 		var pos StockPosition
 		err := rows.Scan(
-			&pos.ID, &pos.Type, &pos.IncomeBatchID, &pos.UnitID, &pos.Quantity, &pos.UnitPrice,
+			&pos.ID, &pos.ShortCode, &pos.Type, &pos.IncomeBatchID, &pos.UnitID, &pos.Quantity, &pos.UnitPrice,
 			&pos.Maker, &pos.BarcodeID, &pos.CreatedAt, &pos.UpdatedAt,
 		)
 		if err != nil {
@@ -304,4 +304,41 @@ func (r *Repository) GetPositionRemaining(ctx context.Context, positionID string
 		return 0, fmt.Errorf("failed to calculate position remaining: %w", err)
 	}
 	return remaining, nil
+}
+
+// GetStockPositionByShortCode возвращает позицию с деталями по короткому коду
+func (r *Repository) GetStockPositionByShortCode(ctx context.Context, shortCode string) (*PositionWithUnitResponse, error) {
+	query := `
+		SELECT ` + positionSelectFields + `
+		FROM stock_positions sp
+		INNER JOIN catalog_units u ON sp.unit_id = u.id
+		WHERE sp.short_code = $1
+	`
+
+	row := r.pool.QueryRow(ctx, query, shortCode)
+	pos, err := scanPositionWithUnit(row)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get stock position by short code: %w", err)
+	}
+
+	remaining, err := r.GetPositionRemaining(ctx, pos.ID)
+	if err == nil {
+		pos.Remaining = remaining
+	} else {
+		pos.Remaining = pos.Quantity
+	}
+
+	return pos, nil
+}
+
+// StockPositionExistsByShortCode проверяет существование позиции по короткому коду
+func (r *Repository) StockPositionExistsByShortCode(ctx context.Context, shortCode string) (bool, error) {
+	query := `SELECT EXISTS(SELECT 1 FROM stock_positions WHERE short_code = $1)`
+
+	var exists bool
+	err := r.pool.QueryRow(ctx, query, shortCode).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("failed to check stock position existence by short code: %w", err)
+	}
+	return exists, nil
 }

@@ -148,3 +148,40 @@ func (h *Handlers) GetStockBalance(w http.ResponseWriter, r *http.Request) {
 
 	core.SendSuccess(w, items, "Stock balance retrieved successfully.")
 }
+
+// GetStockPositionByShortCode возвращает позицию по короткому коду
+func (h *Handlers) GetStockPositionByShortCode(w http.ResponseWriter, r *http.Request) {
+	accountID, ok := core.GetUserIDFromContext(r.Context())
+	if !ok {
+		core.SendError(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	shortCode := r.PathValue("shortCode")
+	if shortCode == "" {
+		core.SendError(w, http.StatusBadRequest, "Short code is required.")
+		return
+	}
+
+	position, err := h.repository.GetStockPositionByShortCode(r.Context(), shortCode)
+	if err != nil {
+		h.logsService.Log(r.Context(), config.PERMISSION_WM_STOCKS_POSITIONS, accountID,
+			logs.WithStatus(logs.LogStatusError),
+			logs.WithUserAgent(r.UserAgent()),
+			logs.WithMetadata("error", "Position not found"),
+			logs.WithMetadata("short_code", shortCode),
+			logs.WithMetadata("path", r.URL.Path),
+		)
+		core.SendNotFound(w, "Stock position not found.")
+		return
+	}
+
+	h.logsService.Log(r.Context(), config.PERMISSION_WM_STOCKS_POSITIONS, accountID,
+		logs.WithStatus(logs.LogStatusSuccess),
+		logs.WithUserAgent(r.UserAgent()),
+		logs.WithMetadata("short_code", shortCode),
+		logs.WithMetadata("position_id", position.ID),
+	)
+
+	core.SendSuccess(w, position, "Stock position retrieved successfully.")
+}
