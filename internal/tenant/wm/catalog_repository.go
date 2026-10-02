@@ -499,12 +499,19 @@ func (r *Repository) GetCatalogUnits(ctx context.Context, req GetUnitsRequest) (
 	}
 
 	if req.Search != nil && *req.Search != "" {
+		searchPattern := "%" + strings.ToLower(*req.Search) + "%"
 		searchConditions := []string{
-			"name ILIKE $" + strconv.Itoa(argIndex),
-			"comment ILIKE $" + strconv.Itoa(argIndex),
+			"LOWER(u.name) ILIKE $" + strconv.Itoa(argIndex),
+			"LOWER(u.comment) ILIKE $" + strconv.Itoa(argIndex),
+			"u.id::text ILIKE $" + strconv.Itoa(argIndex),
+			`EXISTS (
+            SELECT 1 FROM barcodes b
+            WHERE b.catalog_unit_id = u.id
+              AND LOWER(b.barcode) ILIKE $` + strconv.Itoa(argIndex) + `
+        )`,
 		}
 		conditions = append(conditions, "("+strings.Join(searchConditions, " OR ")+")")
-		args = append(args, "%"+*req.Search+"%")
+		args = append(args, searchPattern)
 		argIndex++
 	}
 
