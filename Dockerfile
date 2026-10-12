@@ -6,7 +6,7 @@ WORKDIR /app
 RUN apk add --no-cache git
 
 # Используем только российское зеркало или официальный прокси
-ENV GOPROXY=https://goproxy.ru,https://proxy.golang.org,direct
+ENV GOPROXY=https://proxy.golang.org,https://goproxy.cn,direct
 ENV GOSUMDB=off
 ENV GO111MODULE=on
 
